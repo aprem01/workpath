@@ -13,8 +13,10 @@ import {
   ChevronRight,
 } from "lucide-react";
 import SkillPill from "@/components/SkillPill";
+import ProfileSelector from "@/components/ProfileSelector";
 import ProgressBar from "@/components/ProgressBar";
 import { formatPayRange } from "@/lib/utils";
+import { migrateIfNeeded, syncCurrentSkillsToActiveProfile } from "@/lib/profiles";
 
 interface SkillData {
   normalizedTerm: string;
@@ -104,6 +106,8 @@ export default function DashboardPage() {
     const parsed: SkillData[] = JSON.parse(stored);
     setSkills(parsed);
     fetchMatches(parsed);
+    // Migrate to profile system if needed
+    migrateIfNeeded();
     // Load applied jobs
     const applied = JSON.parse(localStorage.getItem("workpath_applied") || "[]");
     setAppliedJobs(new Set(applied));
@@ -138,6 +142,7 @@ export default function DashboardPage() {
     const updated = [...skills, newSkill];
     setSkills(updated);
     localStorage.setItem("workpath_skills", JSON.stringify(updated));
+    syncCurrentSkillsToActiveProfile();
     setDrawerSkill(null);
     fetchMatches(updated);
   };
@@ -154,12 +159,22 @@ export default function DashboardPage() {
           <h1 className="font-heading text-xl font-bold text-gray-900">
             Work<span className="text-amber-primary">Path</span>
           </h1>
-          <button
-            onClick={() => router.push("/onboarding")}
-            className="text-sm text-teal-primary hover:text-teal-700 font-medium flex items-center gap-1"
-          >
-            <Plus size={16} /> Add skills
-          </button>
+          <div className="flex items-center gap-2">
+            <ProfileSelector
+              currentSkills={skills}
+              onProfileSwitch={(newSkills) => {
+                setSkills(newSkills);
+                fetchMatches(newSkills);
+              }}
+              onEditSkills={() => router.push("/onboarding")}
+            />
+            <button
+              onClick={() => router.push("/onboarding")}
+              className="text-sm text-teal-primary hover:text-teal-700 font-medium flex items-center gap-1"
+            >
+              <Plus size={16} /> Add skills
+            </button>
+          </div>
         </div>
       </header>
 

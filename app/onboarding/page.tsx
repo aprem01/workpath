@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ArrowLeft, Sparkles, Loader2, MapPin } from "lucide-react";
+import { getProfilesState, addProfile, updateProfile } from "@/lib/profiles";
 import SkillPill from "@/components/SkillPill";
 import ProgressBar from "@/components/ProgressBar";
 
@@ -127,9 +128,18 @@ export default function OnboardingPage() {
     }));
     localStorage.setItem("workpath_skills", JSON.stringify(skillData));
     localStorage.setItem(
-      "workpath_profile",
+      "workpath_user_profile",
       JSON.stringify({ situation, openToLearning, zipCode })
     );
+    // Sync with profile system
+    const state = getProfilesState();
+    if (state.activeProfileId) {
+      // Update existing active profile
+      updateProfile(state.activeProfileId, { skills: skillData });
+    } else {
+      // First time — create a profile
+      addProfile("My Skills", skillData);
+    }
     router.push("/dashboard");
   };
 
