@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  name          String?
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime      @default(now())
+  skills        UserSkill[]
+  applications  Application[]
+  sessions      Session[]
+  accounts      Account[]
+}
+
+model UserSkill {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rawInput        String
+  normalizedTerm  String
+  category        String
+  proficiencyLevel String
+  isAISuggested   Boolean  @default(false)
+  addedAt         DateTime @default(now())
+}
+
+model Job {
+  id              String      @id @default(cuid())
+  title           String
+  employer        String
+  location        String
+  vertical        String
+  description     String      @db.Text
+  payMin          Int
+  payMax          Int
+  payType         String
+  isActive        Boolean     @default(true)
+  isAIReplaceable Boolean     @default(false)
+  requiredSkills  JobSkill[]
+  postedAt        DateTime    @default(now())
+  applications    Application[]
+}
+
+model JobSkill {
+  id              String  @id @default(cuid())
+  jobId           String
+  job             Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  normalizedTerm  String
+  proficiencyLevel String
+  isRequired      Boolean @default(true)
+}
+
+model UpskillResource {
+  id          String  @id @default(cuid())
+  skillTerm   String
+  title       String
+  provider    String
+  url         String
+  isFree      Boolean @default(false)
+  durationHrs Float?
+  vertical    String?
+}
+
+model Application {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status    String   @default("applied")
+  appliedAt DateTime @default(now())
+}
