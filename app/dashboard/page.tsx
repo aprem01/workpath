@@ -61,6 +61,17 @@ export default function DashboardPage() {
   const [drawerResources, setDrawerResources] = useState<UpskillResource[]>([]);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [showAllSkills, setShowAllSkills] = useState(false);
+  const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set());
+
+  const applyToJob = (jobId: string) => {
+    setAppliedJobs((prev) => new Set(prev).add(jobId));
+    // Persist to localStorage
+    const stored = JSON.parse(localStorage.getItem("workpath_applied") || "[]");
+    if (!stored.includes(jobId)) {
+      stored.push(jobId);
+      localStorage.setItem("workpath_applied", JSON.stringify(stored));
+    }
+  };
 
   const fetchMatches = useCallback(async (skillsData: SkillData[]) => {
     setIsLoading(true);
@@ -93,6 +104,9 @@ export default function DashboardPage() {
     const parsed: SkillData[] = JSON.parse(stored);
     setSkills(parsed);
     fetchMatches(parsed);
+    // Load applied jobs
+    const applied = JSON.parse(localStorage.getItem("workpath_applied") || "[]");
+    setAppliedJobs(new Set(applied));
   }, [router, fetchMatches]);
 
   const openUpskillDrawer = async (skillTerm: string) => {
@@ -280,9 +294,18 @@ export default function DashboardPage() {
                         )}
                       </div>
                       <div className="flex gap-2 mt-4">
-                        <button className="px-5 py-2.5 bg-teal-primary text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors text-sm flex items-center gap-1.5">
-                          Apply Now <ArrowRight size={14} />
-                        </button>
+                        {appliedJobs.has(job.id) ? (
+                          <span className="px-5 py-2.5 bg-emerald-100 text-emerald-700 font-semibold rounded-lg text-sm flex items-center gap-1.5">
+                            <Check size={14} /> Applied
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => applyToJob(job.id)}
+                            className="px-5 py-2.5 bg-teal-primary text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors text-sm flex items-center gap-1.5"
+                          >
+                            Apply Now <ArrowRight size={14} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
