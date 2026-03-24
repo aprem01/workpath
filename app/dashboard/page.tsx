@@ -153,7 +153,7 @@ export default function DashboardPage() {
   const completenessScore = Math.min(Math.round((skills.length / 10) * 100), 100);
 
   return (
-    <div className="min-h-screen bg-offwhite">
+    <div className="min-h-screen bg-offwhite bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-primary/[0.03] via-offwhite to-offwhite">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-20">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -211,57 +211,83 @@ export default function DashboardPage() {
         </div>
 
         {/* Completeness bar */}
-        <div className="mb-6 p-4 bg-white rounded-xl border border-gray-200">
-          <ProgressBar
-            value={completenessScore}
-            label={
-              completenessScore < 80
-                ? `Your profile is ${completenessScore}% complete — add ${Math.max(0, 10 - skills.length)} more skills to unlock more jobs`
-                : `Your profile is strong! ${totalJobs} jobs matched.`
-            }
-          />
+        <div className="mb-6 p-5 bg-gradient-to-br from-white via-white to-teal-primary/[0.04] rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-3 mb-3">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold ${
+              completenessScore >= 80
+                ? "bg-gradient-to-br from-teal-primary to-emerald-500 text-white"
+                : completenessScore >= 50
+                ? "bg-gradient-to-br from-amber-primary to-yellow-500 text-white"
+                : "bg-gradient-to-br from-orange-400 to-amber-500 text-white"
+            }`}>
+              {completenessScore >= 80 ? "!" : completenessScore >= 50 ? "~" : "?"}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                {completenessScore >= 80
+                  ? `Profile strength: Excellent`
+                  : completenessScore >= 50
+                  ? `Profile strength: Good`
+                  : `Profile strength: Getting started`}
+              </p>
+              <p className="text-xs text-gray-500">
+                {completenessScore < 80
+                  ? `Add ${Math.max(0, 10 - skills.length)} more skills to unlock more jobs`
+                  : `${totalJobs} jobs matched to your skills`}
+              </p>
+            </div>
+          </div>
+          <ProgressBar value={completenessScore} />
         </div>
 
         {/* Tabs */}
-        <div className="flex overflow-x-auto border-b border-gray-200 mb-6 -mx-4 px-4 scrollbar-hide">
+        <div className="flex overflow-x-auto border-b border-gray-200 mb-6 -mx-4 px-4 scrollbar-hide relative">
           <button
             onClick={() => setActiveTab("qualified")}
-            className={`whitespace-nowrap px-4 sm:px-6 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`whitespace-nowrap px-4 sm:px-6 py-3 text-sm font-semibold border-b-2 transition-all duration-300 ease-out flex items-center gap-1.5 ${
               activeTab === "qualified"
                 ? "border-teal-primary text-teal-primary"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-gray-400 hover:text-gray-700 hover:border-gray-200"
             }`}
           >
             <span className="hidden sm:inline">Jobs you qualify for</span>
             <span className="sm:hidden">Qualified</span>
             {qualifiedJobs.length > 0 && (
-              <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-1.5 py-0.5 rounded-full">
+              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full transition-all duration-300 ${
+                activeTab === "qualified"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-gray-100 text-gray-500"
+              }`}>
                 {qualifiedJobs.length}
               </span>
             )}
           </button>
           <button
             onClick={() => setActiveTab("gap")}
-            className={`whitespace-nowrap px-4 sm:px-6 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`whitespace-nowrap px-4 sm:px-6 py-3 text-sm font-semibold border-b-2 transition-all duration-300 ease-out flex items-center gap-1.5 ${
               activeTab === "gap"
                 ? "border-amber-primary text-amber-800"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-gray-400 hover:text-gray-700 hover:border-gray-200"
             }`}
           >
-            <span className="hidden sm:inline">1–2 skills away</span>
+            <span className="hidden sm:inline">1-2 skills away</span>
             <span className="sm:hidden">Almost</span>
             {gapJobs.length > 0 && (
-              <span className="bg-amber-100 text-amber-700 text-xs font-bold px-1.5 py-0.5 rounded-full">
+              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full transition-all duration-300 ${
+                activeTab === "gap"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-gray-100 text-gray-500"
+              }`}>
                 {gapJobs.length}
               </span>
             )}
           </button>
           <button
             onClick={() => setActiveTab("roadmap")}
-            className={`whitespace-nowrap px-4 sm:px-6 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`whitespace-nowrap px-4 sm:px-6 py-3 text-sm font-semibold border-b-2 transition-all duration-300 ease-out flex items-center gap-1.5 ${
               activeTab === "roadmap"
                 ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-gray-400 hover:text-gray-700 hover:border-gray-200"
             }`}
           >
             Upskill
@@ -293,10 +319,10 @@ export default function DashboardPage() {
               qualifiedJobs.map((job) => (
                 <div
                   key={job.id}
-                  className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow"
+                  className="bg-white rounded-xl border border-gray-200 border-l-[3px] border-l-teal-primary p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 ease-out"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-teal-primary/10 flex items-center justify-center text-teal-primary font-bold text-lg shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-primary/20 via-teal-primary/10 to-emerald-100 flex items-center justify-center text-teal-primary font-bold text-lg shrink-0 shadow-sm">
                       {job.employer[0]}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -306,7 +332,7 @@ export default function DashboardPage() {
                       <p className="text-gray-600 text-sm">
                         {job.employer} · {job.location}
                       </p>
-                      <p className="text-amber-primary font-bold mt-1">
+                      <p className="text-amber-primary font-bold mt-1 text-lg">
                         {formatPayRange(job.payMin, job.payMax, job.payType)}
                       </p>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-sm">
@@ -374,15 +400,15 @@ export default function DashboardPage() {
               gapJobs.map((job) => (
                 <div
                   key={job.id}
-                  className="bg-white rounded-xl border border-amber-200 p-5 hover:shadow-md transition-shadow"
+                  className="bg-white rounded-xl border border-amber-200 border-l-[3px] border-l-amber-primary p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 ease-out"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-amber-primary/10 flex items-center justify-center text-amber-primary font-bold text-lg shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-primary/20 via-amber-primary/10 to-yellow-100 flex items-center justify-center text-amber-primary font-bold text-lg shrink-0 shadow-sm">
                       {job.employer[0]}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                        <span className="text-xs font-bold text-amber-700 bg-gradient-to-r from-amber-100 to-yellow-50 px-2 py-0.5 rounded-full">
                           Almost there
                         </span>
                       </div>
@@ -392,7 +418,7 @@ export default function DashboardPage() {
                       <p className="text-gray-600 text-sm">
                         {job.employer} · {job.location}
                       </p>
-                      <p className="text-amber-primary font-bold mt-1">
+                      <p className="text-amber-primary font-bold mt-1 text-lg">
                         {formatPayRange(job.payMin, job.payMax, job.payType)}
                       </p>
 

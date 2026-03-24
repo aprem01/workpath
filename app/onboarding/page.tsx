@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ArrowLeft, Sparkles, Loader2, MapPin } from "lucide-react";
+import { ArrowRight, ArrowLeft, Sparkles, Loader2, MapPin, Check } from "lucide-react";
 import { getProfilesState, addProfile, updateProfile } from "@/lib/profiles";
 import SkillPill from "@/components/SkillPill";
 import ProgressBar from "@/components/ProgressBar";
@@ -25,6 +25,9 @@ interface NormalizeResponse {
   note: string;
 }
 
+// Sparkle colors from the design system
+const SPARKLE_COLORS = ["#0D9488", "#F5A623", "#6366f1", "#10b981", "#f43f5e"];
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -35,7 +38,35 @@ export default function OnboardingPage() {
   const [situation, setSituation] = useState("");
   const [openToLearning, setOpenToLearning] = useState("");
   const [zipCode, setZipCode] = useState("");
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [sparkles, setSparkles] = useState<Array<{ id: number; x: number; y: number; color: string }>>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const skillsContainerRef = useRef<HTMLDivElement>(null);
+  const prevSkillCount = useRef(0);
+
+  // Celebrate when hitting 8 skills
+  useEffect(() => {
+    if (skills.length >= 8 && prevSkillCount.current < 8) {
+      setShowCelebration(true);
+      const timer = setTimeout(() => setShowCelebration(false), 1200);
+      return () => clearTimeout(timer);
+    }
+    prevSkillCount.current = skills.length;
+  }, [skills.length]);
+
+  // Spawn sparkle particles on skill add
+  const spawnSparkles = useCallback(() => {
+    if (!skillsContainerRef.current) return;
+    const rect = skillsContainerRef.current.getBoundingClientRect();
+    const newSparkles = Array.from({ length: 6 }, (_, i) => ({
+      id: Date.now() + i,
+      x: Math.random() * rect.width,
+      y: Math.random() * 20,
+      color: SPARKLE_COLORS[Math.floor(Math.random() * SPARKLE_COLORS.length)],
+    }));
+    setSparkles(newSparkles);
+    setTimeout(() => setSparkles([]), 700);
+  }, []);
 
   const addSkill = async (raw: string, isFromSuggestion = false) => {
     const trimmed = raw.trim();
@@ -79,6 +110,7 @@ export default function OnboardingPage() {
       };
 
       setSkills((prev) => [...prev, newSkill]);
+      spawnSparkles();
       setSuggestions(
         data.aiSuggestions.filter(
           (s) =>
@@ -99,6 +131,7 @@ export default function OnboardingPage() {
         isAISuggested: isFromSuggestion,
       };
       setSkills((prev) => [...prev, newSkill]);
+      spawnSparkles();
       setInputValue("");
     }
 
@@ -163,7 +196,7 @@ export default function OnboardingPage() {
           {[1, 2, 3].map((s) => (
             <div
               key={s}
-              className={`h-1.5 flex-1 rounded-full transition-colors ${
+              className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
                 s <= step ? "bg-teal-primary" : "bg-gray-200"
               }`}
             />
@@ -171,10 +204,10 @@ export default function OnboardingPage() {
         </div>
       </div>
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
+      <main className="max-w-2xl mx-auto px-4 py-8 overflow-hidden">
         {/* Step 1: Skills */}
         {step === 1 && (
-          <div className="animate-fade-in">
+          <div className="animate-slide-in-right">
             <h2 className="font-heading text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
               What can you do?
             </h2>
@@ -202,9 +235,33 @@ export default function OnboardingPage() {
               )}
             </div>
 
-            {/* Skill pills */}
+            {/* Skill pills with sparkle effect */}
             {skills.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div ref={skillsContainerRef} className={`relative flex flex-wrap gap-2 mb-4 rounded-xl p-3 -mx-3 transition-all ${showCelebration ? "celebration-ring bg-teal-primary/5" : ""}`}>
+                {/* Sparkle particles */}
+                {sparkles.map((s) => (
+                  <span
+                    key={s.id}
+                    className="sparkle-particle"
+                    style={{
+                      left: s.x,
+                      top: s.y,
+                      backgroundColor: s.color,
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      ["--sx" as any]: `${(Math.random() - 0.5) * 40}px`,
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      ["--sy" as any]: `${-20 - Math.random() * 30}px`,
+                    }}
+                  />
+                ))}
+
+                {/* Celebration checkmark */}
+                {showCelebration && (
+                  <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-teal-primary text-white flex items-center justify-center animate-sparkle-burst z-10">
+                    <Check size={16} strokeWidth={3} />
+                  </div>
+                )}
+
                 {skills.map((skill) => (
                   <SkillPill
                     key={skill.id}
@@ -227,12 +284,13 @@ export default function OnboardingPage() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {suggestions.map((s) => (
-                    <SkillPill
-                      key={s}
-                      term={s}
-                      variant="suggestion"
-                      onClick={() => addSkill(s, true)}
-                    />
+                    <span key={s} className="animate-suggestion-pulse rounded-full">
+                      <SkillPill
+                        term={s}
+                        variant="suggestion"
+                        onClick={() => addSkill(s, true)}
+                      />
+                    </span>
                   ))}
                 </div>
               </div>
@@ -263,7 +321,7 @@ export default function OnboardingPage() {
 
         {/* Step 2: Situation */}
         {step === 2 && (
-          <div className="animate-fade-in">
+          <div className="animate-slide-in-right">
             <h2 className="font-heading text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
               Tell us about your situation
             </h2>
@@ -278,13 +336,13 @@ export default function OnboardingPage() {
               {[
                 { value: "lost_job", label: "I lost my job recently" },
                 { value: "better_job", label: "I want a better job" },
-                { value: "exploring", label: "I'm exploring options" },
+                { value: "exploring", label: "I\u2019m exploring options" },
               ].map((opt) => (
                 <label
                   key={opt.value}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`radio-premium flex items-center gap-4 p-5 rounded-xl border-2 cursor-pointer ${
                     situation === opt.value
-                      ? "border-teal-primary bg-teal-primary/5"
+                      ? "border-teal-primary bg-teal-primary/5 shadow-sm"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   }`}
                 >
@@ -297,17 +355,21 @@ export default function OnboardingPage() {
                     className="sr-only"
                   />
                   <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors duration-200 ${
                       situation === opt.value
-                        ? "border-teal-primary"
+                        ? "border-teal-primary bg-teal-primary/10"
                         : "border-gray-300"
                     }`}
                   >
-                    {situation === opt.value && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-teal-primary" />
-                    )}
+                    <div
+                      className={`w-3 h-3 rounded-full bg-teal-primary radio-dot ${
+                        situation === opt.value
+                          ? "radio-dot-active"
+                          : "radio-dot-inactive"
+                      }`}
+                    />
                   </div>
-                  <span className="text-gray-800">{opt.label}</span>
+                  <span className="text-gray-800 font-medium">{opt.label}</span>
                 </label>
               ))}
             </div>
@@ -317,14 +379,14 @@ export default function OnboardingPage() {
                 Are you open to learning 1–2 new skills?
               </p>
               {[
-                { value: "yes", label: "Yes, I'm open to it" },
+                { value: "yes", label: "Yes, I\u2019m open to it" },
                 { value: "no", label: "Not right now" },
               ].map((opt) => (
                 <label
                   key={opt.value}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`radio-premium flex items-center gap-4 p-5 rounded-xl border-2 cursor-pointer ${
                     openToLearning === opt.value
-                      ? "border-teal-primary bg-teal-primary/5"
+                      ? "border-teal-primary bg-teal-primary/5 shadow-sm"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   }`}
                 >
@@ -337,17 +399,21 @@ export default function OnboardingPage() {
                     className="sr-only"
                   />
                   <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors duration-200 ${
                       openToLearning === opt.value
-                        ? "border-teal-primary"
+                        ? "border-teal-primary bg-teal-primary/10"
                         : "border-gray-300"
                     }`}
                   >
-                    {openToLearning === opt.value && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-teal-primary" />
-                    )}
+                    <div
+                      className={`w-3 h-3 rounded-full bg-teal-primary radio-dot ${
+                        openToLearning === opt.value
+                          ? "radio-dot-active"
+                          : "radio-dot-inactive"
+                      }`}
+                    />
                   </div>
-                  <span className="text-gray-800">{opt.label}</span>
+                  <span className="text-gray-800 font-medium">{opt.label}</span>
                 </label>
               ))}
             </div>
@@ -372,7 +438,7 @@ export default function OnboardingPage() {
 
         {/* Step 3: Location */}
         {step === 3 && (
-          <div className="animate-fade-in">
+          <div className="animate-slide-in-right">
             <h2 className="font-heading text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
               Where are you looking for work?
             </h2>

@@ -19,7 +19,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-offwhite">
       {/* Nav */}
-      <header className="border-b border-gray-100 bg-white/60 backdrop-blur-sm">
+      <header className="border-b border-gray-100 bg-white/60 backdrop-blur-sm sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="font-heading text-2xl font-bold text-gray-900">
             Work<span className="text-amber-primary">Path</span>
@@ -34,8 +34,11 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section className="max-w-5xl mx-auto px-4 pt-16 pb-20 sm:pt-24 sm:pb-28">
-        <div className="max-w-2xl">
+      <section className="max-w-5xl mx-auto px-4 pt-16 pb-20 sm:pt-24 sm:pb-28 relative overflow-hidden">
+        {/* Animated glow behind hero */}
+        <div className="hero-glow" aria-hidden="true" />
+
+        <div className="max-w-2xl relative z-10">
           <h2 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
             Your skills are worth{" "}
             <span className="text-amber-primary">more than you think.</span>
@@ -47,7 +50,7 @@ export default function LandingPage() {
           </p>
           <button
             onClick={() => router.push("/onboarding")}
-            className="px-8 py-4 bg-amber-primary text-white font-bold text-lg rounded-xl hover:bg-amber-600 transition-all hover:shadow-lg hover:shadow-amber-primary/20 flex items-center gap-2"
+            className="px-8 py-4 bg-amber-primary text-white font-bold text-lg rounded-xl hover:bg-amber-600 transition-all hover:shadow-lg hover:shadow-amber-primary/20 flex items-center gap-2 animate-gentle-pulse"
           >
             Start with your skills <ArrowRight size={20} />
           </button>
@@ -58,10 +61,10 @@ export default function LandingPage() {
       </section>
 
       {/* Value props */}
-      <section className="bg-white border-y border-gray-100">
+      <section className="bg-white border-y border-gray-100 scroll-reveal">
         <div className="max-w-5xl mx-auto px-4 py-16 sm:py-20">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div>
+            <div className="value-card rounded-2xl p-6 -m-6 cursor-default">
               <div className="w-12 h-12 rounded-xl bg-teal-primary/10 flex items-center justify-center mb-4">
                 <Sparkles className="text-teal-primary" size={24} />
               </div>
@@ -74,7 +77,7 @@ export default function LandingPage() {
                 understands what you mean.
               </p>
             </div>
-            <div>
+            <div className="value-card rounded-2xl p-6 -m-6 cursor-default">
               <div className="w-12 h-12 rounded-xl bg-amber-primary/10 flex items-center justify-center mb-4">
                 <Target className="text-amber-primary" size={24} />
               </div>
@@ -87,7 +90,7 @@ export default function LandingPage() {
                 them.
               </p>
             </div>
-            <div>
+            <div className="value-card rounded-2xl p-6 -m-6 cursor-default">
               <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-4">
                 <Shield className="text-indigo-600" size={24} />
               </div>
@@ -99,7 +102,7 @@ export default function LandingPage() {
                 to strengthen. Stay ahead of the curve, not behind it.
               </p>
             </div>
-            <div>
+            <div className="value-card rounded-2xl p-6 -m-6 cursor-default">
               <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center mb-4">
                 <Heart className="text-emerald-600" size={24} />
               </div>
@@ -116,12 +119,14 @@ export default function LandingPage() {
       </section>
 
       {/* Upskill & AI Section */}
-      <section className="bg-gradient-to-b from-indigo-50 to-offwhite">
+      <section className="ai-section-gradient scroll-reveal">
         <div className="max-w-5xl mx-auto px-4 py-16 sm:py-20">
           <div className="text-center mb-12">
             <h2 className="font-heading text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
               AI is changing work.{" "}
-              <span className="text-indigo-600">We help you stay ready.</span>
+              <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient-shift">
+                We help you stay ready.
+              </span>
             </h2>
             <p className="text-gray-600 text-lg max-w-2xl mx-auto">
               Some jobs are being automated. Others are growing. WorkPath tells
@@ -130,7 +135,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid sm:grid-cols-3 gap-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="value-card bg-white rounded-xl border border-gray-200 p-6">
               <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center mb-4">
                 <BrainCircuit className="text-red-500" size={20} />
               </div>
@@ -143,7 +148,7 @@ export default function LandingPage() {
                 guessing.
               </p>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="value-card bg-white rounded-xl border border-gray-200 p-6">
               <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center mb-4">
                 <BookOpen className="text-emerald-600" size={20} />
               </div>
@@ -156,7 +161,7 @@ export default function LandingPage() {
                 your schedule.
               </p>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="value-card bg-white rounded-xl border border-gray-200 p-6">
               <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center mb-4">
                 <TrendingUp className="text-amber-600" size={20} />
               </div>
@@ -172,7 +177,7 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-10 text-center">
-            <p className="text-sm text-indigo-700 font-medium bg-indigo-100 inline-flex items-center gap-2 px-4 py-2 rounded-full">
+            <p className="text-sm text-indigo-700 font-medium bg-indigo-100/80 backdrop-blur-sm inline-flex items-center gap-2 px-4 py-2 rounded-full">
               <Shield size={16} />
               Human skills like empathy, physical care, and trust-building are
               AI-proof — and you probably already have them.
@@ -182,7 +187,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section className="max-w-5xl mx-auto px-4 py-16 sm:py-20">
+      <section className="max-w-5xl mx-auto px-4 py-16 sm:py-20 scroll-reveal">
         <h2 className="font-heading text-3xl font-bold text-gray-900 mb-10 text-center">
           How it works
         </h2>
@@ -225,7 +230,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section className="bg-teal-primary text-white">
+      <section className="bg-teal-primary text-white scroll-reveal">
         <div className="max-w-5xl mx-auto px-4 py-16 sm:py-20 text-center">
           <h2 className="font-heading text-3xl sm:text-4xl font-bold mb-4">
             Ready to find work that fits?
@@ -237,7 +242,7 @@ export default function LandingPage() {
           </p>
           <button
             onClick={() => router.push("/onboarding")}
-            className="px-8 py-4 bg-white text-teal-primary font-bold text-lg rounded-xl hover:bg-gray-50 transition-colors inline-flex items-center gap-2"
+            className="px-8 py-4 bg-white text-teal-primary font-bold text-lg rounded-xl hover:bg-gray-50 transition-all hover:shadow-lg hover:shadow-white/20 inline-flex items-center gap-2"
           >
             <CheckCircle2 size={20} />
             Get started — it&apos;s free
