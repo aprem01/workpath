@@ -61,7 +61,7 @@ export default function LandingPage() {
       </section>
 
       {/* Value props */}
-      <section className="bg-white border-y border-gray-100 scroll-reveal">
+      <section className="bg-white border-y border-gray-100">
         <div className="max-w-5xl mx-auto px-4 py-16 sm:py-20">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="value-card rounded-2xl p-6 -m-6 cursor-default">
@@ -119,7 +119,7 @@ export default function LandingPage() {
       </section>
 
       {/* Upskill & AI Section */}
-      <section className="ai-section-gradient scroll-reveal">
+      <section className="ai-section-gradient">
         <div className="max-w-5xl mx-auto px-4 py-16 sm:py-20">
           <div className="text-center mb-12">
             <h2 className="font-heading text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
@@ -187,7 +187,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section className="max-w-5xl mx-auto px-4 py-16 sm:py-20 scroll-reveal">
+      <section className="max-w-5xl mx-auto px-4 py-16 sm:py-20">
         <h2 className="font-heading text-3xl font-bold text-gray-900 mb-10 text-center">
           How it works
         </h2>
@@ -230,7 +230,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section className="bg-teal-primary text-white scroll-reveal">
+      <section className="bg-teal-primary text-white">
         <div className="max-w-5xl mx-auto px-4 py-16 sm:py-20 text-center">
           <h2 className="font-heading text-3xl sm:text-4xl font-bold mb-4">
             Ready to find work that fits?
