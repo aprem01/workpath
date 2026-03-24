@@ -219,22 +219,31 @@ export default function OnboardingPage() {
             </p>
 
             {/* Skill input */}
-            <div className="relative mb-4">
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type a skill and press Enter..."
-                disabled={isLoading}
-                className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 focus:border-teal-primary focus:ring-2 focus:ring-teal-primary/20 outline-none text-lg transition-all disabled:opacity-50 bg-white"
-              />
-              {isLoading && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  <Loader2 className="animate-spin text-teal-primary" size={20} />
-                </div>
-              )}
+            <div className="flex gap-2 mb-4">
+              <div className="relative flex-1">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="e.g. cooking, driving, caring for people..."
+                  disabled={isLoading}
+                  className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 focus:border-teal-primary focus:ring-2 focus:ring-teal-primary/20 outline-none text-lg transition-all disabled:opacity-50 bg-white"
+                />
+                {isLoading && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <Loader2 className="animate-spin text-teal-primary" size={20} />
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => addSkill(inputValue)}
+                disabled={isLoading || !inputValue.trim()}
+                className="px-5 py-3.5 bg-teal-primary text-white font-semibold rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+              >
+                Add
+              </button>
             </div>
 
             {/* Skill pills with sparkle effect */}
