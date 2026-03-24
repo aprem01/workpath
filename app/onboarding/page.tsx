@@ -37,7 +37,7 @@ export default function OnboardingPage() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [situation, setSituation] = useState("");
   const [openToLearning, setOpenToLearning] = useState("");
-  const [zipCode, setZipCode] = useState("");
+  const [zipCode, setZipCode] = useState("60614");
   const [showCelebration, setShowCelebration] = useState(false);
   const [sparkles, setSparkles] = useState<Array<{ id: number; x: number; y: number; color: string }>>([]);
   const inputRef = useRef<HTMLInputElement>(null);
