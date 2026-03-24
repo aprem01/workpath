@@ -64,7 +64,7 @@ export default function LandingPage() {
       <section className="bg-white border-y border-gray-100">
         <div className="max-w-5xl mx-auto px-4 py-16 sm:py-20">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="value-card rounded-2xl p-6 -m-6 cursor-default">
+            <div className="value-card rounded-2xl p-6 cursor-default">
               <div className="w-12 h-12 rounded-xl bg-teal-primary/10 flex items-center justify-center mb-4">
                 <Sparkles className="text-teal-primary" size={24} />
               </div>
@@ -77,7 +77,7 @@ export default function LandingPage() {
                 understands what you mean.
               </p>
             </div>
-            <div className="value-card rounded-2xl p-6 -m-6 cursor-default">
+            <div className="value-card rounded-2xl p-6 cursor-default">
               <div className="w-12 h-12 rounded-xl bg-amber-primary/10 flex items-center justify-center mb-4">
                 <Target className="text-amber-primary" size={24} />
               </div>
@@ -90,7 +90,7 @@ export default function LandingPage() {
                 them.
               </p>
             </div>
-            <div className="value-card rounded-2xl p-6 -m-6 cursor-default">
+            <div className="value-card rounded-2xl p-6 cursor-default">
               <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-4">
                 <Shield className="text-indigo-600" size={24} />
               </div>
@@ -102,7 +102,7 @@ export default function LandingPage() {
                 to strengthen. Stay ahead of the curve, not behind it.
               </p>
             </div>
-            <div className="value-card rounded-2xl p-6 -m-6 cursor-default">
+            <div className="value-card rounded-2xl p-6 cursor-default">
               <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center mb-4">
                 <Heart className="text-emerald-600" size={24} />
               </div>
