@@ -297,13 +297,27 @@ export default function DashboardPage() {
           <div className="space-y-4 animate-fade-in">
             {gapJobs.length === 0 ? (
               <div className="text-center py-12">
-                <Check className="mx-auto mb-3 text-emerald-500" size={40} />
-                <p className="text-gray-600 font-medium">
-                  You qualify for everything!
-                </p>
-                <p className="text-gray-500 text-sm mt-1">
-                  Check the &quot;Jobs you qualify for&quot; tab
-                </p>
+                {qualifiedJobs.length > 0 ? (
+                  <>
+                    <Check className="mx-auto mb-3 text-emerald-500" size={40} />
+                    <p className="text-gray-600 font-medium">
+                      You qualify for everything!
+                    </p>
+                    <p className="text-gray-500 text-sm mt-1">
+                      Check the &quot;Jobs you qualify for&quot; tab
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="mx-auto mb-3 text-gray-400" size={40} />
+                    <p className="text-gray-600 font-medium">
+                      No close matches yet
+                    </p>
+                    <p className="text-gray-500 text-sm mt-1">
+                      Add more skills to see jobs that are 1–2 skills away
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
               gapJobs.map((job) => (
