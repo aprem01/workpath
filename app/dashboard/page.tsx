@@ -15,6 +15,7 @@ import {
 import SkillPill from "@/components/SkillPill";
 import ProfileSelector from "@/components/ProfileSelector";
 import ProgressBar from "@/components/ProgressBar";
+import UpskillRoadmap from "@/components/UpskillRoadmap";
 import { formatPayRange } from "@/lib/utils";
 import { migrateIfNeeded, syncCurrentSkillsToActiveProfile } from "@/lib/profiles";
 
@@ -54,7 +55,7 @@ interface UpskillResource {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"qualified" | "gap">("qualified");
+  const [activeTab, setActiveTab] = useState<"qualified" | "gap" | "roadmap">("qualified");
   const [skills, setSkills] = useState<SkillData[]>([]);
   const [qualifiedJobs, setQualifiedJobs] = useState<JobResult[]>([]);
   const [gapJobs, setGapJobs] = useState<JobResult[]>([]);
@@ -253,6 +254,16 @@ export default function DashboardPage() {
               </span>
             )}
           </button>
+          <button
+            onClick={() => setActiveTab("roadmap")}
+            className={`flex-1 sm:flex-none px-6 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center justify-center gap-2 ${
+              activeTab === "roadmap"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Upskill Roadmap
+          </button>
         </div>
 
         {/* Loading */}
@@ -433,6 +444,18 @@ export default function DashboardPage() {
                 </div>
               ))
             )}
+          </div>
+        )}
+        {/* Tab C: Upskill Roadmap */}
+        {activeTab === "roadmap" && (
+          <div className="animate-fade-in">
+            <UpskillRoadmap
+              skills={skills.map((s) => s.normalizedTerm)}
+              onLearnSkill={(skill) => {
+                setActiveTab("gap");
+                openUpskillDrawer(skill);
+              }}
+            />
           </div>
         )}
       </main>
