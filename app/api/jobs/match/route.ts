@@ -104,8 +104,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ qualifiedJobs, gapJobs });
   } catch (error) {
     console.error("Job matching error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to match jobs" },
+      { error: "Failed to match jobs", detail: message },
       { status: 500 }
     );
   }
