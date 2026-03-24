@@ -7,6 +7,10 @@ import {
   Target,
   Heart,
   CheckCircle2,
+  Shield,
+  BrainCircuit,
+  TrendingUp,
+  BookOpen,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -38,7 +42,8 @@ export default function LandingPage() {
           </h2>
           <p className="text-xl text-gray-600 mb-8 leading-relaxed">
             Tell us what you can do — we&apos;ll show you jobs that fit right
-            now, and the 1–2 steps to jobs that pay more.
+            now, the 1–2 steps to jobs that pay more, and how to stay ahead as
+            AI changes the workforce.
           </p>
           <button
             onClick={() => router.push("/onboarding")}
@@ -55,7 +60,7 @@ export default function LandingPage() {
       {/* Value props */}
       <section className="bg-white border-y border-gray-100">
         <div className="max-w-5xl mx-auto px-4 py-16 sm:py-20">
-          <div className="grid sm:grid-cols-3 gap-8 sm:gap-12">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
             <div>
               <div className="w-12 h-12 rounded-xl bg-teal-primary/10 flex items-center justify-center mb-4">
                 <Sparkles className="text-teal-primary" size={24} />
@@ -63,7 +68,7 @@ export default function LandingPage() {
               <h3 className="font-heading text-lg font-bold text-gray-900 mb-2">
                 No resume needed
               </h3>
-              <p className="text-gray-600 leading-relaxed">
+              <p className="text-gray-600 leading-relaxed text-sm">
                 Enter your skills in plain English — &quot;cooking,&quot;
                 &quot;driving,&quot; &quot;caring for people.&quot; Our AI
                 understands what you mean.
@@ -76,10 +81,22 @@ export default function LandingPage() {
               <h3 className="font-heading text-lg font-bold text-gray-900 mb-2">
                 See exactly what&apos;s missing
               </h3>
-              <p className="text-gray-600 leading-relaxed">
+              <p className="text-gray-600 leading-relaxed text-sm">
                 Not just rejections — a clear path. We show you the 1–2 skills
                 between you and a better-paying job, with free ways to learn
                 them.
+              </p>
+            </div>
+            <div>
+              <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-4">
+                <Shield className="text-indigo-600" size={24} />
+              </div>
+              <h3 className="font-heading text-lg font-bold text-gray-900 mb-2">
+                AI-proof your career
+              </h3>
+              <p className="text-gray-600 leading-relaxed text-sm">
+                See which of your skills are safe from automation and which ones
+                to strengthen. Stay ahead of the curve, not behind it.
               </p>
             </div>
             <div>
@@ -87,13 +104,79 @@ export default function LandingPage() {
                 <Heart className="text-emerald-600" size={24} />
               </div>
               <h3 className="font-heading text-lg font-bold text-gray-900 mb-2">
-                Free for job seekers, always
+                Free for job seekers
               </h3>
-              <p className="text-gray-600 leading-relaxed">
+              <p className="text-gray-600 leading-relaxed text-sm">
                 We charge employers who want to find great candidates — not you.
                 Your job search should never cost you money.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Upskill & AI Section */}
+      <section className="bg-gradient-to-b from-indigo-50 to-offwhite">
+        <div className="max-w-5xl mx-auto px-4 py-16 sm:py-20">
+          <div className="text-center mb-12">
+            <h2 className="font-heading text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              AI is changing work.{" "}
+              <span className="text-indigo-600">We help you stay ready.</span>
+            </h2>
+            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+              Some jobs are being automated. Others are growing. WorkPath tells
+              you exactly where you stand and what to do about it.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center mb-4">
+                <BrainCircuit className="text-red-500" size={20} />
+              </div>
+              <h3 className="font-heading font-bold text-gray-900 mb-2">
+                Know your AI risk
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Our AI career roadmap scans your skills and tells you which ones
+                are safe from automation and which ones need attention. No
+                guessing.
+              </p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center mb-4">
+                <BookOpen className="text-emerald-600" size={20} />
+              </div>
+              <h3 className="font-heading font-bold text-gray-900 mb-2">
+                Free upskill resources
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                For every skill gap, we link you to free or low-cost training —
+                Red Cross, Khan Academy, YouTube, government programs. Learn on
+                your schedule.
+              </p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center mb-4">
+                <TrendingUp className="text-amber-600" size={20} />
+              </div>
+              <h3 className="font-heading font-bold text-gray-900 mb-2">
+                Career paths, not dead ends
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                See exactly which roles you can reach in 2–6 months, what they
+                pay, and the shortest path to get there. Your roadmap updates as
+                you learn.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-10 text-center">
+            <p className="text-sm text-indigo-700 font-medium bg-indigo-100 inline-flex items-center gap-2 px-4 py-2 rounded-full">
+              <Shield size={16} />
+              Human skills like empathy, physical care, and trust-building are
+              AI-proof — and you probably already have them.
+            </p>
           </div>
         </div>
       </section>
@@ -103,7 +186,7 @@ export default function LandingPage() {
         <h2 className="font-heading text-3xl font-bold text-gray-900 mb-10 text-center">
           How it works
         </h2>
-        <div className="grid sm:grid-cols-3 gap-8">
+        <div className="grid sm:grid-cols-4 gap-6">
           {[
             {
               step: "1",
@@ -118,7 +201,12 @@ export default function LandingPage() {
             {
               step: "3",
               title: "Close the gap",
-              desc: "For each missing skill, we link you to free or low-cost training. Mark it as learned and watch new jobs unlock.",
+              desc: "For each missing skill, we link you to free training. Mark it as learned and watch new jobs unlock.",
+            },
+            {
+              step: "4",
+              title: "Future-proof yourself",
+              desc: "Get your AI career roadmap — see which skills are automation-proof and what to learn to stay ahead.",
             },
           ].map((item) => (
             <div key={item.step} className="text-center">
@@ -143,8 +231,9 @@ export default function LandingPage() {
             Ready to find work that fits?
           </h2>
           <p className="text-teal-100 text-lg mb-8 max-w-xl mx-auto">
-            Join hundreds of Chicago workers who&apos;ve found better jobs
-            through skills they already had.
+            Join Chicago workers who&apos;ve found better jobs through skills
+            they already had — and learned the 1–2 things that unlocked even
+            more.
           </p>
           <button
             onClick={() => router.push("/onboarding")}
@@ -163,8 +252,8 @@ export default function LandingPage() {
             Work<span className="text-amber-primary">Path</span>
           </p>
           <p className="text-sm">
-            Helping Chicago workers find jobs that fit. MVP — Home Health Aide
-            vertical.
+            Helping Chicago workers find jobs, close skill gaps, and stay ahead
+            of AI.
           </p>
         </div>
       </footer>
