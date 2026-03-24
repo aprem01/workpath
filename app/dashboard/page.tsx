@@ -223,46 +223,48 @@ export default function DashboardPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 mb-6">
+        <div className="flex overflow-x-auto border-b border-gray-200 mb-6 -mx-4 px-4 scrollbar-hide">
           <button
             onClick={() => setActiveTab("qualified")}
-            className={`flex-1 sm:flex-none px-6 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center justify-center gap-2 ${
+            className={`whitespace-nowrap px-4 sm:px-6 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
               activeTab === "qualified"
                 ? "border-teal-primary text-teal-primary"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            Jobs you qualify for
+            <span className="hidden sm:inline">Jobs you qualify for</span>
+            <span className="sm:hidden">Qualified</span>
             {qualifiedJobs.length > 0 && (
-              <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-full">
+              <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-1.5 py-0.5 rounded-full">
                 {qualifiedJobs.length}
               </span>
             )}
           </button>
           <button
             onClick={() => setActiveTab("gap")}
-            className={`flex-1 sm:flex-none px-6 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center justify-center gap-2 ${
+            className={`whitespace-nowrap px-4 sm:px-6 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
               activeTab === "gap"
                 ? "border-amber-primary text-amber-800"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            1–2 skills away
+            <span className="hidden sm:inline">1–2 skills away</span>
+            <span className="sm:hidden">Almost</span>
             {gapJobs.length > 0 && (
-              <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
+              <span className="bg-amber-100 text-amber-700 text-xs font-bold px-1.5 py-0.5 rounded-full">
                 {gapJobs.length}
               </span>
             )}
           </button>
           <button
             onClick={() => setActiveTab("roadmap")}
-            className={`flex-1 sm:flex-none px-6 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center justify-center gap-2 ${
+            className={`whitespace-nowrap px-4 sm:px-6 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
               activeTab === "roadmap"
                 ? "border-indigo-600 text-indigo-600"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            Upskill Roadmap
+            Upskill
           </button>
         </div>
 
