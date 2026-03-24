@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
@@ -53,6 +53,174 @@ interface UpskillResource {
   difficulty: string;
 }
 
+/* --- Loading Skeleton --- */
+function JobCardSkeleton() {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 rounded-xl bg-gray-200 shrink-0" />
+        <div className="flex-1 min-w-0 space-y-3">
+          <div className="h-5 bg-gray-200 rounded w-3/4" />
+          <div className="h-4 bg-gray-100 rounded w-1/2" />
+          <div className="h-5 bg-gray-200 rounded w-1/4" />
+          <div className="flex gap-4 mt-3">
+            <div className="h-4 bg-gray-100 rounded w-40" />
+            <div className="h-4 bg-gray-100 rounded w-32" />
+          </div>
+          <div className="h-10 bg-gray-200 rounded-lg w-28 mt-4" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardLoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <JobCardSkeleton />
+      <JobCardSkeleton />
+      <JobCardSkeleton />
+    </div>
+  );
+}
+
+/* --- Memoized Qualified Job Card --- */
+const QualifiedJobCard = memo(function QualifiedJobCard({
+  job,
+  isApplied,
+  onApply,
+}: {
+  job: JobResult;
+  isApplied: boolean;
+  onApply: (jobId: string) => void;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 border-l-[3px] border-l-teal-primary p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 ease-out">
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-primary/20 via-teal-primary/10 to-emerald-100 flex items-center justify-center text-teal-primary font-bold text-lg shrink-0 shadow-sm">
+          {job.employer[0]}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-heading font-semibold text-gray-900 text-lg">
+            {job.title}
+          </h3>
+          <p className="text-gray-600 text-sm">
+            {job.employer} &middot; {job.location}
+          </p>
+          <p className="text-amber-primary font-bold mt-1 text-lg">
+            {formatPayRange(job.payMin, job.payMax, job.payType)}
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-sm">
+            <span className="text-emerald-600 flex items-center gap-1">
+              <Check size={14} /> Matches {job.matchedRequired} of{" "}
+              {job.totalRequired} required skills
+            </span>
+            {job.totalOptional > 0 && (
+              <span className="text-emerald-600 flex items-center gap-1">
+                <Check size={14} /> Matches {job.matchedOptional} of{" "}
+                {job.totalOptional} bonus skills
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2 mt-4">
+            {isApplied ? (
+              <span className="px-5 py-2.5 bg-emerald-100 text-emerald-700 font-semibold rounded-lg text-sm flex items-center gap-1.5">
+                <Check size={14} /> Applied
+              </span>
+            ) : (
+              <button
+                onClick={() => onApply(job.id)}
+                className="px-5 py-2.5 bg-teal-primary text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors text-sm flex items-center gap-1.5"
+              >
+                Apply Now <ArrowRight size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+/* --- Memoized Gap Job Card --- */
+const GapJobCard = memo(function GapJobCard({
+  job,
+  onLearnSkill,
+  onLearnAll,
+}: {
+  job: JobResult;
+  onLearnSkill: (skill: string) => void;
+  onLearnAll: () => void;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-amber-200 border-l-[3px] border-l-amber-primary p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 ease-out">
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-primary/20 via-amber-primary/10 to-yellow-100 flex items-center justify-center text-amber-primary font-bold text-lg shrink-0 shadow-sm">
+          {job.employer[0]}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-bold text-amber-700 bg-gradient-to-r from-amber-100 to-yellow-50 px-2 py-0.5 rounded-full">
+              Almost there
+            </span>
+          </div>
+          <h3 className="font-heading font-semibold text-gray-900 text-lg">
+            {job.title}
+          </h3>
+          <p className="text-gray-600 text-sm">
+            {job.employer} &middot; {job.location}
+          </p>
+          <p className="text-amber-primary font-bold mt-1 text-lg">
+            {formatPayRange(job.payMin, job.payMax, job.payType)}
+          </p>
+
+          {/* Missing skills */}
+          <div className="mt-3 space-y-2">
+            {job.missingSkills.map((skill) => (
+              <div
+                key={skill}
+                className="flex items-center justify-between gap-2 p-3 bg-amber-50 rounded-lg border border-amber-100"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <AlertCircle
+                    size={16}
+                    className="text-amber-500 shrink-0"
+                  />
+                  <span className="text-sm text-gray-800">
+                    Missing:{" "}
+                    <strong className="capitalize">{skill}</strong>
+                  </span>
+                </div>
+                <button
+                  onClick={() => onLearnSkill(skill)}
+                  className="text-sm text-teal-primary hover:text-teal-700 font-semibold whitespace-nowrap flex items-center gap-1"
+                >
+                  Learn this <ChevronRight size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={onLearnAll}
+              className="px-4 py-2.5 bg-amber-primary text-white font-semibold rounded-lg hover:bg-amber-600 transition-colors text-sm flex items-center gap-1.5"
+            >
+              <BookOpen size={14} /> I&apos;ll learn{" "}
+              {job.missingSkills.length === 1
+                ? "this"
+                : "these"}
+            </button>
+            <button className="px-4 py-2.5 border border-gray-200 text-gray-600 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm">
+              Skip for now
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function DashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"qualified" | "gap" | "roadmap">("qualified");
@@ -66,17 +234,16 @@ export default function DashboardPage() {
   const [showAllSkills, setShowAllSkills] = useState(false);
   const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set());
 
-  const applyToJob = (jobId: string) => {
+  const applyToJob = useCallback((jobId: string) => {
     setAppliedJobs((prev) => new Set(prev).add(jobId));
-    // Persist to localStorage
     const stored = JSON.parse(localStorage.getItem("workpath_applied") || "[]");
     if (!stored.includes(jobId)) {
       stored.push(jobId);
       localStorage.setItem("workpath_applied", JSON.stringify(stored));
     }
-  };
+  }, []);
 
-  const fetchMatches = useCallback(async (skillsData: SkillData[]) => {
+  const fetchMatches = useCallback(async (skillsData: SkillData[], signal?: AbortSignal) => {
     setIsLoading(true);
     try {
       const res = await fetch("/api/jobs/match", {
@@ -88,11 +255,14 @@ export default function DashboardPage() {
             proficiencyLevel: s.proficiencyLevel,
           })),
         }),
+        signal,
       });
+      if (signal?.aborted) return;
       const data = await res.json();
       setQualifiedJobs(data.qualifiedJobs || []);
       setGapJobs(data.gapJobs || []);
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       console.error("Failed to fetch matches");
     }
     setIsLoading(false);
@@ -106,15 +276,20 @@ export default function DashboardPage() {
     }
     const parsed: SkillData[] = JSON.parse(stored);
     setSkills(parsed);
-    fetchMatches(parsed);
+
+    const controller = new AbortController();
+    fetchMatches(parsed, controller.signal);
+
     // Migrate to profile system if needed
     migrateIfNeeded();
     // Load applied jobs
     const applied = JSON.parse(localStorage.getItem("workpath_applied") || "[]");
     setAppliedJobs(new Set(applied));
+
+    return () => controller.abort();
   }, [router, fetchMatches]);
 
-  const openUpskillDrawer = async (skillTerm: string) => {
+  const openUpskillDrawer = useCallback(async (skillTerm: string) => {
     setDrawerSkill(skillTerm);
     setDrawerLoading(true);
     setDrawerResources([]);
@@ -130,9 +305,9 @@ export default function DashboardPage() {
       setDrawerResources([]);
     }
     setDrawerLoading(false);
-  };
+  }, []);
 
-  const markAsLearned = (skillTerm: string) => {
+  const markAsLearned = useCallback((skillTerm: string) => {
     const newSkill: SkillData = {
       normalizedTerm: skillTerm,
       category: "healthcare",
@@ -146,7 +321,7 @@ export default function DashboardPage() {
     syncCurrentSkillsToActiveProfile();
     setDrawerSkill(null);
     fetchMatches(updated);
-  };
+  }, [skills, fetchMatches]);
 
   const visibleSkills = showAllSkills ? skills : skills.slice(0, 6);
   const totalJobs = qualifiedJobs.length + gapJobs.length;
@@ -225,10 +400,10 @@ export default function DashboardPage() {
             <div>
               <p className="text-sm font-semibold text-gray-900">
                 {completenessScore >= 80
-                  ? `Profile strength: Excellent`
+                  ? "Profile strength: Excellent"
                   : completenessScore >= 50
-                  ? `Profile strength: Good`
-                  : `Profile strength: Getting started`}
+                  ? "Profile strength: Good"
+                  : "Profile strength: Getting started"}
               </p>
               <p className="text-xs text-gray-500">
                 {completenessScore < 80
@@ -295,12 +470,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Loading */}
-        {isLoading && (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-            <Loader2 className="animate-spin mb-3" size={32} />
-            <p>Finding your best matches...</p>
-          </div>
-        )}
+        {isLoading && <DashboardLoadingSkeleton />}
 
         {/* Tab A: Qualified Jobs */}
         {!isLoading && activeTab === "qualified" && (
@@ -312,58 +482,17 @@ export default function DashboardPage() {
                   No perfect matches yet
                 </p>
                 <p className="text-gray-500 text-sm mt-1">
-                  Add more skills or check the &quot;1–2 skills away&quot; tab
+                  Add more skills or check the &quot;1-2 skills away&quot; tab
                 </p>
               </div>
             ) : (
               qualifiedJobs.map((job) => (
-                <div
+                <QualifiedJobCard
                   key={job.id}
-                  className="bg-white rounded-xl border border-gray-200 border-l-[3px] border-l-teal-primary p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 ease-out"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-primary/20 via-teal-primary/10 to-emerald-100 flex items-center justify-center text-teal-primary font-bold text-lg shrink-0 shadow-sm">
-                      {job.employer[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-heading font-semibold text-gray-900 text-lg">
-                        {job.title}
-                      </h3>
-                      <p className="text-gray-600 text-sm">
-                        {job.employer} · {job.location}
-                      </p>
-                      <p className="text-amber-primary font-bold mt-1 text-lg">
-                        {formatPayRange(job.payMin, job.payMax, job.payType)}
-                      </p>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-sm">
-                        <span className="text-emerald-600 flex items-center gap-1">
-                          <Check size={14} /> Matches {job.matchedRequired} of{" "}
-                          {job.totalRequired} required skills
-                        </span>
-                        {job.totalOptional > 0 && (
-                          <span className="text-emerald-600 flex items-center gap-1">
-                            <Check size={14} /> Matches {job.matchedOptional} of{" "}
-                            {job.totalOptional} bonus skills
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex gap-2 mt-4">
-                        {appliedJobs.has(job.id) ? (
-                          <span className="px-5 py-2.5 bg-emerald-100 text-emerald-700 font-semibold rounded-lg text-sm flex items-center gap-1.5">
-                            <Check size={14} /> Applied
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => applyToJob(job.id)}
-                            className="px-5 py-2.5 bg-teal-primary text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors text-sm flex items-center gap-1.5"
-                          >
-                            Apply Now <ArrowRight size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  job={job}
+                  isApplied={appliedJobs.has(job.id)}
+                  onApply={applyToJob}
+                />
               ))
             )}
           </div>
@@ -391,85 +520,21 @@ export default function DashboardPage() {
                       No close matches yet
                     </p>
                     <p className="text-gray-500 text-sm mt-1">
-                      Add more skills to see jobs that are 1–2 skills away
+                      Add more skills to see jobs that are 1-2 skills away
                     </p>
                   </>
                 )}
               </div>
             ) : (
               gapJobs.map((job) => (
-                <div
+                <GapJobCard
                   key={job.id}
-                  className="bg-white rounded-xl border border-amber-200 border-l-[3px] border-l-amber-primary p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 ease-out"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-primary/20 via-amber-primary/10 to-yellow-100 flex items-center justify-center text-amber-primary font-bold text-lg shrink-0 shadow-sm">
-                      {job.employer[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-bold text-amber-700 bg-gradient-to-r from-amber-100 to-yellow-50 px-2 py-0.5 rounded-full">
-                          Almost there
-                        </span>
-                      </div>
-                      <h3 className="font-heading font-semibold text-gray-900 text-lg">
-                        {job.title}
-                      </h3>
-                      <p className="text-gray-600 text-sm">
-                        {job.employer} · {job.location}
-                      </p>
-                      <p className="text-amber-primary font-bold mt-1 text-lg">
-                        {formatPayRange(job.payMin, job.payMax, job.payType)}
-                      </p>
-
-                      {/* Missing skills */}
-                      <div className="mt-3 space-y-2">
-                        {job.missingSkills.map((skill) => (
-                          <div
-                            key={skill}
-                            className="flex items-center justify-between gap-2 p-3 bg-amber-50 rounded-lg border border-amber-100"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <AlertCircle
-                                size={16}
-                                className="text-amber-500 shrink-0"
-                              />
-                              <span className="text-sm text-gray-800">
-                                Missing:{" "}
-                                <strong className="capitalize">{skill}</strong>
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => openUpskillDrawer(skill)}
-                              className="text-sm text-teal-primary hover:text-teal-700 font-semibold whitespace-nowrap flex items-center gap-1"
-                            >
-                              Learn this <ChevronRight size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="flex gap-2 mt-4">
-                        <button
-                          onClick={() =>
-                            job.missingSkills.forEach((s) =>
-                              openUpskillDrawer(s)
-                            )
-                          }
-                          className="px-4 py-2.5 bg-amber-primary text-white font-semibold rounded-lg hover:bg-amber-600 transition-colors text-sm flex items-center gap-1.5"
-                        >
-                          <BookOpen size={14} /> I&apos;ll learn{" "}
-                          {job.missingSkills.length === 1
-                            ? "this"
-                            : "these"}
-                        </button>
-                        <button className="px-4 py-2.5 border border-gray-200 text-gray-600 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm">
-                          Skip for now
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  job={job}
+                  onLearnSkill={openUpskillDrawer}
+                  onLearnAll={() =>
+                    job.missingSkills.forEach((s) => openUpskillDrawer(s))
+                  }
+                />
               ))
             )}
           </div>
@@ -532,7 +597,7 @@ export default function DashboardPage() {
                           <p className="text-sm text-gray-600 mt-0.5">
                             {r.provider}
                             {r.estimatedHours
-                              ? ` · ${r.estimatedHours} hrs`
+                              ? ` \u00B7 ${r.estimatedHours} hrs`
                               : ""}
                           </p>
                         </div>
@@ -549,7 +614,7 @@ export default function DashboardPage() {
                           rel="noopener noreferrer"
                           className="text-sm text-teal-primary hover:underline mt-2 inline-block"
                         >
-                          Open resource →
+                          Open resource
                         </a>
                       )}
                     </div>

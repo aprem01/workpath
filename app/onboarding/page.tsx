@@ -146,7 +146,9 @@ export default function OnboardingPage() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
-      addSkill(inputValue);
+      if (!isLoading) {
+        addSkill(inputValue);
+      }
     }
   };
 
