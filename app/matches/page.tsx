@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface Skill {
   rawInput: string;
@@ -41,11 +41,17 @@ export default function MatchRevealPage() {
     const parsed: Skill[] = JSON.parse(saved);
     setSkills(parsed);
 
-    // Assign anonymous handle if not already set
+    // Assign anonymous handle silently
     if (!localStorage.getItem("payranker_handle")) {
-      const adj = ["Skilled","Bright","Swift","Steady","Sharp","Ready","Bold","Quick","Strong","Smart"];
-      const nouns = ["Pro","Star","Ace","Hero","Champ","Maven","Scout","Guide","Lead","Spark"];
-      const handle = `${adj[Math.floor(Math.random()*adj.length)]}${nouns[Math.floor(Math.random()*nouns.length)]}_${Math.floor(1000+Math.random()*9000)}`;
+      const adj = [
+        "Skilled", "Bright", "Swift", "Steady", "Sharp",
+        "Ready", "Bold", "Quick", "Strong", "Smart",
+      ];
+      const nouns = [
+        "Pro", "Star", "Ace", "Hero", "Champ",
+        "Maven", "Scout", "Guide", "Lead", "Spark",
+      ];
+      const handle = `${adj[Math.floor(Math.random() * adj.length)]}${nouns[Math.floor(Math.random() * nouns.length)]}_${Math.floor(1000 + Math.random() * 9000)}`;
       localStorage.setItem("payranker_handle", handle);
     }
 
@@ -64,7 +70,7 @@ export default function MatchRevealPage() {
         const data = await res.json();
         setResults(data);
 
-        // Calculate top gap skills
+        // Calculate top gap skills — most common missing skills from gapJobs
         const skillFreq: Record<string, { count: number; totalPay: number }> = {};
         for (const job of data.gapJobs || []) {
           for (const ms of job.missingSkills || []) {
@@ -94,7 +100,9 @@ export default function MatchRevealPage() {
     return (
       <div className="min-h-screen bg-warmwhite flex flex-col items-center justify-center">
         <Loader2 className="animate-spin text-magenta mb-4" size={40} />
-        <p className="text-gray-600 font-medium">Matching your skills to jobs...</p>
+        <p className="text-gray-600 font-medium">
+          Matching your skills to jobs...
+        </p>
       </div>
     );
   }
@@ -104,94 +112,148 @@ export default function MatchRevealPage() {
 
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
-      {/* Header */}
+      {/* ── Header ── */}
       <header className="py-6 px-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-2xl font-bold tracking-tight">
             <span className="text-magenta">Pay</span>
             <span className="text-amber">Ranker</span>
           </h1>
-          <button className="text-gray-400 hover:text-gray-600">
-            <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 12h18M3 6h18M3 18h18" />
-            </svg>
+          {/* Hamburger menu icon — 3 lines */}
+          <button
+            aria-label="Menu"
+            className="text-gray-400 hover:text-gray-600 flex flex-col justify-center gap-[5px]"
+          >
+            <span className="block w-6 h-[2px] bg-current" />
+            <span className="block w-6 h-[2px] bg-current" />
+            <span className="block w-6 h-[2px] bg-current" />
           </button>
         </div>
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 pb-12">
-        {/* Two-column match reveal */}
-        <div className="grid sm:grid-cols-2 gap-0 rounded-2xl overflow-hidden border border-gray-200 mb-10">
-          {/* You qualify */}
-          <div className="bg-gradient-to-r from-magenta to-magenta-dark p-6 text-center">
-            <p className="text-white/80 text-sm font-semibold mb-1">You qualify</p>
-            <div className="text-2xl sm:text-3xl font-bold text-white mb-3">&#8964;</div>
-            <p className="text-4xl font-bold text-white animate-count-up">
-              {qualifiedCount}
-            </p>
-            <p className="text-white font-semibold">matching jobs found</p>
-            <p className="text-white/60 text-xs mt-1">Based on your current skills</p>
+        {/* ── Two-panel match reveal ── */}
+        <div className="grid sm:grid-cols-2 rounded-2xl overflow-hidden border border-gray-200 mb-10">
+          {/* LEFT — You qualify */}
+          <div className="flex flex-col">
+            {/* Header bar */}
+            <div className="bg-gradient-to-r from-magenta to-magenta-dark px-5 py-3">
+              <p className="text-white font-bold text-sm tracking-wide">
+                You qualify
+              </p>
+            </div>
+            {/* Content area */}
+            <div className="bg-white border-l-4 border-magenta flex-1 px-6 py-8 flex flex-col items-center justify-center text-center">
+              {/* Magenta chevron down */}
+              <svg
+                className="text-magenta mb-3"
+                width="28"
+                height="16"
+                viewBox="0 0 28 16"
+                fill="none"
+              >
+                <path
+                  d="M2 2L14 14L26 2"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <p className="text-magenta font-bold text-4xl animate-count-up">
+                {qualifiedCount}
+              </p>
+              <p className="text-magenta font-bold text-lg mt-1">
+                matching jobs found
+              </p>
+              <p className="text-gray-400 text-xs mt-2">
+                Based on your current skills
+              </p>
+            </div>
           </div>
 
-          {/* With 1-2 more skills */}
-          <div className="bg-gray-100 p-6 text-center">
-            <p className="text-gray-500 text-sm font-semibold mb-1">
-              With 1–2 more Skills
-            </p>
-            <div className="mt-6">
-              <p className="text-4xl font-bold text-gray-900 animate-count-up">
+          {/* RIGHT — With 1-2 more Skills */}
+          <div className="flex flex-col">
+            {/* Header bar */}
+            <div className="bg-gradient-to-r from-gray-300 to-gray-400 px-5 py-3">
+              <p className="text-white font-bold text-sm tracking-wide">
+                With 1–2 more Skills
+              </p>
+            </div>
+            {/* Content area */}
+            <div className="bg-gray-50 flex-1 px-6 py-8 flex flex-col items-center justify-center text-center">
+              <p className="text-gray-900 font-bold text-4xl animate-count-up">
                 +{gapCount}
               </p>
-              <p className="text-gray-700 font-semibold">additional jobs</p>
-              <p className="text-gray-400 text-xs mt-1">
-                Unlock with 1–2 more skills
+              <p className="text-gray-900 font-bold text-lg mt-1">
+                additional jobs
+              </p>
+              <p className="text-gray-400 text-xs mt-2">
+                Unlock with 1–2 more skills.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Top gap skills to add */}
+        {/* ── Top gap skills ── */}
         {topGapSkills.length > 0 && (
           <div className="mb-10">
-            <p className="text-gray-700 font-semibold mb-3">
+            <p className="text-gray-700 font-bold mb-3">
               Most people like you add these skills:
             </p>
-            <div className="flex flex-wrap gap-2 mb-2">
+
+            {/* Amber pill chips */}
+            <div className="flex flex-wrap gap-2 mb-3">
               {topGapSkills.map((gs) => (
                 <span
                   key={gs.skill}
-                  className="px-4 py-1.5 rounded-full text-sm font-semibold bg-amber text-white"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold bg-amber text-white"
                 >
                   {gs.skill}
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    className="shrink-0"
+                  >
+                    <path
+                      d="M6 2V10M2 6H10"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
                 </span>
               ))}
             </div>
+
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-400">
                 Quick to learn. High impact on job access.
               </p>
               <button
                 onClick={() => router.push("/skills")}
-                className="text-sm font-semibold text-magenta hover:underline flex items-center gap-1"
+                className="text-sm font-semibold text-magenta hover:underline"
               >
-                Explore these skills <ArrowRight size={14} />
+                Explore these skills&nbsp;&rarr;
               </button>
             </div>
           </div>
         )}
 
-        {/* CTA */}
-        <div className="text-center">
+        {/* ── CTA section ── */}
+        <div className="text-center mt-4">
           <p className="text-magenta font-bold text-lg mb-4">
             {qualifiedCount} jobs ready to view
           </p>
           <button
-            onClick={() => router.push("/jobs")}
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-white bg-magenta hover:bg-magenta-dark transition-colors"
+            onClick={() => router.push("/profile")}
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-white bg-magenta hover:bg-magenta-dark transition-colors text-base"
           >
-            See your job list <ArrowRight size={18} />
+            See your job list&nbsp;&rarr;
           </button>
-          <p className="text-xs text-gray-400 mt-3">
+          <p className="text-xs text-gray-400 italic mt-3">
             Create your anonymous profile to continue
           </p>
         </div>
