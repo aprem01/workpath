@@ -76,6 +76,7 @@ interface JobResult {
   payMin: number;
   payMax: number;
   payType: string;
+  shiftType: string;
   vertical: string;
   postedAt: Date;
   optionalScore: number;
@@ -84,6 +85,7 @@ interface JobResult {
   matchedOptional: number;
   totalOptional: number;
   missingSkills: string[];
+  requiredSkills: { normalizedTerm: string; isRequired: boolean }[];
   payJumpPerSkill?: Record<string, number>;
 }
 
@@ -141,6 +143,7 @@ export async function POST(req: Request) {
         payMin: job.payMin,
         payMax: job.payMax,
         payType: job.payType,
+        shiftType: job.shiftType,
         vertical: job.vertical,
         postedAt: job.postedAt,
         optionalScore,
@@ -149,6 +152,10 @@ export async function POST(req: Request) {
         matchedOptional: matchedOptional.length,
         totalOptional: optionalTerms.length,
         missingSkills: missingRequired,
+        requiredSkills: job.requiredSkills.map((s) => ({
+          normalizedTerm: s.normalizedTerm,
+          isRequired: s.isRequired,
+        })),
       };
 
       if (missingRequired.length === 0) {
