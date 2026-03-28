@@ -1,35 +1,28 @@
 import type { Metadata, Viewport } from "next";
-import { Sora, DM_Sans } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const sora = Sora({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-sora",
-  display: "swap",
-});
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-dm-sans",
+  variable: "--font-inter",
   display: "swap",
 });
 
 export const viewport: Viewport = {
-  themeColor: "#0D9488",
+  themeColor: "#E91E9C",
   width: "device-width",
   initialScale: 1,
 };
 
 export const metadata: Metadata = {
-  title: "WorkPath — Your skills are worth more than you think",
+  title: "PayRanker — Find the highest-paying jobs for your skills",
   description:
-    "Find jobs you already qualify for and discover what's 1-2 skills away. AI-powered skill matching for job seekers.",
-  metadataBase: new URL("https://workpath.vercel.app"),
+    "Enter your skills in plain English. See jobs you qualify for right now, sorted by pay. Free for job seekers.",
+  metadataBase: new URL("https://workpath-iota.vercel.app"),
   openGraph: {
-    title: "WorkPath — Your skills are worth more than you think",
+    title: "PayRanker — Jobs listed by which pays you the most",
     description:
-      "Find jobs you already qualify for and discover what's 1-2 skills away.",
+      "Find the highest-paying jobs for your skills. Free for job seekers.",
     type: "website",
   },
 };
@@ -40,8 +33,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${sora.variable} ${dmSans.variable}`}>
-      <body className="font-body antialiased bg-offwhite text-gray-900">
+    <html lang="en" className={inter.variable}>
+      <body className="font-sans antialiased bg-warmwhite text-gray-900">
         {children}
       </body>
     </html>

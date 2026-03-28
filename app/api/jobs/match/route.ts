@@ -18,9 +18,8 @@ function skillMatches(userTerm: string, jobTerm: string): boolean {
   // Keyword overlap — if 50%+ of job skill words appear in user skill
   const jobWords = j.split(/\s+/).filter((w) => w.length > 2);
   const userWords = u.split(/\s+/).filter((w) => w.length > 2);
-  const overlap = jobWords.filter(
-    (jw) =>
-      userWords.some((uw) => uw.includes(jw) || jw.includes(uw))
+  const overlap = jobWords.filter((jw) =>
+    userWords.some((uw) => uw.includes(jw) || jw.includes(uw))
   );
   if (jobWords.length > 0 && overlap.length / jobWords.length >= 0.5) {
     return true;
@@ -68,6 +67,26 @@ function userHasSkill(userTerms: string[], jobTerm: string): boolean {
   return userTerms.some((ut) => skillMatches(ut, jobTerm));
 }
 
+interface JobResult {
+  id: string;
+  title: string;
+  employer: string;
+  location: string;
+  description: string;
+  payMin: number;
+  payMax: number;
+  payType: string;
+  vertical: string;
+  postedAt: Date;
+  optionalScore: number;
+  matchedRequired: number;
+  totalRequired: number;
+  matchedOptional: number;
+  totalOptional: number;
+  missingSkills: string[];
+  payJumpPerSkill?: Record<string, number>;
+}
+
 export async function POST(req: Request) {
   try {
     const { userSkills } = await req.json();
@@ -88,26 +107,8 @@ export async function POST(req: Request) {
       include: { requiredSkills: true },
     });
 
-    const qualifiedJobs: Array<{
-      id: string;
-      title: string;
-      employer: string;
-      location: string;
-      description: string;
-      payMin: number;
-      payMax: number;
-      payType: string;
-      vertical: string;
-      postedAt: Date;
-      optionalScore: number;
-      matchedRequired: number;
-      totalRequired: number;
-      matchedOptional: number;
-      totalOptional: number;
-      missingSkills: string[];
-    }> = [];
-
-    const gapJobs: typeof qualifiedJobs = [];
+    const qualifiedJobs: JobResult[] = [];
+    const gapJobs: JobResult[] = [];
 
     for (const job of allJobs) {
       const requiredSkills = job.requiredSkills.filter((s) => s.isRequired);
@@ -131,7 +132,7 @@ export async function POST(req: Request) {
           ? matchedOptional.length / optionalTerms.length
           : 0;
 
-      const jobResult = {
+      const jobResult: JobResult = {
         id: job.id,
         title: job.title,
         employer: job.employer,
@@ -157,12 +158,67 @@ export async function POST(req: Request) {
       }
     }
 
-    qualifiedJobs.sort((a, b) => b.optionalScore - a.optionalScore);
+    // Sort qualified jobs by highest pay first, then by optional score
+    qualifiedJobs.sort(
+      (a, b) => b.payMax - a.payMax || b.optionalScore - a.optionalScore
+    );
+
+    // For gap jobs, calculate pay jump per missing skill
+    // payJumpPerSkill: for each gap skill, average payMax of jobs that skill would unlock
+    for (const gapJob of gapJobs) {
+      const payJumpPerSkill: Record<string, number> = {};
+      for (const missingSkill of gapJob.missingSkills) {
+        // Find all gap jobs where this skill is the ONLY missing skill
+        // (i.e., learning this one skill would unlock that job)
+        const unlockableJobs = gapJobs.filter(
+          (j) =>
+            j.missingSkills.length === 1 &&
+            j.missingSkills[0] === missingSkill
+        );
+        if (unlockableJobs.length > 0) {
+          const avgPay =
+            unlockableJobs.reduce((sum, j) => sum + j.payMax, 0) /
+            unlockableJobs.length;
+          payJumpPerSkill[missingSkill] = Math.round(avgPay);
+        } else {
+          // Also consider jobs where this is one of the missing skills
+          const relevantJobs = gapJobs.filter((j) =>
+            j.missingSkills.includes(missingSkill)
+          );
+          if (relevantJobs.length > 0) {
+            const avgPay =
+              relevantJobs.reduce((sum, j) => sum + j.payMax, 0) /
+              relevantJobs.length;
+            payJumpPerSkill[missingSkill] = Math.round(avgPay);
+          }
+        }
+      }
+      gapJob.payJumpPerSkill = payJumpPerSkill;
+    }
+
+    // Sort gap jobs: fewest missing skills first, then highest pay
     gapJobs.sort(
       (a, b) =>
         a.missingSkills.length - b.missingSkills.length ||
+        b.payMax - a.payMax ||
         b.optionalScore - a.optionalScore
     );
+
+    // Track analytics
+    try {
+      await prisma.analyticsEvent.create({
+        data: {
+          event: "match_revealed",
+          metadata: JSON.stringify({
+            skillCount: userSkillTerms.length,
+            qualifiedCount: qualifiedJobs.length,
+            gapCount: gapJobs.length,
+          }),
+        },
+      });
+    } catch {
+      // analytics failure is non-blocking
+    }
 
     return NextResponse.json({ qualifiedJobs, gapJobs });
   } catch (error) {

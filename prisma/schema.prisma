@@ -7,6 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// =====================
+// Auth models (NextAuth)
+// =====================
+
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -41,17 +45,27 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+// =====================
+// User & Profile
+// =====================
+
 model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
-  name          String?
-  emailVerified DateTime?
-  image         String?
-  createdAt     DateTime      @default(now())
-  skills        UserSkill[]
-  applications  Application[]
-  sessions      Session[]
-  accounts      Account[]
+  id              String        @id @default(cuid())
+  email           String?       @unique
+  name            String?
+  emailVerified   DateTime?
+  image           String?
+  anonymousHandle String?       @unique  // e.g. "SkillPro_4829"
+  zipCode         String?
+  workAuthStatus  String?       // "authorized" | "need_sponsorship" | "prefer_not_to_say"
+  veteranStatus   String?       // "veteran" | "not_veteran" | "prefer_not_to_say"
+  disabilityAccom String?       // "yes" | "no" | "prefer_not_to_say"
+  profileComplete Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  skills          UserSkill[]
+  applications    Application[]
+  sessions        Session[]
+  accounts        Account[]
 }
 
 model UserSkill {
@@ -63,34 +77,74 @@ model UserSkill {
   category        String
   proficiencyLevel String
   isAISuggested   Boolean  @default(false)
+  skillNodeId     String?
+  skillNode       SkillNode? @relation(fields: [skillNodeId], references: [id])
   addedAt         DateTime @default(now())
 }
 
+// =====================
+// Skill Graph Taxonomy (3-layer)
+// =====================
+
+model SkillNode {
+  id                String      @id @default(cuid())
+  canonicalTerm     String      @unique
+  vertical          String?     // "home_health_aide", "tech", "trades", null=universal
+  layer             String      // "canonical" | "parent" | "micro"
+  aiResistanceScore Int         @default(50)
+
+  aliases           SkillAlias[]
+  userSkills        UserSkill[]
+
+  parentId          String?
+  parent            SkillNode?  @relation("SkillHierarchy", fields: [parentId], references: [id])
+  children          SkillNode[] @relation("SkillHierarchy")
+
+  createdAt         DateTime    @default(now())
+}
+
+model SkillAlias {
+  id          String    @id @default(cuid())
+  rawTerm     String    @unique
+  skillNodeId String
+  skillNode   SkillNode @relation(fields: [skillNodeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+}
+
+// =====================
+// Jobs
+// =====================
+
 model Job {
-  id              String      @id @default(cuid())
+  id              String        @id @default(cuid())
   title           String
   employer        String
   location        String
   vertical        String
-  description     String      @db.Text
-  payMin          Int
-  payMax          Int
-  payType         String
-  isActive        Boolean     @default(true)
-  isAIReplaceable Boolean     @default(false)
+  description     String        @db.Text
+  payMin          Int           // hourly cents
+  payMax          Int           // hourly cents
+  payType         String        // "hourly" | "salary" | "contract"
+  shiftType       String        @default("full_time") // "full_time" | "part_time" | "contract" | "per_diem"
+  isActive        Boolean       @default(true)
+  isAIReplaceable Boolean       @default(false)
   requiredSkills  JobSkill[]
-  postedAt        DateTime    @default(now())
+  postedAt        DateTime      @default(now())
   applications    Application[]
 }
 
 model JobSkill {
-  id              String  @id @default(cuid())
-  jobId           String
-  job             Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  normalizedTerm  String
+  id               String  @id @default(cuid())
+  jobId            String
+  job              Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  normalizedTerm   String
   proficiencyLevel String
-  isRequired      Boolean @default(true)
+  isRequired       Boolean @default(true)
 }
+
+// =====================
+// Upskill Resources
+// =====================
 
 model UpskillResource {
   id          String  @id @default(cuid())
@@ -103,12 +157,49 @@ model UpskillResource {
   vertical    String?
 }
 
+// =====================
+// Applications
+// =====================
+
 model Application {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   jobId     String
   job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  status    String   @default("applied")
+  status    String   @default("applied") // "applied" | "viewed" | "unlocked" | "hired"
   appliedAt DateTime @default(now())
+}
+
+// =====================
+// Analytics Events
+// =====================
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  event     String   // "skill_added", "match_revealed", "tab_b_viewed", etc.
+  userId    String?
+  metadata  String?  @db.Text // JSON blob
+  createdAt DateTime @default(now())
+
+  @@index([event])
+  @@index([createdAt])
+}
+
+// =====================
+// Employer Charge Events
+// =====================
+
+model ChargeEvent {
+  id              String   @id @default(cuid())
+  type            String   // "employer_unlock" | "employer_job_post" | "training_referral"
+  employerId      String?
+  candidateHandle String?
+  jobId           String?
+  skillTerm       String?
+  provider        String?
+  amount          Int?     // cents
+  createdAt       DateTime @default(now())
+
+  @@index([type])
 }
