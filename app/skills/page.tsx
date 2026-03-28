@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { X, ArrowRight, Loader2 } from "lucide-react";
+import { X, ArrowRight, Loader2, Plus } from "lucide-react";
 
 interface Skill {
   rawInput: string;
@@ -42,7 +42,6 @@ function SkillsPageInner() {
       const trimmed = raw.trim();
       if (!trimmed || isLoading) return;
 
-      // Check if already added
       if (
         skills.some(
           (s) => s.normalizedTerm.toLowerCase() === trimmed.toLowerCase()
@@ -72,30 +71,56 @@ function SkillsPageInner() {
           aiResistanceScore: data.aiResistanceScore || 50,
         };
 
-        // Dedupe
-        if (
-          !skills.some(
-            (s) =>
-              s.normalizedTerm.toLowerCase() ===
-              newSkill.normalizedTerm.toLowerCase()
+        // Dedupe and add
+        setSkills((prev) => {
+          if (
+            prev.some(
+              (s) =>
+                s.normalizedTerm.toLowerCase() ===
+                newSkill.normalizedTerm.toLowerCase()
+            )
           )
-        ) {
-          setSkills((prev) => [...prev, newSkill]);
+            return prev;
+          return [...prev, newSkill];
+        });
+
+        // Accumulate suggestions (add new ones, don't replace)
+        if (data.aiSuggestions && data.aiSuggestions.length > 0) {
+          setSuggestions((prev) => {
+            const existingSet = new Set(prev.map((s) => s.toLowerCase()));
+            const skillSet = new Set(
+              skills.map((s) => s.normalizedTerm.toLowerCase())
+            );
+            // Also exclude the just-added skill
+            skillSet.add(newSkill.normalizedTerm.toLowerCase());
+
+            const newSuggestions = data.aiSuggestions.filter(
+              (s: string) =>
+                !existingSet.has(s.toLowerCase()) &&
+                !skillSet.has(s.toLowerCase())
+            );
+            return [...prev, ...newSuggestions];
+          });
         }
 
-        // Update suggestions
-        if (data.aiSuggestions && data.aiSuggestions.length > 0) {
-          setSuggestions(
-            data.aiSuggestions.filter(
+        // Also add child skills as suggestions if they exist
+        if (data.childSkills && data.childSkills.length > 0) {
+          setSuggestions((prev) => {
+            const existingSet = new Set(prev.map((s) => s.toLowerCase()));
+            const skillSet = new Set(
+              skills.map((s) => s.normalizedTerm.toLowerCase())
+            );
+            skillSet.add(newSkill.normalizedTerm.toLowerCase());
+
+            const newChildren = data.childSkills.filter(
               (s: string) =>
-                !skills.some(
-                  (sk) => sk.normalizedTerm.toLowerCase() === s.toLowerCase()
-                )
-            )
-          );
+                !existingSet.has(s.toLowerCase()) &&
+                !skillSet.has(s.toLowerCase())
+            );
+            return [...prev, ...newChildren];
+          });
         }
       } catch {
-        // Fallback: add raw input
         setSkills((prev) => [
           ...prev,
           {
@@ -144,39 +169,51 @@ function SkillsPageInner() {
       isAISuggested: true,
       aiResistanceScore: 70,
     };
-    setSkills((prev) => [...prev, newSkill]);
+    setSkills((prev) => {
+      if (
+        prev.some(
+          (s) => s.normalizedTerm.toLowerCase() === term.toLowerCase()
+        )
+      )
+        return prev;
+      return [...prev, newSkill];
+    });
     setSuggestions((prev) => prev.filter((s) => s !== term));
   }
+
+  // Filter out suggestions that are already in skills
+  const filteredSuggestions = suggestions.filter(
+    (s) =>
+      !skills.some(
+        (sk) => sk.normalizedTerm.toLowerCase() === s.toLowerCase()
+      )
+  );
 
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
       {/* Header */}
-      <header className="py-6 px-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
+      <header className="py-5 px-4">
+        <div className="max-w-4xl mx-auto">
           <h1 className="text-2xl font-bold">
             <span className="text-magenta">Pay</span>
             <span className="text-amber">Ranker</span>
           </h1>
-          {skills.length > 0 && (
-            <span className="text-sm text-gray-500">
-              {skills.length} skill{skills.length !== 1 ? "s" : ""} added
-            </span>
-          )}
         </div>
       </header>
 
-      <main className="flex-1 max-w-3xl mx-auto w-full px-4 pb-12">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 pb-12">
         {/* Headline */}
-        <h2 className="text-3xl sm:text-4xl font-bold text-magenta text-center mb-8">
+        <h2 className="text-3xl sm:text-4xl font-bold text-magenta leading-tight mb-10">
           Find the highest-paying jobs for your skills.
         </h2>
 
-        <p className="text-sm font-semibold text-gray-700 text-center mb-3">
+        {/* Start with one skill */}
+        <p className="text-sm font-bold text-amber-dark text-center mb-3">
           Start with one skill
         </p>
 
-        {/* Skill input */}
-        <div className="max-w-md mx-auto mb-2">
+        {/* Skill input — magenta border like design */}
+        <div className="max-w-sm mx-auto mb-2">
           <div className="relative">
             <input
               type="text"
@@ -185,52 +222,45 @@ function SkillsPageInner() {
               onKeyDown={handleKeyDown}
               placeholder="ex: driving or cooking"
               disabled={isLoading}
-              className="w-full px-5 py-4 text-base rounded-full border-2 border-gray-200 bg-white focus:outline-none focus:border-amber focus:ring-2 focus:ring-amber/20 transition-all placeholder:text-gray-400 text-center disabled:opacity-50"
+              className="w-full px-5 py-3.5 text-base rounded-lg border-2 border-magenta/40 bg-white focus:outline-none focus:border-magenta focus:ring-2 focus:ring-magenta/15 transition-all placeholder:text-gray-400 text-center disabled:opacity-50"
               autoFocus
             />
             {isLoading && (
               <Loader2
-                size={20}
-                className="absolute right-5 top-1/2 -translate-y-1/2 text-amber animate-spin"
+                size={18}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-amber animate-spin"
               />
             )}
           </div>
-          <p className="text-xs text-gray-400 text-center mt-2">
+          <p className="text-xs text-gray-400 text-center mt-2 italic">
             Press Enter to add
           </p>
         </div>
 
         {/* Down arrow */}
         {skills.length > 0 && (
-          <div className="text-center text-magenta text-2xl mb-4">&#8964;</div>
+          <div className="text-center text-magenta text-3xl mb-2 select-none">
+            &#8964;
+          </div>
         )}
 
-        {/* YOUR SKILLS basket */}
+        {/* YOUR SKILLS — thick gray bordered basket like Caroline's design */}
         {skills.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Your Skills
-              </p>
-              <p className="text-xs text-gray-400">
-                {skills.length} skill{skills.length !== 1 ? "s" : ""} added
-              </p>
-            </div>
-            <div className="bg-white border-2 border-gray-200 rounded-2xl p-4 min-h-[60px]">
+          <div className="mb-6">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Your Skills
+            </p>
+            <div className="bg-white border-[3px] border-gray-300 rounded-2xl p-4 min-h-[100px] max-h-[200px] overflow-y-auto">
               <div className="flex flex-wrap gap-2">
                 {skills.map((s, i) => (
                   <span
                     key={`${s.normalizedTerm}-${i}`}
-                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold animate-pill-pop ${
-                      s.isAISuggested
-                        ? "bg-amber/20 text-amber-dark"
-                        : "bg-amber text-white"
-                    }`}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold animate-pill-pop bg-amber text-white shadow-sm"
                   >
                     {s.normalizedTerm}
                     <button
                       onClick={() => removeSkill(i)}
-                      className="hover:opacity-70 transition-opacity"
+                      className="hover:opacity-70 transition-opacity ml-0.5"
                     >
                       <X size={14} />
                     </button>
@@ -241,45 +271,53 @@ function SkillsPageInner() {
           </div>
         )}
 
-        {/* AI Suggestions */}
-        {suggestions.length > 0 && (
+        {/* ADD RELATED SKILLS — accumulated AI suggestions */}
+        {filteredSuggestions.length > 0 && (
           <div className="mb-8">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-              Add Related Skills
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {suggestions.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => addSuggestion(s)}
-                  className="px-3.5 py-1.5 rounded-full text-sm font-semibold bg-amber/15 text-amber-dark border border-amber/30 hover:bg-amber/25 transition-colors animate-suggestion-pulse"
-                >
-                  {s}
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Add Related Skills
+              </p>
+              <p className="text-xs font-semibold text-magenta">
+                {skills.length} skills added
+              </p>
+            </div>
+            <div className="bg-amber-light/50 rounded-2xl p-4 max-h-[220px] overflow-y-auto">
+              <div className="flex flex-wrap gap-2">
+                {filteredSuggestions.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => addSuggestion(s)}
+                    className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-bold bg-amber text-white hover:bg-amber-dark transition-colors shadow-sm"
+                  >
+                    {s}
+                    <Plus size={14} />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
         {/* CTA */}
         {skills.length >= 1 && (
-          <div className="text-center mt-10">
-            <p className="text-magenta font-semibold mb-4">
+          <div className="text-center mt-8">
+            <p className="text-magenta font-bold text-lg mb-4">
               See what your skills already qualify you for.
             </p>
             <button
               onClick={() => router.push("/matches")}
-              className={`inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-white transition-all ${
+              className={`inline-flex items-center gap-2 px-10 py-4 rounded-full font-bold text-white text-lg transition-all ${
                 skills.length >= 3
-                  ? "bg-magenta hover:bg-magenta-dark animate-gentle-pulse"
-                  : "bg-magenta/60 cursor-default"
+                  ? "bg-magenta hover:bg-magenta-dark shadow-lg animate-gentle-pulse"
+                  : "bg-magenta/50 cursor-not-allowed"
               }`}
               disabled={skills.length < 3}
             >
-              See your matches <ArrowRight size={18} />
+              See your matches <ArrowRight size={20} />
             </button>
             {skills.length < 3 && (
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="text-xs text-gray-400 mt-3">
                 Add {3 - skills.length} more skill
                 {3 - skills.length !== 1 ? "s" : ""} to continue
               </p>
