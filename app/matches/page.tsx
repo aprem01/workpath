@@ -29,7 +29,7 @@ export default function MatchRevealPage() {
   const [results, setResults] = useState<MatchResults | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [topGapSkills, setTopGapSkills] = useState<
-    { skill: string; count: number; avgPay: number }[]
+    { skill: string; count: number; avgPay: number; aiResistanceScore: number; isAIProof: boolean }[]
   >([]);
 
   useEffect(() => {
@@ -70,23 +70,8 @@ export default function MatchRevealPage() {
         const data = await res.json();
         setResults(data);
 
-        // Calculate top gap skills — most common missing skills from gapJobs
-        const skillFreq: Record<string, { count: number; totalPay: number }> = {};
-        for (const job of data.gapJobs || []) {
-          for (const ms of job.missingSkills || []) {
-            if (!skillFreq[ms]) skillFreq[ms] = { count: 0, totalPay: 0 };
-            skillFreq[ms].count++;
-            skillFreq[ms].totalPay += job.payMax;
-          }
-        }
-        const sorted = Object.entries(skillFreq)
-          .sort((a, b) => b[1].count - a[1].count)
-          .slice(0, 3)
-          .map(([skill, { count, totalPay }]) => ({
-            skill,
-            count,
-            avgPay: Math.round(totalPay / count / 100),
-          }));
+        // Use pre-computed top gap skills from API (sorted by AI-resistance + count)
+        const sorted = (data.topGapSkills || []).slice(0, 3);
         setTopGapSkills(sorted);
       } catch {
         setResults({ qualifiedJobs: [], gapJobs: [] });
@@ -207,9 +192,18 @@ export default function MatchRevealPage() {
               {topGapSkills.map((gs) => (
                 <span
                   key={gs.skill}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold bg-amber text-white"
+                  className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold ${
+                    gs.isAIProof
+                      ? "bg-amber text-white"
+                      : "bg-amber/70 text-white"
+                  }`}
                 >
                   {gs.skill}
+                  {gs.isAIProof && (
+                    <span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded-full">
+                      AI-proof
+                    </span>
+                  )}
                   <svg
                     width="12"
                     height="12"
@@ -230,7 +224,7 @@ export default function MatchRevealPage() {
 
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-400">
-                Quick to learn. High impact on job access.
+                AI-proof skills prioritized. High impact on job access.
               </p>
               <button
                 onClick={() => router.push("/skills")}

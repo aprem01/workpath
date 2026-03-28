@@ -211,6 +211,51 @@ export async function POST(req: Request) {
         b.optionalScore - a.optionalScore
     );
 
+    // Collect all unique gap skills and look up AI resistance scores
+    const allGapSkills = new Set<string>();
+    for (const gj of gapJobs) {
+      for (const ms of gj.missingSkills) allGapSkills.add(ms);
+    }
+
+    // Look up AI resistance scores from the skill graph
+    const skillNodes = await prisma.skillNode.findMany({
+      where: {
+        canonicalTerm: { in: Array.from(allGapSkills), mode: "insensitive" },
+      },
+      select: { canonicalTerm: true, aiResistanceScore: true },
+    });
+    const aiScoreMap: Record<string, number> = {};
+    for (const sn of skillNodes) {
+      aiScoreMap[sn.canonicalTerm.toLowerCase()] = sn.aiResistanceScore;
+    }
+
+    // Build gap skill summary with AI scores, sorted by impact
+    const gapSkillFreq: Record<string, { count: number; totalPay: number; aiScore: number }> = {};
+    for (const gj of gapJobs) {
+      for (const ms of gj.missingSkills) {
+        if (!gapSkillFreq[ms]) {
+          gapSkillFreq[ms] = { count: 0, totalPay: 0, aiScore: aiScoreMap[ms.toLowerCase()] || 50 };
+        }
+        gapSkillFreq[ms].count++;
+        gapSkillFreq[ms].totalPay += gj.payMax;
+      }
+    }
+
+    // Sort gap skills: prioritize AI-resistant + high job unlock count
+    const topGapSkills = Object.entries(gapSkillFreq)
+      .map(([skill, data]) => ({
+        skill,
+        count: data.count,
+        avgPay: Math.round(data.totalPay / data.count / 100),
+        aiResistanceScore: data.aiScore,
+        isAIProof: data.aiScore >= 75,
+      }))
+      .sort((a, b) => {
+        // Prioritize: AI-proof first, then by job unlock count
+        if (a.isAIProof !== b.isAIProof) return a.isAIProof ? -1 : 1;
+        return b.count - a.count;
+      });
+
     // Track analytics
     try {
       await prisma.analyticsEvent.create({
@@ -227,7 +272,7 @@ export async function POST(req: Request) {
       // analytics failure is non-blocking
     }
 
-    return NextResponse.json({ qualifiedJobs, gapJobs });
+    return NextResponse.json({ qualifiedJobs, gapJobs, topGapSkills });
   } catch (error) {
     console.error("Job matching error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
