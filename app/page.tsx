@@ -33,12 +33,6 @@ export default function LandingPage() {
             <span className="text-magenta">Pay</span>
             <span className="text-amber">Ranker</span>
           </h1>
-          <a
-            href="/employer"
-            className="text-sm font-medium text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            For employers
-          </a>
         </div>
       </header>
 
