@@ -90,6 +90,61 @@ async function graphLookup(rawSkill: string, existingSkills: string[]) {
   };
 }
 
+// ─── Detect if input is natural language vs. a skill keyword ────────
+function isNaturalLanguage(input: string): boolean {
+  const words = input.trim().split(/\s+/);
+  // If 5+ words, or contains common sentence patterns, treat as natural language
+  if (words.length >= 5) return true;
+  const sentencePatterns = /\b(i used to|i can|i know|i worked|i have|i'm good|my job|i did|years of|experience in|i help|i do)\b/i;
+  return sentencePatterns.test(input);
+}
+
+// ─── Natural Language → Multiple Skills Extraction ──────────────────
+async function extractSkillsFromNaturalLanguage(
+  input: string,
+  existingSkills: string[]
+) {
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 1000,
+    messages: [
+      {
+        role: "user",
+        content: `A job seeker described their experience in natural language:
+"${input}"
+
+Their existing skill basket: ${existingSkills.join(", ") || "empty"}
+
+Extract ALL distinct skills from their description. Return ONLY valid JSON:
+{
+  "extractedSkills": [
+    {
+      "rawPhrase": "the part of their text this came from",
+      "normalizedTerm": "professional skill term",
+      "category": "healthcare | trades | tech | admin | food_service | transport | education | retail | finance | legal | creative | engineering | management | other",
+      "aiResistanceScore": 0-100
+    }
+  ],
+  "aiSuggestions": ["5-10 additional skills they likely have based on their description"],
+  "note": "optional encouraging note, max 15 words"
+}
+
+Rules:
+- Extract 3-8 skills from natural language
+- Use concrete, job-relevant terms (not abstract like "hard worker")
+- Include both explicit skills ("cooking") and implied skills ("worked in restaurant" → Food Safety, Customer Service)
+- Be generous — if they hint at something, include it
+- aiSuggestions should be skills they probably also have but didn't mention
+- Do NOT include skills already in their basket`,
+      },
+    ],
+  });
+
+  let text = (message.content[0] as { type: string; text: string }).text;
+  text = text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+  return JSON.parse(text);
+}
+
 // ─── Stage 2: AI Taxonomy Expansion ────────────────────────────────
 // Claude generates full 3-layer response for ANY skill in ANY vertical.
 // Inspired by Karpathy's jobs project: LLM scoring for AI exposure.
@@ -183,6 +238,38 @@ export async function POST(req: Request) {
         { error: "rawSkill is required" },
         { status: 400 }
       );
+    }
+
+    // ── Natural language detection ──────────────────────────────────
+    // If user types a sentence like "I worked in a restaurant for 5 years"
+    // extract multiple skills instead of normalizing as one skill
+    if (isNaturalLanguage(rawSkill)) {
+      try {
+        const nlResult = await extractSkillsFromNaturalLanguage(rawSkill, existingSkills);
+
+        // Track analytics
+        try {
+          await prisma.analyticsEvent.create({
+            data: {
+              event: "skill_added",
+              metadata: JSON.stringify({
+                rawSkill,
+                source: "natural_language",
+                extractedCount: nlResult.extractedSkills?.length || 0,
+              }),
+            },
+          });
+        } catch {}
+
+        return NextResponse.json({
+          ...nlResult,
+          isNaturalLanguage: true,
+          source: "natural_language",
+        });
+      } catch (e) {
+        console.warn("NL extraction failed, falling back to standard:", e);
+        // Fall through to standard normalization
+      }
     }
 
     // Stage 1: Neo4j graph lookup (instant, structured)

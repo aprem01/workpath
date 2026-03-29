@@ -70,6 +70,31 @@ function SkillsPageInner() {
         });
         const data = await res.json();
 
+        // Handle natural language input (multiple extracted skills)
+        if (data.isNaturalLanguage && data.extractedSkills?.length > 0) {
+          const newSkills: Skill[] = data.extractedSkills.map(
+            (es: { rawPhrase: string; normalizedTerm: string; category: string; aiResistanceScore: number }) => ({
+              rawInput: es.rawPhrase,
+              normalizedTerm: es.normalizedTerm,
+              category: es.category || "other",
+              isAISuggested: false,
+              aiResistanceScore: es.aiResistanceScore || 50,
+            })
+          );
+
+          setSkills((prev) => {
+            const existing = new Set(prev.map((s) => s.normalizedTerm.toLowerCase()));
+            const toAdd = newSkills.filter(
+              (s) => !existing.has(s.normalizedTerm.toLowerCase())
+            );
+            return [...prev, ...toAdd];
+          });
+
+          setSuggestions(data.aiSuggestions || []);
+          setIsLoading(false);
+          return;
+        }
+
         // Layer 1 (User Layer): keep their exact words in the basket
         const newSkill: Skill = {
           rawInput: trimmed,
