@@ -692,6 +692,138 @@ async function main() {
   console.log(`  Created ${resourceCount} upskill resources.\n`);
 
   // =====================
+  // 6. Tech vertical jobs (so non-HHA users see relevant results)
+  // =====================
+  console.log("Creating tech vertical jobs...");
+
+  const techJobs = [
+    {
+      title: "Junior Python Developer",
+      employer: "DataTech Solutions",
+      location: "Chicago, IL (Remote)",
+      vertical: "tech",
+      description: "Build data pipelines and automation scripts. Work with a senior team on ETL processes, API integrations, and internal tools. Great entry point for career changers with Python basics.",
+      payMin: 3500, payMax: 4500, payType: "hourly", shiftType: "full_time",
+      skills: [
+        { normalizedTerm: "Python Programming", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "SQL", proficiencyLevel: "beginner", isRequired: true },
+        { normalizedTerm: "Version Control (Git)", proficiencyLevel: "beginner", isRequired: false },
+        { normalizedTerm: "API Integration", proficiencyLevel: "beginner", isRequired: false },
+      ],
+    },
+    {
+      title: "Data Analyst",
+      employer: "Midwest Analytics Corp",
+      location: "Chicago, IL",
+      vertical: "tech",
+      description: "Analyze business data, create dashboards, and present insights to stakeholders. SQL and Excel required, Python a plus.",
+      payMin: 3200, payMax: 4200, payType: "hourly", shiftType: "full_time",
+      skills: [
+        { normalizedTerm: "SQL", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Data Analysis", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Excel / Spreadsheets", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Python Programming", proficiencyLevel: "beginner", isRequired: false },
+        { normalizedTerm: "Business Intelligence", proficiencyLevel: "beginner", isRequired: false },
+      ],
+    },
+    {
+      title: "Frontend Developer",
+      employer: "StartupHub Chicago",
+      location: "Chicago, IL (Hybrid)",
+      vertical: "tech",
+      description: "Build responsive web interfaces using React and TypeScript. Collaborate with designers on user-facing features. Fast-paced startup environment.",
+      payMin: 4000, payMax: 5500, payType: "hourly", shiftType: "full_time",
+      skills: [
+        { normalizedTerm: "JavaScript", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "React", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "TypeScript", proficiencyLevel: "beginner", isRequired: true },
+        { normalizedTerm: "CSS / Tailwind", proficiencyLevel: "intermediate", isRequired: false },
+        { normalizedTerm: "Version Control (Git)", proficiencyLevel: "intermediate", isRequired: false },
+      ],
+    },
+    {
+      title: "QA / Test Engineer",
+      employer: "Reliable Software Inc",
+      location: "Chicago, IL (Remote)",
+      vertical: "tech",
+      description: "Write and maintain automated tests. Manual and automated testing of web applications. Great for detail-oriented people transitioning into tech.",
+      payMin: 3000, payMax: 4000, payType: "hourly", shiftType: "full_time",
+      skills: [
+        { normalizedTerm: "Quality Assurance Testing", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Python Programming", proficiencyLevel: "beginner", isRequired: true },
+        { normalizedTerm: "SQL", proficiencyLevel: "beginner", isRequired: false },
+        { normalizedTerm: "API Integration", proficiencyLevel: "beginner", isRequired: false },
+      ],
+    },
+    {
+      title: "IT Support Specialist",
+      employer: "CityTech Services",
+      location: "Chicago, IL",
+      vertical: "tech",
+      description: "Provide technical support to office staff. Troubleshoot hardware, software, and network issues. No degree required — certifications valued.",
+      payMin: 2200, payMax: 2800, payType: "hourly", shiftType: "full_time",
+      skills: [
+        { normalizedTerm: "Technical Troubleshooting", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Customer Service", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Networking Basics", proficiencyLevel: "beginner", isRequired: false },
+        { normalizedTerm: "Documentation", proficiencyLevel: "beginner", isRequired: false },
+      ],
+    },
+    {
+      title: "DevOps Engineer",
+      employer: "CloudFirst Chicago",
+      location: "Chicago, IL (Remote)",
+      vertical: "tech",
+      description: "Manage CI/CD pipelines, cloud infrastructure, and deployment automation. AWS or GCP experience required.",
+      payMin: 5500, payMax: 7500, payType: "hourly", shiftType: "full_time",
+      skills: [
+        { normalizedTerm: "DevOps Engineering", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Cloud Infrastructure Design", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Python Programming", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Version Control (Git)", proficiencyLevel: "intermediate", isRequired: false },
+        { normalizedTerm: "Cybersecurity Analysis", proficiencyLevel: "beginner", isRequired: false },
+      ],
+    },
+    {
+      title: "Project Manager — Tech",
+      employer: "Agile Works LLC",
+      location: "Chicago, IL (Hybrid)",
+      vertical: "tech",
+      description: "Lead cross-functional engineering teams. Manage sprint planning, stakeholder communication, and delivery timelines. PMP or Scrum certification preferred.",
+      payMin: 5000, payMax: 6500, payType: "hourly", shiftType: "full_time",
+      skills: [
+        { normalizedTerm: "Project Management", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Technical Team Leadership", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Client Requirements Analysis", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Product Management", proficiencyLevel: "beginner", isRequired: false },
+      ],
+    },
+    {
+      title: "Cybersecurity Analyst",
+      employer: "SecureNet Chicago",
+      location: "Chicago, IL",
+      vertical: "tech",
+      description: "Monitor security systems, investigate incidents, and implement security controls. Entry level — training provided for strong analytical thinkers.",
+      payMin: 4000, payMax: 5000, payType: "hourly", shiftType: "full_time",
+      skills: [
+        { normalizedTerm: "Cybersecurity Analysis", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Networking Basics", proficiencyLevel: "intermediate", isRequired: true },
+        { normalizedTerm: "Technical Troubleshooting", proficiencyLevel: "beginner", isRequired: false },
+        { normalizedTerm: "Documentation", proficiencyLevel: "beginner", isRequired: false },
+      ],
+    },
+  ];
+
+  for (const { skills: jobSkills, ...jobData } of techJobs) {
+    await prisma.job.create({
+      data: { ...jobData, requiredSkills: { create: jobSkills } },
+    });
+  }
+
+  const techJobCount = await prisma.job.count({ where: { vertical: "tech" } });
+  console.log(`  Created ${techJobCount} tech jobs.\n`);
+
+  // =====================
   // Summary
   // =====================
   console.log("=== Seed Summary ===");

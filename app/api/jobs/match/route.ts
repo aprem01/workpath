@@ -158,9 +158,14 @@ export async function POST(req: Request) {
         })),
       };
 
+      // Relevance filter: user must match at least 1 required skill
+      // (prevents showing completely unrelated jobs as gap matches)
+      const matchedRequiredCount = requiredTerms.length - missingRequired.length;
+
       if (missingRequired.length === 0) {
         qualifiedJobs.push(jobResult);
-      } else if (missingRequired.length <= 2) {
+      } else if (missingRequired.length <= 2 && matchedRequiredCount >= 1) {
+        // Only show as gap job if user has SOME relevant skills for this role
         gapJobs.push(jobResult);
       }
     }
