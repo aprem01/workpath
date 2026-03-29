@@ -104,10 +104,32 @@ export async function POST(req: Request) {
       s.normalizedTerm.toLowerCase()
     );
 
+    // Detect user's dominant vertical by checking which jobs they match best
+    // This prevents showing food service jobs to a Python developer
     const allJobs = await prisma.job.findMany({
       where: { isActive: true },
       include: { requiredSkills: true },
     });
+
+    // Score each vertical by how many skills match its jobs
+    const verticalScores: Record<string, number> = {};
+    for (const job of allJobs) {
+      const reqTerms = job.requiredSkills
+        .filter((s) => s.isRequired)
+        .map((s) => s.normalizedTerm.toLowerCase());
+      const matchCount = reqTerms.filter((t) => userHasSkill(userSkillTerms, t)).length;
+      if (matchCount > 0) {
+        verticalScores[job.vertical] = (verticalScores[job.vertical] || 0) + matchCount;
+      }
+    }
+
+    // Find the dominant vertical(s) — verticals with the highest match scores
+    const maxVerticalScore = Math.max(...Object.values(verticalScores), 0);
+    const dominantVerticals = new Set(
+      Object.entries(verticalScores)
+        .filter(([, score]) => score >= maxVerticalScore * 0.5) // within 50% of top
+        .map(([v]) => v)
+    );
 
     const qualifiedJobs: JobResult[] = [];
     const gapJobs: JobResult[] = [];
@@ -158,20 +180,26 @@ export async function POST(req: Request) {
         })),
       };
 
-      // Relevance filter: user must match a meaningful portion of required skills
+      // Relevance filter: vertical-aware + meaningful skill match
       const matchedRequiredCount = requiredTerms.length - missingRequired.length;
       const matchRatio = requiredTerms.length > 0
         ? matchedRequiredCount / requiredTerms.length
         : 0;
+      const isRelevantVertical =
+        dominantVerticals.size === 0 || dominantVerticals.has(job.vertical);
 
       if (missingRequired.length === 0) {
-        qualifiedJobs.push(jobResult);
-      } else if (
-        missingRequired.length <= 2 &&
-        matchedRequiredCount >= 1 &&
-        matchRatio >= 0.3 // Must match at least 30% of required skills
-      ) {
-        gapJobs.push(jobResult);
+        if (isRelevantVertical || matchedRequiredCount >= 2) {
+          qualifiedJobs.push(jobResult);
+        }
+      } else if (missingRequired.length <= 2) {
+        // Gap jobs: must match 50%+ AND be in relevant vertical
+        // Cross-vertical only if 70%+ match with 2+ skills
+        const inVertical = isRelevantVertical && matchRatio >= 0.5 && matchedRequiredCount >= 1;
+        const crossVertical = !isRelevantVertical && matchRatio >= 0.7 && matchedRequiredCount >= 2;
+        if (inVertical || crossVertical) {
+          gapJobs.push(jobResult);
+        }
       }
     }
 
