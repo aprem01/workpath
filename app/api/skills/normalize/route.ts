@@ -1,102 +1,87 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import {
+  findSkillNode,
+  getChildren,
+  getSiblings,
+  getRelatedWithinHops,
+  getAIProofSkills,
+} from "@/lib/neo4j";
 
 export const dynamic = "force-dynamic";
 
 const client = new Anthropic();
 
-// ─── Stage 1: Graph lookup ─────────────────────────────────────────
-// Check aliases, find parent→children, siblings, same-vertical nodes.
-// This is instant (DB) and gives structured, consistent results.
+// ─── Stage 1: Neo4j Graph Lookup (instant) ─────────────────────────
+// Graph DB gives us: aliases, parent→child, siblings, 2-hop related
 async function graphLookup(rawSkill: string, existingSkills: string[]) {
-  const term = rawSkill.toLowerCase().trim();
   const existingSet = new Set(existingSkills.map((s) => s.toLowerCase()));
 
-  // Check alias table
-  const alias = await prisma.skillAlias.findUnique({
-    where: { rawTerm: term },
-    include: {
-      skillNode: {
-        include: {
-          children: true,
-          parent: { include: { children: true } },
-        },
-      },
-    },
-  });
+  // Find the node (checks aliases + direct canonical match)
+  const node = await findSkillNode(rawSkill);
+  if (!node) return null;
 
-  if (!alias) {
-    // Also try matching canonical term directly
-    const directNode = await prisma.skillNode.findUnique({
-      where: { canonicalTerm: rawSkill.trim() },
-      include: {
-        children: true,
-        parent: { include: { children: true } },
-      },
-    });
-    if (!directNode) return null;
-    return buildGraphResponse(directNode, existingSet);
-  }
+  existingSet.add(node.term.toLowerCase());
 
-  return buildGraphResponse(alias.skillNode, existingSet);
-}
+  // Get children (parent→canonical or canonical→micro)
+  const children = await getChildren(node.term);
+  const childSkills = children
+    .filter((c) => c.layer !== "micro" && !existingSet.has(c.term.toLowerCase()))
+    .map((c) => c.term);
+  const microSkills = children
+    .filter((c) => c.layer === "micro" && !existingSet.has(c.term.toLowerCase()))
+    .map((c) => c.term);
 
-function buildGraphResponse(
-  node: {
-    canonicalTerm: string;
-    vertical: string | null;
-    layer: string;
-    aiResistanceScore: number;
-    children: { canonicalTerm: string; aiResistanceScore: number; layer: string }[];
-    parent: { children: { canonicalTerm: string; aiResistanceScore: number }[] } | null;
-  },
-  existingSet: Set<string>
-) {
-  const related: string[] = [];
-  const childSkills: string[] = [];
-  const microSkills: string[] = [];
+  // Get siblings
+  const siblings = await getSiblings(node.term);
+  const siblingTerms = siblings
+    .filter((s) => !existingSet.has(s.term.toLowerCase()))
+    .map((s) => s.term);
 
-  // Children → if parent skill, these are the structured sub-skills
-  for (const child of node.children) {
-    if (!existingSet.has(child.canonicalTerm.toLowerCase())) {
-      if (child.layer === "micro") {
-        microSkills.push(child.canonicalTerm);
-      } else {
-        childSkills.push(child.canonicalTerm);
-      }
-    }
-  }
+  // GRAPH POWER: 2-hop traversal — finds skills that are 1-2 relationships away
+  const related = await getRelatedWithinHops(node.term, 2, 15);
+  const relatedTerms = related
+    .filter((r) => !existingSet.has(r.term.toLowerCase()))
+    .map((r) => r.term);
 
-  // Siblings (other children of same parent)
-  if (node.parent) {
-    for (const sibling of node.parent.children) {
-      if (
-        sibling.canonicalTerm !== node.canonicalTerm &&
-        !existingSet.has(sibling.canonicalTerm.toLowerCase())
-      ) {
-        related.push(sibling.canonicalTerm);
+  // AI-proof recommendations from the graph
+  const aiProof = await getAIProofSkills(
+    [...existingSkills, node.term],
+    5
+  );
+  const aiProofTerms = aiProof.map((s) => s.term);
+
+  // Merge all suggestions (dedupe)
+  const seen = new Set<string>();
+  const allSuggestions: string[] = [];
+  for (const list of [childSkills, microSkills, siblingTerms, relatedTerms, aiProofTerms]) {
+    for (const term of list) {
+      const lower = term.toLowerCase();
+      if (!seen.has(lower) && !existingSet.has(lower)) {
+        seen.add(lower);
+        allSuggestions.push(term);
       }
     }
   }
 
   return {
-    normalizedTerm: node.canonicalTerm,
+    normalizedTerm: node.term,
     category: node.vertical || "other",
     layer: node.layer,
     isRecognized: true,
-    aiResistanceScore: node.aiResistanceScore,
+    aiResistanceScore: node.aiResistance,
     childSkills,
     microSkills,
-    aiSuggestions: [...childSkills, ...microSkills, ...related],
+    aiSuggestions: allSuggestions,
     note: "",
-    source: "graph",
+    source: "neo4j_graph",
   };
 }
 
-// ─── Stage 2: AI taxonomy expansion ────────────────────────────────
-// For skills NOT in the graph, Claude generates the full 3-layer response.
-// This is the "intelligence" layer — it understands any vertical, any skill.
+// ─── Stage 2: AI Taxonomy Expansion ────────────────────────────────
+// Claude generates full 3-layer response for ANY skill in ANY vertical.
+// Inspired by Karpathy's jobs project: LLM scoring for AI exposure.
 async function aiTaxonomyExpansion(
   rawSkill: string,
   existingSkills: string[]
@@ -107,36 +92,39 @@ async function aiTaxonomyExpansion(
     messages: [
       {
         role: "user",
-        content: `You are a world-class labor market taxonomy engine. You build structured skill graphs that help job seekers and employers match with precision.
+        content: `You are a world-class labor market taxonomy engine that builds structured skill graphs.
+You understand Bureau of Labor Statistics occupation data, O*NET skill classifications, and AI automation research.
 
 A job seeker typed: "${rawSkill}"
 Their current skill basket: ${existingSkills.join(", ") || "empty"}
 
-You must return a 3-layer skill taxonomy response. This is what makes us an intelligence platform, not a job board.
-
-Return ONLY valid JSON (no markdown, no explanation):
+Return ONLY valid JSON:
 {
-  "normalizedTerm": "the canonical professional term for this skill",
+  "normalizedTerm": "canonical professional term (use BLS/O*NET terminology when possible)",
   "category": "healthcare | trades | tech | admin | food_service | transport | education | retail | finance | legal | creative | engineering | management | other",
   "layer": "canonical | parent | micro",
   "isRecognized": true,
   "aiResistanceScore": 0-100,
-  "childSkills": ["if this is a PARENT/BROAD skill, list 4-6 specific sub-skills that break it down into concrete capabilities"],
-  "microSkills": ["if this is a SPECIFIC skill, list 3-5 proficiency-level variants like 'Python: Data Analysis', 'CPR: Pediatric'"],
-  "aiSuggestions": ["8-15 related skills — mix of: skills they probably already have, skills that unlock higher pay, and AI-proof skills. Consider ALL skills in their basket for context"],
-  "payImpact": "one sentence on how this skill affects pay in the relevant vertical",
-  "aiRiskNote": "one sentence on whether AI threatens or enhances this skill",
+  "childSkills": ["if PARENT/BROAD: 4-6 specific sub-skills"],
+  "microSkills": ["if SPECIFIC: 3-5 proficiency variants (e.g. 'Python: Data Analysis')"],
+  "aiSuggestions": ["10-15 related skills — prioritize: (1) AI-proof skills first, (2) skills that bridge to higher-paying roles, (3) complementary skills based on full basket"],
+  "payImpact": "one sentence: how this skill affects pay (use BLS data patterns)",
+  "aiRiskNote": "one sentence: AI automation risk level and what to do about it",
+  "blsOccupations": ["1-3 BLS occupation titles this skill maps to"],
   "note": ""
 }
 
-RULES — read carefully:
-1. ALIASES: If the input is colloquial ("cooking", "helping old people"), normalize to the professional term
-2. PARENT→CHILD: If the input is broad ("Caregiving", "Programming", "Project Management"), set layer="parent" and populate childSkills with 4-6 concrete sub-skills
-3. MICRO-SKILLS: If the input is specific ("Python", "CPR", "Excel"), populate microSkills with proficiency variants so employers can evaluate depth (e.g. "Python: Scripting", "Python: Data Analysis", "Python: ML/AI", "Python: Web Development")
-4. aiResistanceScore: Physical hands-on care=85-95, emotional/interpersonal=80-90, creative/strategic=70-80, routine cognitive=40-60, data entry/admin=20-40
-5. aiSuggestions must be contextual — use the FULL basket to suggest complementary skills, not generic ones
-6. Never repeat skills already in the basket
-7. This works for ALL verticals: healthcare, tech, trades, finance, law, creative, executive — not just HHA`,
+SCORING RULES (inspired by labor economics research):
+- aiResistanceScore: Physical dexterity + human judgment = 85-95, Creative/strategic = 70-85, Routine cognitive = 40-60, Data entry/processing = 15-35
+- Skills requiring empathy, physical presence, trust-building, or novel problem-solving are most AI-resistant
+- Skills that are purely information processing, pattern matching, or rule-following are most at risk
+- The BEST career advice: combine a domain skill with an AI-complementary skill (e.g. "Nursing + Data Literacy")
+
+SUGGESTION RULES:
+- First 3 suggestions should be AI-PROOF skills (aiResistance > 75)
+- Next 3 should be CAREER-BRIDGING skills (unlock higher-paying roles)
+- Remaining should be BASKET-COMPLEMENTARY (co-occur with existing skills)
+- Never repeat skills already in the basket`,
       },
     ],
   });
@@ -145,34 +133,24 @@ RULES — read carefully:
   return JSON.parse(text);
 }
 
-// ─── Stage 3: Graph enrichment ─────────────────────────────────────
-// After AI responds, also pull related skills from the DB graph to supplement
-async function enrichWithGraph(
+// ─── Stage 3: Graph Enrichment ─────────────────────────────────────
+async function enrichFromGraph(
   normalizedTerm: string,
   existingSkills: string[],
   currentSuggestions: string[]
 ): Promise<string[]> {
-  const existingSet = new Set([
-    ...existingSkills.map((s) => s.toLowerCase()),
-    ...currentSuggestions.map((s) => s.toLowerCase()),
-    normalizedTerm.toLowerCase(),
-  ]);
-
-  const sameVertical = await prisma.skillNode.findMany({
-    where: {
-      layer: "canonical",
-      canonicalTerm: { not: { in: Array.from(existingSet) } },
-    },
-    take: 8,
-    orderBy: { aiResistanceScore: "desc" },
-  });
-
-  return sameVertical
-    .filter((s) => !existingSet.has(s.canonicalTerm.toLowerCase()))
-    .map((s) => s.canonicalTerm);
+  try {
+    const aiProof = await getAIProofSkills(
+      [...existingSkills, normalizedTerm, ...currentSuggestions],
+      5
+    );
+    return aiProof.map((s) => s.term);
+  } catch {
+    return [];
+  }
 }
 
-// ─── Main handler ──────────────────────────────────────────────────
+// ─── Main Handler ──────────────────────────────────────────────────
 export async function POST(req: Request) {
   let rawSkill = "";
   try {
@@ -187,18 +165,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // Stage 1: Try graph lookup (instant, structured)
-    const graphResult = await graphLookup(rawSkill, existingSkills);
+    // Stage 1: Neo4j graph lookup (instant, structured)
+    let result;
+    try {
+      result = await graphLookup(rawSkill, existingSkills);
+    } catch (e) {
+      console.warn("Neo4j lookup failed, falling back to AI:", e);
+    }
 
-    if (graphResult) {
-      // Enrich with more graph suggestions
-      const extra = await enrichWithGraph(
-        graphResult.normalizedTerm,
-        existingSkills,
-        graphResult.aiSuggestions
-      );
-      graphResult.aiSuggestions = [...graphResult.aiSuggestions, ...extra];
-
+    if (result) {
       // Track analytics
       try {
         await prisma.analyticsEvent.create({
@@ -206,37 +181,34 @@ export async function POST(req: Request) {
             event: "skill_added",
             metadata: JSON.stringify({
               rawSkill,
-              normalized: graphResult.normalizedTerm,
-              source: "graph",
-              layer: graphResult.layer,
+              normalized: result.normalizedTerm,
+              source: "neo4j_graph",
+              layer: result.layer,
             }),
           },
         });
       } catch {}
-
-      return NextResponse.json(graphResult);
+      return NextResponse.json(result);
     }
 
-    // Stage 2: AI taxonomy expansion (smart, handles any vertical)
+    // Stage 2: AI taxonomy expansion
     const aiResult = await aiTaxonomyExpansion(rawSkill, existingSkills);
     aiResult.source = "ai";
 
-    // Stage 3: Enrich AI result with graph data
-    const extra = await enrichWithGraph(
+    // Stage 3: Enrich with graph data
+    const graphExtra = await enrichFromGraph(
       aiResult.normalizedTerm,
       existingSkills,
       [...(aiResult.aiSuggestions || []), ...(aiResult.childSkills || []), ...(aiResult.microSkills || [])]
     );
 
-    // Merge: AI suggestions + child skills + micro skills + graph enrichment
+    // Merge all suggestions (dedupe)
     const allSuggestions = [
       ...(aiResult.childSkills || []),
       ...(aiResult.microSkills || []),
       ...(aiResult.aiSuggestions || []),
-      ...extra,
+      ...graphExtra,
     ];
-
-    // Dedupe
     const seen = new Set<string>();
     aiResult.aiSuggestions = allSuggestions.filter((s: string) => {
       const lower = s.toLowerCase();
