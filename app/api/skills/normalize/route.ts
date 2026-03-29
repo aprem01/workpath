@@ -234,7 +234,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json(aiResult);
   } catch (error) {
-    console.error("Skill normalization error:", error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error("Skill normalization error:", errMsg);
     return NextResponse.json({
       normalizedTerm: rawSkill || "unknown skill",
       category: "other",
@@ -246,6 +247,7 @@ export async function POST(req: Request) {
       aiSuggestions: [],
       note: "",
       source: "fallback",
+      _debug: errMsg,
     });
   }
 }
