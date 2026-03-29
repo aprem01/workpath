@@ -53,7 +53,7 @@ export default function LandingPage() {
               value={skill}
               onChange={(e) => setSkill(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ex: cooking, sales, or &quot;I worked in a restaurant&quot;"
+              placeholder="Ex: driving, sales, or &quot;I worked in a restaurant&quot;"
               className="w-full px-5 py-3.5 text-base rounded-lg border-2 border-gray-200 bg-white focus:outline-none focus:border-magenta/40 focus:ring-2 focus:ring-magenta/10 transition-all placeholder:text-gray-400 text-center"
               autoFocus
             />

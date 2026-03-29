@@ -92,22 +92,23 @@ export default function MatchRevealPage() {
 
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
-      {/* ── Header ── */}
-      <header className="py-6 px-4">
+      {/* ── Header with nav ── */}
+      <header className="py-3 px-4 border-b border-gray-100 bg-white">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">
+          <a href="/" className="text-2xl font-bold tracking-tight">
             <span className="text-magenta">Pay</span>
             <span className="text-amber">Ranker</span>
-          </h1>
-          {/* Hamburger menu icon — 3 lines */}
-          <button
-            aria-label="Menu"
-            className="text-gray-400 hover:text-gray-600 flex flex-col justify-center gap-[5px]"
-          >
-            <span className="block w-6 h-[2px] bg-current" />
-            <span className="block w-6 h-[2px] bg-current" />
-            <span className="block w-6 h-[2px] bg-current" />
-          </button>
+          </a>
+          <nav className="flex items-center gap-4">
+            <a href="/skills" className="text-sm font-semibold text-magenta hover:text-magenta-dark transition-colors">
+              Your Skills
+            </a>
+            <button className="text-gray-400 hover:text-gray-600 ml-1">
+              <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 11h18M3 5.5h18M3 16.5h18" />
+              </svg>
+            </button>
+          </nav>
         </div>
       </header>
 

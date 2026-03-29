@@ -272,13 +272,11 @@ function ProfilePageInner() {
                     className={selectClass}
                   >
                     <option value="">Select...</option>
-                    <option value="h1b">H-1B</option>
                     <option value="citizen">U.S. Citizen</option>
                     <option value="green_card">Green Card</option>
+                    <option value="h1b">H-1B Visa</option>
                     <option value="authorized">Authorized to Work</option>
-                    <option value="need_sponsorship">
-                      Require Sponsorship
-                    </option>
+                    <option value="need_sponsorship">Require Sponsorship</option>
                   </select>
                 </div>
               </div>

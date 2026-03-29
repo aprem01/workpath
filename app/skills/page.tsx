@@ -255,7 +255,7 @@ function SkillsPageInner() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ex: cooking, sales, or &quot;I worked in a restaurant&quot;"
+              placeholder="Ex: driving, sales, or &quot;I worked in a restaurant&quot;"
               disabled={isLoading}
               className="w-full px-5 py-3.5 text-base rounded-lg border-2 border-magenta/40 bg-white focus:outline-none focus:border-magenta focus:ring-2 focus:ring-magenta/15 transition-all placeholder:text-gray-400 text-center disabled:opacity-50"
               autoFocus
@@ -299,20 +299,30 @@ function SkillsPageInner() {
             </div>
             <div className="bg-white border-[3px] border-gray-300 rounded-2xl p-4 min-h-[100px] max-h-[200px] overflow-y-auto">
               <div className="flex flex-wrap gap-2">
-                {skills.map((s, i) => (
-                  <span
-                    key={`${s.rawInput}-${i}`}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold animate-pill-pop bg-amber text-white shadow-sm"
-                  >
-                    {s.rawInput}
-                    <button
-                      onClick={() => removeSkill(i)}
-                      className="hover:opacity-70 transition-opacity ml-0.5"
+                {skills.map((s, i) => {
+                  const isCert = /certif|license|licensed|certified|cpr|aed|osha/i.test(
+                    s.rawInput + " " + s.normalizedTerm
+                  );
+                  return (
+                    <span
+                      key={`${s.rawInput}-${i}`}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold animate-pill-pop bg-magenta text-white shadow-sm"
                     >
-                      <X size={14} />
-                    </button>
-                  </span>
-                ))}
+                      {isCert && (
+                        <span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded-full -ml-1">
+                          CERT
+                        </span>
+                      )}
+                      {s.rawInput}
+                      <button
+                        onClick={() => removeSkill(i)}
+                        className="hover:opacity-70 transition-opacity ml-0.5"
+                      >
+                        <X size={14} />
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
             </div>
           </div>

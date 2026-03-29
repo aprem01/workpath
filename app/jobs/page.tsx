@@ -372,25 +372,33 @@ export default function JobsPage() {
   /* ------------------------------------------------------------------ */
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
-      {/* Header */}
-      <header className="py-4 px-4 border-b border-gray-100 bg-white">
+      {/* Header with nav */}
+      <header className="py-3 px-4 border-b border-gray-100 bg-white">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold">
+          <a href="/" className="text-2xl font-bold">
             <span className="text-magenta">Pay</span>
             <span className="text-amber">Ranker</span>
-          </h1>
-          {/* Hamburger menu */}
-          <button className="text-gray-400 hover:text-gray-600">
-            <svg
-              width="24"
-              height="24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+          </a>
+          <nav className="flex items-center gap-4">
+            <a
+              href="/skills"
+              className="text-sm font-semibold text-magenta hover:text-magenta-dark transition-colors"
             >
-              <path d="M3 12h18M3 6h18M3 18h18" />
-            </svg>
-          </button>
+              Your Skills
+            </a>
+            <button className="text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors relative">
+              Messages
+              <span className="absolute -top-1.5 -right-3 bg-magenta text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                0
+              </span>
+            </button>
+            {/* Hamburger */}
+            <button className="text-gray-400 hover:text-gray-600 ml-1">
+              <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 11h18M3 5.5h18M3 16.5h18" />
+              </svg>
+            </button>
+          </nav>
         </div>
       </header>
 
