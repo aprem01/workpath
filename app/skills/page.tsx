@@ -123,10 +123,17 @@ function SkillsPageInner() {
     [skills, isLoading]
   );
 
-  // Auto-add skill from URL param
+  // Auto-add skill from URL param — fresh start when arriving from landing
   useEffect(() => {
     const skillParam = searchParams.get("skill");
-    if (skillParam && skills.length === 0) {
+    if (skillParam) {
+      // Clear previous session when arriving from landing page
+      localStorage.removeItem("payranker_skills");
+      localStorage.removeItem("payranker_profile_complete");
+      localStorage.removeItem("payranker_profile");
+      localStorage.removeItem("payranker_applied");
+      setSkills([]);
+      setSuggestions([]);
       normalizeAndAdd(skillParam);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
