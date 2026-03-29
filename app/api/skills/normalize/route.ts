@@ -7,6 +7,10 @@ import {
   getSiblings,
   getRelatedWithinHops,
   getAIProofSkills,
+  createSkillNode,
+  createAlias,
+  createChildNodes,
+  createRelatedEdges,
 } from "@/lib/neo4j";
 
 export const dynamic = "force-dynamic";
@@ -213,6 +217,61 @@ export async function POST(req: Request) {
       existingSkills,
       [...(aiResult.aiSuggestions || []), ...(aiResult.childSkills || []), ...(aiResult.microSkills || [])]
     );
+
+    // ─── Write-back: grow the graph with this new skill ────────────
+    // Fire-and-forget — don't block the user response
+    (async () => {
+      try {
+        // 1. Create the skill node
+        await createSkillNode(
+          aiResult.normalizedTerm,
+          aiResult.layer || "canonical",
+          aiResult.aiResistanceScore || 50,
+          aiResult.category === "other" ? null : aiResult.category
+        );
+
+        // 2. Create alias from raw input → canonical
+        if (rawSkill.toLowerCase().trim() !== aiResult.normalizedTerm.toLowerCase()) {
+          await createAlias(rawSkill, aiResult.normalizedTerm);
+        }
+
+        // 3. Create child nodes if AI returned them
+        if (aiResult.childSkills?.length > 0) {
+          await createChildNodes(
+            aiResult.normalizedTerm,
+            aiResult.childSkills.map((term: string) => ({
+              term,
+              layer: "canonical",
+              aiResistance: aiResult.aiResistanceScore || 50,
+            }))
+          );
+        }
+
+        // 4. Create micro-skill nodes
+        if (aiResult.microSkills?.length > 0) {
+          await createChildNodes(
+            aiResult.normalizedTerm,
+            aiResult.microSkills.map((term: string) => ({
+              term,
+              layer: "micro",
+              aiResistance: aiResult.aiResistanceScore || 50,
+            }))
+          );
+        }
+
+        // 5. Create RELATED_TO edges with existing basket skills
+        const existingInGraph: string[] = [];
+        for (const es of existingSkills) {
+          const node = await findSkillNode(es);
+          if (node) existingInGraph.push(node.term);
+        }
+        if (existingInGraph.length > 0) {
+          await createRelatedEdges(aiResult.normalizedTerm, existingInGraph);
+        }
+      } catch (e) {
+        console.warn("Graph write-back failed (non-blocking):", e instanceof Error ? e.message : e);
+      }
+    })();
 
     // Merge all suggestions (dedupe)
     const allSuggestions = [

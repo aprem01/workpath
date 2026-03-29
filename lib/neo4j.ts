@@ -190,6 +190,95 @@ export async function getAIVulnerableSkills(
   }
 }
 
+// ─── Graph Write Helpers (grow the graph with AI-resolved skills) ───
+
+/**
+ * Create a new skill node in Neo4j (if it doesn't exist)
+ */
+export async function createSkillNode(
+  canonicalTerm: string,
+  layer: string,
+  aiResistance: number,
+  vertical: string | null
+): Promise<void> {
+  const session = driver.session({ database: process.env.NEO4J_DATABASE });
+  try {
+    await session.run(
+      `MERGE (s:Skill {canonicalTerm: $term})
+       ON CREATE SET s.layer = $layer, s.aiResistance = $ai, s.vertical = $vertical, s.createdAt = datetime()
+       ON MATCH SET s.aiResistance = $ai`,
+      { term: canonicalTerm, layer, ai: neo4j.int(aiResistance), vertical }
+    );
+  } finally {
+    await session.close();
+  }
+}
+
+/**
+ * Create an alias mapping in Neo4j (if it doesn't exist)
+ */
+export async function createAlias(rawTerm: string, canonicalTerm: string): Promise<void> {
+  const session = driver.session({ database: process.env.NEO4J_DATABASE });
+  try {
+    await session.run(
+      `MATCH (s:Skill {canonicalTerm: $canonical})
+       MERGE (a:Alias {rawTerm: $raw})
+       MERGE (a)-[:MAPS_TO]->(s)`,
+      { raw: rawTerm.toLowerCase().trim(), canonical: canonicalTerm }
+    );
+  } finally {
+    await session.close();
+  }
+}
+
+/**
+ * Create RELATED_TO edges between a skill and existing basket skills
+ */
+export async function createRelatedEdges(
+  canonicalTerm: string,
+  relatedTerms: string[]
+): Promise<void> {
+  if (relatedTerms.length === 0) return;
+  const session = driver.session({ database: process.env.NEO4J_DATABASE });
+  try {
+    for (const related of relatedTerms) {
+      await session.run(
+        `MATCH (a:Skill {canonicalTerm: $from})
+         MATCH (b:Skill {canonicalTerm: $to})
+         WHERE a <> b
+         MERGE (a)-[:RELATED_TO]->(b)`,
+        { from: canonicalTerm, to: related }
+      );
+    }
+  } finally {
+    await session.close();
+  }
+}
+
+/**
+ * Create child skill nodes under a parent
+ */
+export async function createChildNodes(
+  parentTerm: string,
+  children: { term: string; layer: string; aiResistance: number }[]
+): Promise<void> {
+  if (children.length === 0) return;
+  const session = driver.session({ database: process.env.NEO4J_DATABASE });
+  try {
+    for (const child of children) {
+      await session.run(
+        `MATCH (p:Skill {canonicalTerm: $parent})
+         MERGE (c:Skill {canonicalTerm: $term})
+         ON CREATE SET c.layer = $layer, c.aiResistance = $ai, c.createdAt = datetime()
+         MERGE (p)-[:HAS_CHILD]->(c)`,
+        { parent: parentTerm, term: child.term, layer: child.layer, ai: neo4j.int(child.aiResistance) }
+      );
+    }
+  } finally {
+    await session.close();
+  }
+}
+
 /**
  * Get high AI-resistance skills (AI-proof recommendations)
  */
