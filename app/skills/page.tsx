@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { X, ArrowRight, Loader2, Plus } from "lucide-react";
 
@@ -35,6 +35,7 @@ function SkillsPageInner() {
     if (skills.length > 0) {
       localStorage.setItem("payranker_skills", JSON.stringify(skills));
     }
+    // Don't remove on empty — Clear all handles that explicitly
   }, [skills]);
 
   const normalizeAndAdd = useCallback(
@@ -124,9 +125,13 @@ function SkillsPageInner() {
   );
 
   // Auto-add skill from URL param — fresh start when arriving from landing
+  // Uses a ref to ensure this only runs ONCE on initial mount
+  const hasProcessedUrlParam = useRef(false);
   useEffect(() => {
+    if (hasProcessedUrlParam.current) return;
     const skillParam = searchParams.get("skill");
     if (skillParam) {
+      hasProcessedUrlParam.current = true;
       // Clear previous session when arriving from landing page
       localStorage.removeItem("payranker_skills");
       localStorage.removeItem("payranker_profile_complete");
