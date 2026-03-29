@@ -242,9 +242,9 @@ function SkillsPageInner() {
           Find the highest-paying jobs for your skills.
         </h2>
 
-        {/* Start with one skill */}
+        {/* Prompt */}
         <p className="text-sm font-bold text-amber-dark text-center mb-3">
-          Start with one skill
+          Type a skill or tell us what you do
         </p>
 
         {/* Skill input — magenta border like design */}
@@ -255,7 +255,7 @@ function SkillsPageInner() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ex: cooking, caregiving, sales, coding"
+              placeholder="Ex: cooking, sales, or &quot;I worked in a restaurant&quot;"
               disabled={isLoading}
               className="w-full px-5 py-3.5 text-base rounded-lg border-2 border-magenta/40 bg-white focus:outline-none focus:border-magenta focus:ring-2 focus:ring-magenta/15 transition-all placeholder:text-gray-400 text-center disabled:opacity-50"
               autoFocus
