@@ -170,7 +170,7 @@ export async function POST(req: Request) {
     try {
       result = await graphLookup(rawSkill, existingSkills);
     } catch (e) {
-      console.warn("Neo4j lookup failed, falling back to AI:", e);
+      console.error("Neo4j lookup failed, falling back to AI:", e instanceof Error ? e.message : e);
     }
 
     if (result) {
