@@ -169,10 +169,12 @@ export async function POST(req: Request) {
 
     // Stage 1: Neo4j graph lookup (instant, structured)
     let result;
+    let neo4jError = "";
     try {
       result = await graphLookup(rawSkill, existingSkills);
     } catch (e) {
-      console.error("Neo4j lookup failed, falling back to AI:", e instanceof Error ? e.message : e);
+      neo4jError = e instanceof Error ? e.message : String(e);
+      console.error("Neo4j lookup failed:", neo4jError);
     }
 
     if (result) {
@@ -196,6 +198,7 @@ export async function POST(req: Request) {
     // Stage 2: AI taxonomy expansion
     const aiResult = await aiTaxonomyExpansion(rawSkill, existingSkills);
     aiResult.source = "ai";
+    if (neo4jError) aiResult._neo4jError = neo4jError;
 
     // Stage 3: Enrich with graph data
     const graphExtra = await enrichFromGraph(
