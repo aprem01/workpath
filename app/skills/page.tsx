@@ -233,9 +233,21 @@ function SkillsPageInner() {
         {/* YOUR SKILLS — thick gray bordered basket like Caroline's design */}
         {skills.length > 0 && (
           <div className="mb-6">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-              Your Skills
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Your Skills
+              </p>
+              <button
+                onClick={() => {
+                  setSkills([]);
+                  setSuggestions([]);
+                  localStorage.removeItem("payranker_skills");
+                }}
+                className="text-xs text-gray-400 hover:text-magenta transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
             <div className="bg-white border-[3px] border-gray-300 rounded-2xl p-4 min-h-[100px] max-h-[200px] overflow-y-auto">
               <div className="flex flex-wrap gap-2">
                 {skills.map((s, i) => (
