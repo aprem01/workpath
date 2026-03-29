@@ -136,11 +136,18 @@ SUGGESTION RULES:
 }
 
 // ─── Stage 3: Graph Enrichment ─────────────────────────────────────
+// Only enrich with graph skills if the resolved skill is in the same
+// vertical as the graph data. Don't mix HHA skills into a Python basket.
 async function enrichFromGraph(
   normalizedTerm: string,
+  category: string,
   existingSkills: string[],
   currentSuggestions: string[]
 ): Promise<string[]> {
+  // Only enrich if the skill is in the healthcare/HHA vertical (what's in our graph)
+  const graphVerticals = ["healthcare", "home_health_aide", "other"];
+  if (!graphVerticals.includes(category)) return [];
+
   try {
     const aiProof = await getAIProofSkills(
       [...existingSkills, normalizedTerm, ...currentSuggestions],
@@ -202,6 +209,7 @@ export async function POST(req: Request) {
     // Stage 3: Enrich with graph data
     const graphExtra = await enrichFromGraph(
       aiResult.normalizedTerm,
+      aiResult.category || "other",
       existingSkills,
       [...(aiResult.aiSuggestions || []), ...(aiResult.childSkills || []), ...(aiResult.microSkills || [])]
     );
