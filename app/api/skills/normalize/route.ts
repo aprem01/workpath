@@ -129,7 +129,9 @@ SUGGESTION RULES:
     ],
   });
 
-  const text = (message.content[0] as { type: string; text: string }).text;
+  let text = (message.content[0] as { type: string; text: string }).text;
+  // Strip markdown code fences if present
+  text = text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
   return JSON.parse(text);
 }
 
