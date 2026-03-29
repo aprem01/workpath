@@ -130,7 +130,7 @@ export default function JobsPage() {
           className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors
                      flex items-center gap-3 border-b border-gray-100"
         >
-          {/* Left: title + location (+ employer when full) */}
+          {/* Left: title + location + missing skills hint */}
           <div className="flex-1 min-w-0">
             <p className="font-bold text-gray-900 text-sm truncate">
               {job.title}
@@ -143,6 +143,12 @@ export default function JobsPage() {
             <p className="text-xs text-gray-500 truncate">
               {job.location.split(",")[0]}
             </p>
+            {/* Show missing skills in collapsed row for gap jobs */}
+            {isGap && job.missingSkills.length > 0 && !isExpanded && (
+              <p className="text-[11px] text-amber-dark mt-0.5 truncate">
+                Need: {job.missingSkills.join(", ")}
+              </p>
+            )}
           </div>
 
           {/* Meta chips */}
@@ -284,9 +290,20 @@ export default function JobsPage() {
         </div>
         <div>
           {qualifiedJobs.length === 0 ? (
-            <p className="p-4 text-sm text-gray-400 text-center">
-              Add more skills to see matches
-            </p>
+            <div className="p-6 text-center">
+              <p className="text-sm text-gray-500 font-medium mb-2">
+                No perfect matches yet
+              </p>
+              <p className="text-xs text-gray-400 mb-3">
+                You&apos;re close! Check the &quot;1–2 more Skills&quot; column — learn one skill and jobs move here.
+              </p>
+              <a
+                href="/skills"
+                className="text-sm text-magenta font-semibold hover:underline"
+              >
+                + Add more skills
+              </a>
+            </div>
           ) : (
             qualifiedJobs.map((j) => renderJobRow(j, false))
           )}
@@ -306,11 +323,31 @@ export default function JobsPage() {
         </div>
         <div>
           {gapJobs.length === 0 ? (
-            <p className="p-4 text-sm text-gray-400 text-center">
-              No gap jobs found
-            </p>
+            <div className="p-6 text-center">
+              <p className="text-sm text-gray-500 font-medium mb-2">
+                {qualifiedJobs.length > 0
+                  ? "You qualify for all nearby jobs!"
+                  : "Add more skills to find jobs within reach"}
+              </p>
+              <a
+                href="/skills"
+                className="text-sm text-magenta font-semibold hover:underline"
+              >
+                + Add more skills
+              </a>
+            </div>
           ) : (
-            gapJobs.map((j) => renderJobRow(j, true))
+            <>
+              {gapJobs.map((j) => renderJobRow(j, true))}
+              <div className="p-3 text-center border-t border-gray-100">
+                <a
+                  href="/skills"
+                  className="text-xs text-magenta font-semibold hover:underline"
+                >
+                  + Add more skills to unlock more jobs
+                </a>
+              </div>
+            </>
           )}
         </div>
       </>
