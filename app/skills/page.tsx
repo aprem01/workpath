@@ -48,9 +48,10 @@ function SkillsPageInner() {
       const trimmed = raw.trim();
       if (!trimmed || isLoading) return;
 
+      // Dedupe by raw input (user's words)
       if (
         skills.some(
-          (s) => s.normalizedTerm.toLowerCase() === trimmed.toLowerCase()
+          (s) => s.rawInput.toLowerCase() === trimmed.toLowerCase()
         )
       )
         return;
@@ -69,6 +70,7 @@ function SkillsPageInner() {
         });
         const data = await res.json();
 
+        // Layer 1 (User Layer): keep their exact words in the basket
         const newSkill: Skill = {
           rawInput: trimmed,
           normalizedTerm: data.normalizedTerm || trimmed,
@@ -77,41 +79,46 @@ function SkillsPageInner() {
           aiResistanceScore: data.aiResistanceScore || 50,
         };
 
-        // Dedupe and add
         setSkills((prev) => {
-          if (
-            prev.some(
-              (s) =>
-                s.normalizedTerm.toLowerCase() ===
-                newSkill.normalizedTerm.toLowerCase()
-            )
-          )
+          if (prev.some((s) => s.rawInput.toLowerCase() === trimmed.toLowerCase()))
             return prev;
           return [...prev, newSkill];
         });
 
-        // Replace suggestions with fresh ones from this skill's response
-        // Each new skill brings its own relevant suggestions
-        const skillSet = new Set(
-          [...skills, newSkill].map((s) => s.normalizedTerm.toLowerCase())
-        );
+        // Layer 2 (System Layer): structured skills as suggestions
+        // If the normalized term differs from raw input, lead with it
+        const allNormalized = skills.map((s) => s.normalizedTerm.toLowerCase());
+        const allRaw = skills.map((s) => s.rawInput.toLowerCase());
+        const excludeSet = new Set([...allNormalized, ...allRaw, trimmed.toLowerCase()]);
 
-        const freshSuggestions = [
+        const structuredSuggestions: string[] = [];
+
+        // Add the normalized term as first suggestion if it differs from input
+        if (
+          data.normalizedTerm &&
+          data.normalizedTerm.toLowerCase() !== trimmed.toLowerCase() &&
+          !excludeSet.has(data.normalizedTerm.toLowerCase())
+        ) {
+          structuredSuggestions.push(data.normalizedTerm);
+          excludeSet.add(data.normalizedTerm.toLowerCase());
+        }
+
+        // Then add AI suggestions, child skills, micro skills
+        const aiSuggestions = [
           ...(data.aiSuggestions || []),
           ...(data.childSkills || []),
           ...(data.microSkills || []),
         ];
 
-        // Dedupe and exclude skills already in basket
-        const seen = new Set<string>();
-        const filtered = freshSuggestions.filter((s: string) => {
-          const lower = s.toLowerCase();
-          if (seen.has(lower) || skillSet.has(lower)) return false;
-          seen.add(lower);
-          return true;
-        });
+        for (const s of aiSuggestions) {
+          const lower = (s as string).toLowerCase();
+          if (!excludeSet.has(lower)) {
+            structuredSuggestions.push(s);
+            excludeSet.add(lower);
+          }
+        }
 
-        setSuggestions(filtered);
+        setSuggestions(structuredSuggestions);
       } catch {
         setSkills((prev) => [
           ...prev,
@@ -223,7 +230,7 @@ function SkillsPageInner() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="ex: driving or cooking"
+              placeholder="Ex: cooking, caregiving, sales, coding"
               disabled={isLoading}
               className="w-full px-5 py-3.5 text-base rounded-lg border-2 border-magenta/40 bg-white focus:outline-none focus:border-magenta focus:ring-2 focus:ring-magenta/15 transition-all placeholder:text-gray-400 text-center disabled:opacity-50"
               autoFocus
@@ -269,10 +276,10 @@ function SkillsPageInner() {
               <div className="flex flex-wrap gap-2">
                 {skills.map((s, i) => (
                   <span
-                    key={`${s.normalizedTerm}-${i}`}
+                    key={`${s.rawInput}-${i}`}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold animate-pill-pop bg-amber text-white shadow-sm"
                   >
-                    {s.normalizedTerm}
+                    {s.rawInput}
                     <button
                       onClick={() => removeSkill(i)}
                       className="hover:opacity-70 transition-opacity ml-0.5"
@@ -291,7 +298,7 @@ function SkillsPageInner() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                Add Related Skills
+                Related to &ldquo;{skills[skills.length - 1]?.rawInput}&rdquo;
               </p>
               <p className="text-xs font-semibold text-magenta">
                 {skills.length} skills added

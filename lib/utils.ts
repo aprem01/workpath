@@ -17,16 +17,15 @@ export function formatPayRange(min: number, max: number, type?: string): string 
 }
 
 export function generateAnonymousHandle(): string {
-  const adjectives = [
-    "Skilled", "Bright", "Swift", "Steady", "Sharp",
-    "Ready", "Bold", "Quick", "Strong", "Smart",
+  // Abstract, friendly handles like social media usernames
+  // No real words to avoid unintended meaning (Caroline's feedback)
+  const syllables = [
+    "kee", "joo", "mee", "too", "noo", "bee", "zee", "loo",
+    "poo", "roo", "woo", "doo", "foo", "hoo", "koo", "yoo",
+    "ka", "to", "bu", "mi", "ze", "ri", "lu", "na", "fi", "da",
   ];
-  const nouns = [
-    "Pro", "Star", "Ace", "Hero", "Champ",
-    "Maven", "Scout", "Guide", "Lead", "Spark",
-  ];
-  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-  const noun = nouns[Math.floor(Math.random() * nouns.length)];
-  const num = Math.floor(1000 + Math.random() * 9000);
-  return `${adj}${noun}_${num}`;
+  const s1 = syllables[Math.floor(Math.random() * syllables.length)];
+  const s2 = syllables[Math.floor(Math.random() * syllables.length)];
+  const num = Math.floor(100 + Math.random() * 900);
+  return `${s1}${s2}${num}`;
 }

@@ -41,18 +41,13 @@ export default function MatchRevealPage() {
     const parsed: Skill[] = JSON.parse(saved);
     setSkills(parsed);
 
-    // Assign anonymous handle silently
+    // Assign abstract anonymous handle silently (keeto325 style)
     if (!localStorage.getItem("payranker_handle")) {
-      const adj = [
-        "Skilled", "Bright", "Swift", "Steady", "Sharp",
-        "Ready", "Bold", "Quick", "Strong", "Smart",
-      ];
-      const nouns = [
-        "Pro", "Star", "Ace", "Hero", "Champ",
-        "Maven", "Scout", "Guide", "Lead", "Spark",
-      ];
-      const handle = `${adj[Math.floor(Math.random() * adj.length)]}${nouns[Math.floor(Math.random() * nouns.length)]}_${Math.floor(1000 + Math.random() * 9000)}`;
-      localStorage.setItem("payranker_handle", handle);
+      const syl = ["kee","joo","mee","too","noo","bee","zee","loo","ka","to","bu","mi","ze","ri","lu","na","fi","da"];
+      const s1 = syl[Math.floor(Math.random() * syl.length)];
+      const s2 = syl[Math.floor(Math.random() * syl.length)];
+      const num = Math.floor(100 + Math.random() * 900);
+      localStorage.setItem("payranker_handle", `${s1}${s2}${num}`);
     }
 
     async function fetchMatches() {
