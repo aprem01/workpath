@@ -47,6 +47,7 @@ export default function JobsPage() {
   const [activeTab, setActiveTab] = useState<"qualified" | "gap">("qualified");
   const [qualifiedJobs, setQualifiedJobs] = useState<JobMatch[]>([]);
   const [gapJobs, setGapJobs] = useState<JobMatch[]>([]);
+  const [realJobs, setRealJobs] = useState<(JobMatch & { isReal?: boolean; applyUrl?: string })[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
@@ -92,6 +93,7 @@ export default function JobsPage() {
         const sortByPay = (a: JobMatch, b: JobMatch) => b.payMax - a.payMax;
         setQualifiedJobs((data.qualifiedJobs || []).sort(sortByPay));
         setGapJobs((data.gapJobs || []).sort(sortByPay));
+        setRealJobs((data.realJobs || []).sort(sortByPay));
       } catch {
         /* network error — show empty state */
       }
@@ -451,6 +453,53 @@ export default function JobsPage() {
             </div>
           </div>
         </div>
+
+        {/* Real Jobs from Adzuna */}
+        {realJobs.length > 0 && (
+          <div className="mt-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 bg-gradient-to-r from-amber to-amber-dark">
+              <p className="text-white text-sm font-bold">Live Market Jobs</p>
+              <p className="text-white/80 text-xs">
+                {realJobs.length} real job{realJobs.length !== 1 ? "s" : ""} matching your skills — from Adzuna
+              </p>
+            </div>
+            <div>
+              {realJobs.map((job) => (
+                <div key={job.id} className="px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 text-sm truncate">
+                        {job.title}
+                      </p>
+                      <p className="text-xs text-amber font-semibold truncate">
+                        {job.employer}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {job.location}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-400 whitespace-nowrap hidden sm:inline">
+                      {shiftLabel(job.shiftType)}
+                    </span>
+                    <span className="text-sm font-bold text-gray-900 whitespace-nowrap">
+                      {formatPay(job.payMax)}/hr
+                    </span>
+                    {job.applyUrl && (
+                      <a
+                        href={job.applyUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-1.5 bg-magenta text-white text-xs font-bold rounded-full hover:bg-magenta-dark transition-colors whitespace-nowrap"
+                      >
+                        Apply
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

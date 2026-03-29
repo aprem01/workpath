@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { searchAdzunaJobs, adzunaToInternal } from "@/lib/adzuna";
 
 export const dynamic = "force-dynamic";
 
@@ -310,7 +311,51 @@ export async function POST(req: Request) {
       // analytics failure is non-blocking
     }
 
-    return NextResponse.json({ qualifiedJobs, gapJobs, topGapSkills });
+    // ── Adzuna: pull real jobs and merge into results ──────────────
+    // Search Adzuna using the user's top 2 skills as keywords
+    // These appear as "real market" jobs alongside our matched jobs
+    let realJobs: JobResult[] = [];
+    try {
+      const topSkillTerms = userSkillTerms.slice(0, 2).join(" ");
+      if (topSkillTerms) {
+        const adzunaResults = await searchAdzunaJobs({
+          what: topSkillTerms,
+          where: "Chicago",
+          results_per_page: 5,
+          sort_by: "salary",
+        });
+
+        realJobs = adzunaResults.map((aj) => {
+          const converted = adzunaToInternal(aj, "real");
+          return {
+            id: `adzuna_${aj.id}`,
+            title: converted.title,
+            employer: converted.employer,
+            location: converted.location,
+            description: converted.description,
+            payMin: converted.payMin,
+            payMax: converted.payMax,
+            payType: converted.payType,
+            shiftType: converted.shiftType,
+            vertical: "real",
+            postedAt: new Date(aj.created || Date.now()),
+            optionalScore: 0,
+            matchedRequired: 0,
+            totalRequired: 0,
+            matchedOptional: 0,
+            totalOptional: 0,
+            missingSkills: [],
+            requiredSkills: [],
+            isReal: true,
+            applyUrl: aj.redirect_url,
+          } as JobResult & { isReal?: boolean; applyUrl?: string };
+        });
+      }
+    } catch (e) {
+      console.warn("Adzuna fetch failed (non-blocking):", e);
+    }
+
+    return NextResponse.json({ qualifiedJobs, gapJobs, topGapSkills, realJobs });
   } catch (error) {
     console.error("Job matching error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
