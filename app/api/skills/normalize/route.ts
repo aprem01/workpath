@@ -198,7 +198,6 @@ export async function POST(req: Request) {
     // Stage 2: AI taxonomy expansion
     const aiResult = await aiTaxonomyExpansion(rawSkill, existingSkills);
     aiResult.source = "ai";
-    if (neo4jError) aiResult._neo4jError = neo4jError;
 
     // Stage 3: Enrich with graph data
     const graphExtra = await enrichFromGraph(
@@ -252,7 +251,6 @@ export async function POST(req: Request) {
       aiSuggestions: [],
       note: "",
       source: "fallback",
-      _debug: errMsg,
     });
   }
 }
