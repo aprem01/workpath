@@ -20,15 +20,20 @@ function SkillsPageInner() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load saved skills
+  // Load saved skills — but NOT if arriving fresh from landing page
   useEffect(() => {
+    const hasUrlParam = searchParams.get("skill");
+    if (hasUrlParam) {
+      // Fresh start — don't load old skills, the URL param handler will clear and add
+      return;
+    }
     const saved = localStorage.getItem("payranker_skills");
     if (saved) {
       try {
         setSkills(JSON.parse(saved));
       } catch {}
     }
-  }, []);
+  }, [searchParams]);
 
   // Save skills to localStorage
   useEffect(() => {
