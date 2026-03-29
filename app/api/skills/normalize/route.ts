@@ -44,17 +44,24 @@ async function graphLookup(rawSkill: string, existingSkills: string[]) {
     .map((s) => s.term);
 
   // GRAPH POWER: 2-hop traversal — finds skills that are 1-2 relationships away
+  // Filter to same vertical to prevent cross-vertical contamination
   const related = await getRelatedWithinHops(node.term, 2, 15);
   const relatedTerms = related
-    .filter((r) => !existingSet.has(r.term.toLowerCase()))
+    .filter((r) =>
+      !existingSet.has(r.term.toLowerCase()) &&
+      (!node.vertical || !r.vertical || r.vertical === node.vertical)
+    )
     .map((r) => r.term);
 
-  // AI-proof recommendations from the graph
+  // AI-proof recommendations — only from the SAME vertical as the matched node
+  // Prevents HHA skills leaking into tech suggestions
   const aiProof = await getAIProofSkills(
     [...existingSkills, node.term],
     5
   );
-  const aiProofTerms = aiProof.map((s) => s.term);
+  const aiProofTerms = aiProof
+    .filter((s) => !node.vertical || s.vertical === node.vertical)
+    .map((s) => s.term);
 
   // Merge all suggestions (dedupe)
   const seen = new Set<string>();
