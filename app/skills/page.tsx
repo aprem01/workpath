@@ -84,42 +84,28 @@ function SkillsPageInner() {
           return [...prev, newSkill];
         });
 
-        // Accumulate suggestions (add new ones, don't replace)
-        if (data.aiSuggestions && data.aiSuggestions.length > 0) {
-          setSuggestions((prev) => {
-            const existingSet = new Set(prev.map((s) => s.toLowerCase()));
-            const skillSet = new Set(
-              skills.map((s) => s.normalizedTerm.toLowerCase())
-            );
-            // Also exclude the just-added skill
-            skillSet.add(newSkill.normalizedTerm.toLowerCase());
+        // Replace suggestions with fresh ones from this skill's response
+        // Each new skill brings its own relevant suggestions
+        const skillSet = new Set(
+          [...skills, newSkill].map((s) => s.normalizedTerm.toLowerCase())
+        );
 
-            const newSuggestions = data.aiSuggestions.filter(
-              (s: string) =>
-                !existingSet.has(s.toLowerCase()) &&
-                !skillSet.has(s.toLowerCase())
-            );
-            return [...prev, ...newSuggestions];
-          });
-        }
+        const freshSuggestions = [
+          ...(data.aiSuggestions || []),
+          ...(data.childSkills || []),
+          ...(data.microSkills || []),
+        ];
 
-        // Also add child skills as suggestions if they exist
-        if (data.childSkills && data.childSkills.length > 0) {
-          setSuggestions((prev) => {
-            const existingSet = new Set(prev.map((s) => s.toLowerCase()));
-            const skillSet = new Set(
-              skills.map((s) => s.normalizedTerm.toLowerCase())
-            );
-            skillSet.add(newSkill.normalizedTerm.toLowerCase());
+        // Dedupe and exclude skills already in basket
+        const seen = new Set<string>();
+        const filtered = freshSuggestions.filter((s: string) => {
+          const lower = s.toLowerCase();
+          if (seen.has(lower) || skillSet.has(lower)) return false;
+          seen.add(lower);
+          return true;
+        });
 
-            const newChildren = data.childSkills.filter(
-              (s: string) =>
-                !existingSet.has(s.toLowerCase()) &&
-                !skillSet.has(s.toLowerCase())
-            );
-            return [...prev, ...newChildren];
-          });
-        }
+        setSuggestions(filtered);
       } catch {
         setSkills((prev) => [
           ...prev,
