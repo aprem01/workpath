@@ -53,7 +53,6 @@ export async function searchAdzunaJobs(params: {
     where: params.where || "Chicago",
     results_per_page: String(params.results_per_page || 10),
     sort_by: params.sort_by || "salary",
-    content_type: "application/json",
   });
 
   if (params.salary_min) {
