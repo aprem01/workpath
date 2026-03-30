@@ -233,11 +233,11 @@ export default function JobsPage() {
               </div>
             )}
 
-            {/* CTA — depends on profile level */}
+            {/* CTA — depends on profile level + gap vs qualified */}
             {profileLevel === "basic" ? (
               <>
                 <p className="text-sm text-magenta font-semibold mb-2">
-                  Complete your profile to see employer and apply
+                  {isGap ? "Complete your profile to learn more" : "Complete your profile to see employer and apply"}
                 </p>
                 <button
                   onClick={() => router.push("/profile?full=true")}
@@ -248,11 +248,30 @@ export default function JobsPage() {
                   Continue <ArrowRight size={14} />
                 </button>
               </>
+            ) : profileLevel === "full" && isGap ? (
+              <>
+                <p className="text-sm text-amber-dark font-semibold mb-2">
+                  Learn these skills to unlock this job
+                </p>
+                <button
+                  onClick={() => router.push("/skills")}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full
+                             font-bold text-white bg-amber hover:bg-amber-dark
+                             transition-colors text-sm"
+                >
+                  Explore these skills <ArrowRight size={14} />
+                </button>
+              </>
             ) : profileLevel === "full" ? (
               isApplied ? (
-                <p className="text-sm text-green-600 font-semibold">
-                  Applied! You&apos;ll be notified when the employer responds.
-                </p>
+                <div>
+                  <span className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold bg-gray-200 text-gray-500">
+                    Applied
+                  </span>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Applied! We&apos;ll notify you here and by email when the employer responds.
+                  </p>
+                </div>
               ) : (
                 <>
                   <p className="text-sm text-magenta font-semibold mb-2">
@@ -379,7 +398,7 @@ export default function JobsPage() {
             <span className="text-magenta">Pay</span>
             <span className="text-amber">Ranker</span>
           </a>
-          <nav className="flex items-center gap-4">
+          <nav className="flex items-center gap-6">
             <a
               href="/skills"
               className="text-sm font-semibold text-magenta hover:text-magenta-dark transition-colors"
@@ -393,7 +412,7 @@ export default function JobsPage() {
               </span>
             </button>
             {/* Hamburger */}
-            <button className="text-gray-400 hover:text-gray-600 ml-1">
+            <button className="text-gray-400 hover:text-gray-600 ml-2">
               <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 11h18M3 5.5h18M3 16.5h18" />
               </svg>
@@ -403,6 +422,17 @@ export default function JobsPage() {
       </header>
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-4">
+        {/* Email verification banner — non-blocking */}
+        {profileLevel && (
+          <div className="mb-4 px-4 py-3 bg-amber-light rounded-xl flex items-center gap-3">
+            <span className="text-amber text-lg">✉</span>
+            <p className="text-sm text-amber-dark">
+              <span className="font-semibold">Check your email to secure your account.</span>
+              <span className="text-gray-500 ml-1">We sent a verification link.</span>
+            </p>
+          </div>
+        )}
+
         <p className="text-xs text-gray-500 mb-4">
           Click a position to view more details.
         </p>

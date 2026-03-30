@@ -143,7 +143,14 @@ function SkillsPageInner() {
           }
         }
 
-        setSuggestions(structuredSuggestions);
+        // Accumulate suggestions — don't lose previous ones
+        setSuggestions((prev) => {
+          const existing = new Set(prev.map((s) => s.toLowerCase()));
+          const toAdd = structuredSuggestions.filter(
+            (s) => !existing.has(s.toLowerCase())
+          );
+          return [...prev, ...toAdd];
+        });
       } catch {
         setSkills((prev) => [
           ...prev,
@@ -308,12 +315,12 @@ function SkillsPageInner() {
                       key={`${s.rawInput}-${i}`}
                       className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold animate-pill-pop bg-magenta text-white shadow-sm"
                     >
+                      {s.rawInput}
                       {isCert && (
-                        <span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded-full -ml-1">
+                        <span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded-full">
                           CERT
                         </span>
                       )}
-                      {s.rawInput}
                       <button
                         onClick={() => removeSkill(i)}
                         className="hover:opacity-70 transition-opacity ml-0.5"
