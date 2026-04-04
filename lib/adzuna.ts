@@ -79,6 +79,39 @@ export async function searchAdzunaJobs(params: {
 }
 
 /**
+ * Search Adzuna with user skills, returning qualified (exact) and broader (gap) results.
+ */
+export async function searchJobsForSkills(
+  skills: string[],
+  location: string = "Chicago",
+  maxResults: number = 15
+): Promise<{ qualified: AdzunaJob[]; broader: AdzunaJob[] }> {
+  // Search 1: exact match with top 3 skills joined
+  const exactQuery = skills.slice(0, 3).join(" ");
+  const exactJobs = await searchAdzunaJobs({
+    what: exactQuery,
+    where: location,
+    results_per_page: maxResults,
+    sort_by: "salary",
+  });
+
+  // Search 2: broader search with just the top skill (for gap/related jobs)
+  const broaderQuery = skills[0] || "";
+  const broaderJobs = await searchAdzunaJobs({
+    what: broaderQuery,
+    where: location,
+    results_per_page: 10,
+    sort_by: "salary",
+  });
+
+  // Dedupe broader (remove jobs already in exact results)
+  const exactIds = new Set(exactJobs.map((j) => j.id));
+  const uniqueBroader = broaderJobs.filter((j) => !exactIds.has(j.id));
+
+  return { qualified: exactJobs, broader: uniqueBroader };
+}
+
+/**
  * Convert Adzuna job to our internal format and save to DB
  */
 export function adzunaToInternal(job: AdzunaJob, vertical: string) {
