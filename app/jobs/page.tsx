@@ -364,9 +364,9 @@ export default function JobsPage() {
       {/* Header with nav — white top bar */}
       <header className="bg-white border-b border-gray-100 py-5 px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <a href="/" className="text-3xl font-bold tracking-tight">
-            <span className="text-magenta">Pay</span>
-            <span className="text-amber">Ranker</span>
+          <a href="/">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/payranker-logo.svg" alt="PayRanker" width={200} height={42} />
           </a>
           <nav className="flex items-center gap-6">
             <a

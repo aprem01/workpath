@@ -87,10 +87,10 @@ function ProfilePageInner() {
   const Header = () => (
     <header className="bg-white border-b border-gray-100 py-5 px-6">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold tracking-tight">
-          <span className="text-magenta">Pay</span>
-          <span className="text-amber">Ranker</span>
-        </h1>
+        <a href="/">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/payranker-logo.svg" alt="PayRanker" width={200} height={42} />
+        </a>
       </div>
     </header>
   );

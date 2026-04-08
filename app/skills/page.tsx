@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { X, ArrowRight, Loader2, Plus } from "lucide-react";
+import Image from "next/image";
 
 interface Skill {
   rawInput: string;
@@ -182,10 +183,15 @@ function SkillsPageInner() {
       {/* White top bar */}
       <header className="bg-white border-b border-gray-100 py-5 px-6">
         <div className="max-w-5xl mx-auto">
-          <h1 className="text-3xl font-bold tracking-tight">
-            <span className="text-magenta">Pay</span>
-            <span className="text-amber">Ranker</span>
-          </h1>
+          <a href="/">
+            <Image
+              src="/payranker-logo.svg"
+              alt="PayRanker"
+              width={200}
+              height={42}
+              priority
+            />
+          </a>
         </div>
       </header>
 
@@ -227,9 +233,15 @@ function SkillsPageInner() {
             Press Enter to add
           </p>
 
-          {/* Wide pink arrowhead — placeholder until Caroline sends PNG */}
-          <div className="text-center text-magenta text-3xl my-3 select-none">
-            &#8964;
+          {/* Wide pink arrowhead — placeholder, replace with Caroline's PNG */}
+          <div className="flex justify-center my-4">
+            <Image
+              src="/arrowhead.svg"
+              alt=""
+              width={60}
+              height={28}
+              aria-hidden="true"
+            />
           </div>
         </div>
 

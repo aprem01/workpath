@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -28,11 +29,14 @@ export default function LandingPage() {
       {/* White top bar — will hold nav later */}
       <header className="bg-white border-b border-gray-100 py-5 px-6">
         <div className="max-w-5xl mx-auto">
-          {/* Logo placeholder — to be replaced with PNG file from Caroline */}
-          <h1 className="text-3xl font-bold tracking-tight">
-            <span className="text-magenta">Pay</span>
-            <span className="text-amber">Ranker</span>
-          </h1>
+          {/* Logo SVG placeholder — replace with Caroline's PNG when ready */}
+          <Image
+            src="/payranker-logo.svg"
+            alt="PayRanker"
+            width={200}
+            height={42}
+            priority
+          />
         </div>
       </header>
 
