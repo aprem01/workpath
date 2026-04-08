@@ -17,15 +17,24 @@ export function formatPayRange(min: number, max: number, type?: string): string 
 }
 
 export function generateAnonymousHandle(): string {
-  // Abstract, friendly handles like social media usernames
-  // No real words to avoid unintended meaning (Caroline's feedback)
-  const syllables = [
-    "kee", "joo", "mee", "too", "noo", "bee", "zee", "loo",
-    "poo", "roo", "woo", "doo", "foo", "hoo", "koo", "yoo",
-    "ka", "to", "bu", "mi", "ze", "ri", "lu", "na", "fi", "da",
+  // Caroline's exact format:
+  // Cap Consonant + 2 lowercase vowels + Cap Consonant + 1-2 lowercase vowels + 3 numbers
+  // Examples: KeeTo325, BoaMi905, MooGy123, XioDu367
+  const vowels = ["a", "e", "i", "o", "u", "y"];
+  const consonants = [
+    "b", "c", "d", "f", "g", "h", "j", "k", "l", "m",
+    "n", "p", "q", "r", "s", "t", "v", "w", "x", "z",
   ];
-  const s1 = syllables[Math.floor(Math.random() * syllables.length)];
-  const s2 = syllables[Math.floor(Math.random() * syllables.length)];
+  const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+
+  const c1 = pick(consonants).toUpperCase();
+  const v1a = pick(vowels);
+  const v1b = pick(vowels);
+  const c2 = pick(consonants).toUpperCase();
+  const v2a = pick(vowels);
+  // Sometimes 2 vowels at the end, sometimes 1
+  const v2b = Math.random() > 0.4 ? pick(vowels) : "";
   const num = Math.floor(100 + Math.random() * 900);
-  return `${s1}${s2}${num}`;
+
+  return `${c1}${v1a}${v1b}${c2}${v2a}${v2b}${num}`;
 }

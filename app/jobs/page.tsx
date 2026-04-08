@@ -124,6 +124,14 @@ export default function JobsPage() {
     const isExpanded = expandedJob === job.id;
     const isApplied = appliedJobs.has(job.id);
 
+    // For Tab B (gap jobs), hide employer name with "---" placeholder
+    // until user completes profile
+    const employerDisplay = isGap ? "---" : job.employer;
+
+    // Location modality (Caroline's spec: "On-site • Full-time")
+    // Default to On-site since most HHA jobs are
+    const locationMode = "On-site";
+
     return (
       <div key={job.id}>
         {/* ---- Collapsed row ---- */}
@@ -132,15 +140,15 @@ export default function JobsPage() {
           className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors
                      flex items-center gap-3 border-b border-gray-100"
         >
-          {/* Left: title + employer + location + missing skills hint */}
+          {/* Left: title + employer + location */}
           <div className="flex-1 min-w-0">
             <p className="font-bold text-gray-900 text-sm truncate">
               {job.title}
             </p>
-            <p className="text-xs text-amber font-semibold truncate">
-              {job.employer}
+            <p className={`text-xs font-semibold truncate ${isGap ? "text-graytext" : "text-amber"}`}>
+              {employerDisplay}
             </p>
-            <p className="text-xs text-gray-500 truncate">
+            <p className="text-xs text-graytext truncate">
               {job.location.split(",")[0]}
             </p>
             {/* Show missing skills in collapsed row for gap jobs */}
@@ -151,8 +159,11 @@ export default function JobsPage() {
             )}
           </div>
 
-          {/* Meta chips */}
-          <span className="text-xs text-gray-400 whitespace-nowrap hidden sm:inline">
+          {/* Meta chips: On-site • Full-time */}
+          <span className="text-xs text-graytext whitespace-nowrap hidden sm:inline">
+            {locationMode}
+          </span>
+          <span className="text-xs text-graytext whitespace-nowrap hidden sm:inline">
             {shiftLabel(job.shiftType)}
           </span>
 
@@ -163,7 +174,7 @@ export default function JobsPage() {
 
           <ChevronDown
             size={16}
-            className={`text-gray-400 shrink-0 transition-transform ${
+            className={`text-graytext shrink-0 transition-transform ${
               isExpanded ? "rotate-180" : ""
             }`}
           />
@@ -199,8 +210,21 @@ export default function JobsPage() {
               </div>
             )}
 
-            {/* CTA — Apply on company site (all jobs are real Adzuna listings) */}
-            {isApplied ? (
+            {/* CTA — depends on whether it's a gap job or qualified */}
+            {isGap ? (
+              // Tab B: redirect to upskill/training, NOT apply (they don't have the skills yet)
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push("/skills");
+                }}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full
+                           font-bold text-white bg-magenta hover:bg-magenta-dark
+                           transition-colors text-sm"
+              >
+                Explore these skills <ArrowRight size={14} />
+              </button>
+            ) : isApplied ? (
               <div>
                 <span className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold bg-gray-200 text-gray-500">
                   Applied
@@ -243,9 +267,12 @@ export default function JobsPage() {
   function renderQualifiedColumn() {
     return (
       <>
-        <div className="px-4 py-3 bg-gradient-to-r from-magenta to-magenta-dark">
-          <p className="text-white text-sm font-bold">You qualify</p>
-          <p className="text-white/70 text-xs">
+        <div
+          className="px-4 py-3 text-center"
+          style={{ background: "linear-gradient(to top, #E725E2, #EFC5FF)" }}
+        >
+          <p className="text-white text-base font-bold">You qualify</p>
+          <p className="text-white/85 text-xs">
             {qualifiedJobs.length} matching jobs found
           </p>
         </div>
@@ -276,9 +303,12 @@ export default function JobsPage() {
   function renderGapColumn() {
     return (
       <>
-        <div className="px-4 py-3 bg-gradient-to-r from-gray-300 to-gray-400">
-          <p className="text-white text-sm font-bold">With 1–2 more Skills</p>
-          <p className="text-white/80 text-xs">
+        <div
+          className="px-4 py-3 text-center"
+          style={{ background: "linear-gradient(to top, #808184, #D0D2D3)" }}
+        >
+          <p className="text-white text-base font-bold">With 1–2 more Skills</p>
+          <p className="text-white/85 text-xs">
             {gapJobs.length}+ jobs found with 1–2 more skills
           </p>
         </div>
@@ -331,29 +361,29 @@ export default function JobsPage() {
   /* ------------------------------------------------------------------ */
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
-      {/* Header with nav */}
-      <header className="py-3 px-4 border-b border-gray-100 bg-white">
+      {/* Header with nav — white top bar */}
+      <header className="bg-white border-b border-gray-100 py-5 px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <a href="/" className="text-2xl font-bold">
+          <a href="/" className="text-3xl font-bold tracking-tight">
             <span className="text-magenta">Pay</span>
             <span className="text-amber">Ranker</span>
           </a>
           <nav className="flex items-center gap-6">
             <a
               href="/skills"
-              className="text-sm font-semibold text-magenta hover:text-magenta-dark transition-colors"
+              className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors"
             >
               Your Skills
             </a>
-            <button className="text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors relative">
+            <button className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors relative">
               Messages
               <span className="absolute -top-1.5 -right-3 bg-magenta text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                 0
               </span>
             </button>
-            {/* Hamburger */}
-            <button className="text-gray-400 hover:text-gray-600 ml-2">
-              <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2">
+            {/* Hamburger — pink */}
+            <button className="text-magenta hover:text-magenta-dark ml-2">
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M3 11h18M3 5.5h18M3 16.5h18" />
               </svg>
             </button>

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -26,50 +25,50 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
-      {/* Nav */}
-      <header className="py-6 px-4">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-2xl font-bold">
+      {/* White top bar — will hold nav later */}
+      <header className="bg-white border-b border-gray-100 py-5 px-6">
+        <div className="max-w-5xl mx-auto">
+          {/* Logo placeholder — to be replaced with PNG file from Caroline */}
+          <h1 className="text-3xl font-bold tracking-tight">
             <span className="text-magenta">Pay</span>
             <span className="text-amber">Ranker</span>
           </h1>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="flex-1 flex flex-col items-center px-4 pt-12 sm:pt-20 pb-24">
-        <div className="max-w-2xl w-full text-center">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-magenta leading-tight mb-4">
-            Find the highest-paying jobs for your skills.
-          </h2>
+      <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-12 pb-24">
+        {/* Headline — flush left, large tagline */}
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-magenta-headline leading-tight mb-3">
+          Find the highest-paying jobs for your skills.
+        </h2>
+        <p className="text-base text-graytext mb-16 max-w-2xl">
+          You have more skills than you think. Enter your skills and see which
+          jobs pay the most.
+        </p>
 
-          <p className="text-base text-gray-500 mb-10 max-w-md mx-auto">
-            You have more skills than you think. Add a few and instantly see which jobs pay the most.
+        {/* Centered input section */}
+        <div className="max-w-md mx-auto">
+          <p className="text-sm font-semibold text-magenta text-center mb-3">
+            Start with one skill
           </p>
 
-          <form onSubmit={handleSubmit} className="relative max-w-md mx-auto mb-2">
+          <form onSubmit={handleSubmit} className="relative">
             <input
               type="text"
               value={skill}
               onChange={(e) => setSkill(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ex: driving, sales, or &quot;I worked in a restaurant&quot;"
-              className="w-full px-5 py-3.5 text-base rounded-lg border-2 border-gray-200 bg-white focus:outline-none focus:border-magenta/40 focus:ring-2 focus:ring-magenta/10 transition-all placeholder:text-gray-400 text-center"
+              placeholder="ex: driving, cooking or sales"
+              className="w-full px-5 py-3.5 text-base rounded-lg border-2 border-magenta/30 bg-white focus:outline-none focus:border-magenta focus:ring-2 focus:ring-magenta/15 transition-all placeholder:text-graylabel text-center font-medium"
               autoFocus
             />
-            {skill.trim() && (
-              <button
-                type="submit"
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-magenta text-white p-2.5 rounded-full hover:bg-magenta-dark transition-colors"
-              >
-                <ArrowRight size={18} />
-              </button>
-            )}
           </form>
 
-          <p className="text-xs text-gray-400">Press Enter to add</p>
+          <p className="text-xs text-graytext text-center mt-2 italic font-medium">
+            Press Enter to add
+          </p>
         </div>
-      </section>
+      </main>
     </div>
   );
 }

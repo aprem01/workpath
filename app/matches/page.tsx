@@ -92,19 +92,19 @@ export default function MatchRevealPage() {
 
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
-      {/* ── Header with nav ── */}
-      <header className="py-3 px-4 border-b border-gray-100 bg-white">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <a href="/" className="text-2xl font-bold tracking-tight">
+      {/* ── White top bar with nav ── */}
+      <header className="bg-white border-b border-gray-100 py-5 px-6">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <a href="/" className="text-3xl font-bold tracking-tight">
             <span className="text-magenta">Pay</span>
             <span className="text-amber">Ranker</span>
           </a>
-          <nav className="flex items-center gap-4">
-            <a href="/skills" className="text-sm font-semibold text-magenta hover:text-magenta-dark transition-colors">
+          <nav className="flex items-center gap-6">
+            <a href="/skills" className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors">
               Your Skills
             </a>
-            <button className="text-gray-400 hover:text-gray-600 ml-1">
-              <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2">
+            <button className="text-magenta hover:text-magenta-dark ml-1">
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M3 11h18M3 5.5h18M3 16.5h18" />
               </svg>
             </button>
@@ -112,42 +112,29 @@ export default function MatchRevealPage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 pb-12">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 pt-8 pb-12">
         {/* ── Two-panel match reveal ── */}
-        <div className="grid sm:grid-cols-2 rounded-2xl overflow-hidden border border-gray-200 mb-10">
+        <div className="grid sm:grid-cols-2 rounded-2xl overflow-hidden shadow-sm mb-10">
           {/* LEFT — You qualify */}
           <div className="flex flex-col">
-            {/* Header bar */}
-            <div className="bg-gradient-to-r from-magenta to-magenta-dark px-5 py-3">
-              <p className="text-white font-bold text-sm tracking-wide">
+            {/* Header bar — gradient bottom to top: dark pink → light pink */}
+            <div
+              className="px-5 py-3 text-center"
+              style={{
+                background: "linear-gradient(to top, #E725E2, #EFC5FF)",
+              }}
+            >
+              <p className="text-white font-bold text-base tracking-wide">
                 You qualify
               </p>
             </div>
             {/* Content area */}
-            <div className="bg-white border-l-4 border-magenta flex-1 px-6 py-8 flex flex-col items-center justify-center text-center">
-              {/* Magenta chevron down */}
-              <svg
-                className="text-magenta mb-3"
-                width="28"
-                height="16"
-                viewBox="0 0 28 16"
-                fill="none"
-              >
-                <path
-                  d="M2 2L14 14L26 2"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <p className="text-magenta font-bold text-4xl animate-count-up">
-                {qualifiedCount}
+            <div className="bg-white flex-1 px-6 py-10 flex flex-col items-center justify-center text-center">
+              {/* Aligned counts: number + label on same line, same size */}
+              <p className="text-magenta font-bold text-3xl animate-count-up leading-none">
+                {qualifiedCount} matching jobs found
               </p>
-              <p className="text-magenta font-bold text-lg mt-1">
-                matching jobs found
-              </p>
-              <p className="text-gray-400 text-xs mt-2">
+              <p className="text-graytext text-xs mt-3">
                 Based on your current skills
               </p>
             </div>
@@ -155,21 +142,23 @@ export default function MatchRevealPage() {
 
           {/* RIGHT — With 1-2 more Skills */}
           <div className="flex flex-col">
-            {/* Header bar */}
-            <div className="bg-gradient-to-r from-gray-300 to-gray-400 px-5 py-3">
-              <p className="text-white font-bold text-sm tracking-wide">
+            {/* Header bar — gradient bottom to top: dark grey → light grey */}
+            <div
+              className="px-5 py-3 text-center"
+              style={{
+                background: "linear-gradient(to top, #808184, #D0D2D3)",
+              }}
+            >
+              <p className="text-white font-bold text-base tracking-wide">
                 With 1–2 more Skills
               </p>
             </div>
-            {/* Content area */}
-            <div className="bg-gray-50 flex-1 px-6 py-8 flex flex-col items-center justify-center text-center">
-              <p className="text-gray-900 font-bold text-4xl animate-count-up">
-                +{gapCount}
+            {/* Content area — same vertical alignment as left */}
+            <div className="bg-gray-50 flex-1 px-6 py-10 flex flex-col items-center justify-center text-center">
+              <p className="text-gray-900 font-bold text-3xl animate-count-up leading-none">
+                +{gapCount} additional jobs
               </p>
-              <p className="text-gray-900 font-bold text-lg mt-1">
-                additional jobs
-              </p>
-              <p className="text-gray-400 text-xs mt-2">
+              <p className="text-graytext text-xs mt-3">
                 Unlock with 1–2 more skills.
               </p>
             </div>
@@ -183,16 +172,15 @@ export default function MatchRevealPage() {
               Most people like you add these skills:
             </p>
 
-            {/* Amber pill chips */}
+            {/* Amber pill chips with gradient */}
             <div className="flex flex-wrap gap-2 mb-3">
               {topGapSkills.map((gs) => (
                 <span
                   key={gs.skill}
-                  className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold ${
-                    gs.isAIProof
-                      ? "bg-amber text-white"
-                      : "bg-amber/70 text-white"
-                  }`}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold text-white shadow-sm"
+                  style={{
+                    background: "linear-gradient(to top, #F7A31C, #F7D323)",
+                  }}
                 >
                   {gs.skill}
                   {gs.isAIProof && (
