@@ -134,7 +134,12 @@ RULES:
 
     return NextResponse.json(parsed);
   } catch (error) {
-    console.error("Upskill finder error:", error);
-    return NextResponse.json({ online: [], inPerson: [] });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Upskill finder error:", msg);
+    return NextResponse.json({
+      online: [],
+      inPerson: [],
+      _outerError: msg,
+    });
   }
 }
