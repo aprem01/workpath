@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2, ChevronDown } from "lucide-react";
+import { ArrowRight, Loader2, ChevronDown, Globe, MapPin, ExternalLink } from "lucide-react";
 
 interface JobMatch {
   id: string;
@@ -44,17 +44,40 @@ function shiftLabel(s: string) {
   return map[s] || s;
 }
 
+interface UpskillResource {
+  title: string;
+  provider: string;
+  url: string;
+  cost: string;
+  duration: string;
+  isOnline: boolean;
+  address?: string;
+  city?: string;
+  distance?: string;
+}
+
+interface UpskillData {
+  online: UpskillResource[];
+  inPerson: UpskillResource[];
+}
+
 export default function JobsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"qualified" | "gap">("qualified");
   const [qualifiedJobs, setQualifiedJobs] = useState<JobMatch[]>([]);
   const [gapJobs, setGapJobs] = useState<JobMatch[]>([]);
-  // realJobs removed — all jobs now come from Adzuna via qualifiedJobs/gapJobs
   const [skills, setSkills] = useState<Skill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set());
   const [profileLevel, setProfileLevel] = useState<string | null>(null);
+  const [zipCode, setZipCode] = useState<string>("");
+  // Upskill resources cache: skill name → loading/data
+  const [upskillCache, setUpskillCache] = useState<
+    Record<string, { loading: boolean; data?: UpskillData }>
+  >({});
+  // Which missing skill is currently expanded (skill name)
+  const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
 
   useEffect(() => {
     const profile = localStorage.getItem("payranker_profile_complete");
@@ -66,6 +89,15 @@ export default function JobsPage() {
     }
 
     setProfileLevel(profile);
+
+    // Read zip code from saved profile for upskill location filtering
+    const profileData = localStorage.getItem("payranker_profile");
+    if (profileData) {
+      try {
+        const p = JSON.parse(profileData);
+        if (p.zipCode) setZipCode(p.zipCode);
+      } catch {}
+    }
 
     const saved = localStorage.getItem("payranker_skills");
     if (!saved) {
@@ -106,6 +138,44 @@ export default function JobsPage() {
 
   // userSkillSet no longer needed — Adzuna jobs don't have structured requiredSkills
   void skills; // keep skills in state for future use
+
+  // Fetch upskill resources for a missing skill (with cache)
+  async function fetchUpskillResources(skill: string) {
+    if (upskillCache[skill]?.data || upskillCache[skill]?.loading) return;
+
+    setUpskillCache((prev) => ({
+      ...prev,
+      [skill]: { loading: true },
+    }));
+
+    try {
+      const res = await fetch("/api/upskill/find", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skill, zipCode }),
+      });
+      const data: UpskillData = await res.json();
+      setUpskillCache((prev) => ({
+        ...prev,
+        [skill]: { loading: false, data },
+      }));
+    } catch {
+      setUpskillCache((prev) => ({
+        ...prev,
+        [skill]: { loading: false, data: { online: [], inPerson: [] } },
+      }));
+    }
+  }
+
+  // Toggle skill expansion + fetch resources on first open
+  function toggleSkillExpansion(skill: string) {
+    if (expandedSkill === skill) {
+      setExpandedSkill(null);
+    } else {
+      setExpandedSkill(skill);
+      fetchUpskillResources(skill);
+    }
+  }
 
   function applyToJob(jobId: string) {
     const updated = new Set(appliedJobs);
@@ -199,25 +269,142 @@ export default function JobsPage() {
               <p className="text-sm text-gray-500 mb-3">{job.schedule}</p>
             )}
 
-            {/* Gap-specific: missing skills as orange pills (no yellow-on-yellow) */}
+            {/* Gap-specific: missing skills as clickable orange pills */}
             {isGap && job.missingSkills.length > 0 && (
               <div className="mb-4">
                 <p className="text-xs font-bold text-graytext uppercase tracking-wider mb-2">
-                  Skills that would unlock this job:
+                  Tap a skill to find training:
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {job.missingSkills.map((ms) => (
-                    <span
-                      key={ms}
-                      className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-bold text-white shadow-sm"
-                      style={{
-                        background:
-                          "linear-gradient(to top, #F7A31C, #F7D323)",
-                      }}
-                    >
-                      {ms}
-                    </span>
-                  ))}
+                <div className="space-y-3">
+                  {job.missingSkills.map((ms) => {
+                    const isSkillExpanded = expandedSkill === ms;
+                    const resources = upskillCache[ms];
+                    return (
+                      <div key={ms}>
+                        {/* Clickable orange pill */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSkillExpansion(ms);
+                          }}
+                          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold text-white shadow-sm hover:brightness-110 transition-all"
+                          style={{
+                            background:
+                              "linear-gradient(to top, #F7A31C, #F7D323)",
+                          }}
+                        >
+                          {ms}
+                          <ChevronDown
+                            size={12}
+                            className={`transition-transform ${isSkillExpanded ? "rotate-180" : ""}`}
+                          />
+                        </button>
+
+                        {/* Expanded: upskill resources */}
+                        {isSkillExpanded && (
+                          <div className="mt-2 bg-white border border-gray-200 rounded-xl p-4 animate-fade-in">
+                            {resources?.loading ? (
+                              <div className="flex items-center gap-2 text-sm text-graytext">
+                                <Loader2 size={14} className="animate-spin text-amber" />
+                                Finding training options...
+                              </div>
+                            ) : resources?.data ? (
+                              <div className="space-y-4">
+                                {/* ONLINE */}
+                                {resources.data.online.length > 0 && (
+                                  <div>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                      <Globe size={12} className="text-amber-dark" />
+                                      <p className="text-[11px] font-bold text-graytext uppercase tracking-wider">
+                                        Online options
+                                      </p>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      {resources.data.online.map((r, i) => (
+                                        <a
+                                          key={i}
+                                          href={r.url || "#"}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="flex items-start justify-between gap-3 p-2.5 rounded-lg hover:bg-amber/5 transition-colors group"
+                                        >
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-gray-900 group-hover:text-amber-dark">
+                                              {r.title}
+                                            </p>
+                                            <p className="text-xs text-graytext mt-0.5">
+                                              {r.provider} • {r.cost} • {r.duration}
+                                            </p>
+                                          </div>
+                                          <ExternalLink
+                                            size={14}
+                                            className="text-graytext group-hover:text-amber-dark shrink-0 mt-1"
+                                          />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* IN-PERSON */}
+                                {resources.data.inPerson.length > 0 && (
+                                  <div>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                      <MapPin size={12} className="text-amber-dark" />
+                                      <p className="text-[11px] font-bold text-graytext uppercase tracking-wider">
+                                        In-person {zipCode && `near ${zipCode}`}
+                                      </p>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      {resources.data.inPerson.map((r, i) => (
+                                        <a
+                                          key={i}
+                                          href={r.url || "#"}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="flex items-start justify-between gap-3 p-2.5 rounded-lg hover:bg-amber/5 transition-colors group"
+                                        >
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-gray-900 group-hover:text-amber-dark">
+                                              {r.title}
+                                            </p>
+                                            <p className="text-xs text-graytext mt-0.5">
+                                              {r.provider} • {r.cost} • {r.duration}
+                                            </p>
+                                            {r.address && (
+                                              <p className="text-xs text-graytext mt-0.5 flex items-center gap-1">
+                                                <MapPin size={10} />
+                                                {r.address}
+                                                {r.distance && ` • ${r.distance}`}
+                                              </p>
+                                            )}
+                                          </div>
+                                          <ExternalLink
+                                            size={14}
+                                            className="text-graytext group-hover:text-amber-dark shrink-0 mt-1"
+                                          />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {resources.data.online.length === 0 &&
+                                  resources.data.inPerson.length === 0 && (
+                                    <p className="text-sm text-graytext italic">
+                                      No standard training found for this skill.
+                                    </p>
+                                  )}
+                              </div>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
