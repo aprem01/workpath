@@ -124,22 +124,14 @@ RULES:
 
     cache.set(cacheKey, { data: parsed, timestamp: Date.now() });
 
-    // Include debug info in dev/staging if parse failed
-    if (parseError || (parsed.online.length === 0 && parsed.inPerson.length === 0)) {
-      return NextResponse.json({
-        ...parsed,
-        _debug: { parseError, rawText: text.substring(0, 600) },
-      });
+    if (parseError) {
+      console.error("Parse error:", parseError);
     }
 
     return NextResponse.json(parsed);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Upskill finder error:", msg);
-    return NextResponse.json({
-      online: [],
-      inPerson: [],
-      _outerError: msg,
-    });
+    return NextResponse.json({ online: [], inPerson: [] });
   }
 }
