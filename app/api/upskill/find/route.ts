@@ -54,7 +54,7 @@ export async function POST(req: Request) {
 
     const message = await client.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1500,
+      max_tokens: 2500,
       messages: [
         {
           role: "user",
@@ -103,12 +103,21 @@ RULES:
     });
 
     let text = (message.content[0] as { type: string; text: string }).text;
-    text = text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+    // Strip any markdown fences (handles ```json, ```, and variations)
+    text = text.replace(/^\s*```(?:json|JSON)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+    // If Claude wrapped in extra prose, find the first { and last }
+    const firstBrace = text.indexOf("{");
+    const lastBrace = text.lastIndexOf("}");
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      text = text.substring(firstBrace, lastBrace + 1);
+    }
 
     let parsed: FindUpskillResponse;
     try {
       parsed = JSON.parse(text);
-    } catch {
+    } catch (e) {
+      console.error("Failed to parse Claude response:", text.substring(0, 200));
+      console.error("Parse error:", e instanceof Error ? e.message : e);
       parsed = { online: [], inPerson: [] };
     }
 
