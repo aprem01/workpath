@@ -97,7 +97,7 @@ export default function MatchRevealPage() {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <a href="/">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/payranker-logo.svg" alt="PayRanker" width={200} height={42} />
+            <img src="/payranker-logo.png" alt="PayRanker" width={220} height={46} />
           </a>
           <nav className="flex items-center gap-6">
             <a href="/skills" className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors">
@@ -134,7 +134,7 @@ export default function MatchRevealPage() {
               <p className="text-magenta font-bold text-3xl animate-count-up leading-none">
                 {qualifiedCount} matching jobs found
               </p>
-              <p className="text-graytext text-xs mt-3">
+              <p className="text-graytext text-sm mt-3 font-medium">
                 Based on your current skills
               </p>
             </div>
@@ -158,7 +158,7 @@ export default function MatchRevealPage() {
               <p className="text-gray-900 font-bold text-3xl animate-count-up leading-none">
                 +{gapCount} additional jobs
               </p>
-              <p className="text-graytext text-xs mt-3">
+              <p className="text-graytext text-sm mt-3 font-medium">
                 Unlock with 1–2 more skills.
               </p>
             </div>
@@ -231,7 +231,7 @@ export default function MatchRevealPage() {
           >
             See your job list&nbsp;&rarr;
           </button>
-          <p className="text-xs text-gray-400 italic mt-3">
+          <p className="text-sm text-graytext italic mt-3 font-medium">
             Create your anonymous profile to continue
           </p>
         </div>

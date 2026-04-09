@@ -89,7 +89,7 @@ function ProfilePageInner() {
       <div className="max-w-5xl mx-auto">
         <a href="/">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/payranker-logo.svg" alt="PayRanker" width={200} height={42} />
+          <img src="/payranker-logo.png" alt="PayRanker" width={220} height={46} />
         </a>
       </div>
     </header>
@@ -113,15 +113,15 @@ function ProfilePageInner() {
       <div className="min-h-screen bg-warmwhite flex flex-col">
         <Header />
 
-        <main className="flex-1 max-w-md mx-auto w-full px-6 pt-12 pb-12">
-          {/* Headline — flush left, pink, semibold */}
-          <h2 className="text-3xl font-semibold text-magenta-headline mb-2">
+        <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-12 pb-12">
+          {/* Headline + content flush left with logo */}
+          <h2 className="text-3xl sm:text-4xl font-semibold text-magenta-headline mb-3">
             Create your anonymous profile
           </h2>
-          <p className="text-sm text-graytext mb-1 font-medium">
+          <p className="text-base text-graytext mb-1 font-medium">
             Employers can&apos;t see your personal details.
           </p>
-          <p className="text-sm text-graytext mb-6 font-medium">
+          <p className="text-base text-graytext mb-6 font-medium">
             They only see your anonymous handle when you apply to jobs.
           </p>
           <p className="text-sm text-graytext mb-8">
@@ -129,7 +129,7 @@ function ProfilePageInner() {
             <span className="font-bold text-graytext">{handle}</span>
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5 max-w-md">
             <div>
               <label className={labelClass}>Email</label>
               <GradientInput>
@@ -204,14 +204,14 @@ function ProfilePageInner() {
     <div className="min-h-screen bg-warmwhite flex flex-col">
       <Header />
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-6 pt-12 pb-12">
-        <h2 className="text-3xl font-semibold text-magenta-headline mb-2">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-12 pb-12">
+        <h2 className="text-3xl sm:text-4xl font-semibold text-magenta-headline mb-3">
           Complete your profile
         </h2>
-        <p className="text-sm text-graytext mb-1 font-medium">
+        <p className="text-base text-graytext mb-1 font-medium">
           Takes less than 1 minute.
         </p>
-        <p className="text-sm text-graytext mb-6 font-medium">
+        <p className="text-base text-graytext mb-6 font-medium">
           Your profile is invisible to employers.
         </p>
         <p className="text-sm text-graytext mb-8">
@@ -219,7 +219,7 @@ function ProfilePageInner() {
           <span className="font-bold text-graytext">{handle}</span>
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5 max-w-2xl">
           {/* Row 1: name */}
           <div className="grid sm:grid-cols-2 gap-4">
             <div>

@@ -183,44 +183,53 @@ export default function JobsPage() {
         {/* ---- Expanded detail ---- */}
         {isExpanded && (
           <div className="px-4 py-4 bg-gray-50 border-b border-gray-100 animate-fade-in">
-            {/* Description */}
-            <p className="text-sm text-gray-600 mb-3 leading-relaxed">
-              {job.description}
-            </p>
+            {/* Description — hide for Tab B (gap jobs) until full profile complete */}
+            {isGap && profileLevel !== "full" ? (
+              <p className="text-sm text-graytext mb-3 leading-relaxed font-medium tracking-wider">
+                ___
+              </p>
+            ) : (
+              <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+                {job.description}
+              </p>
+            )}
 
             {/* Schedule */}
             {job.schedule && (
               <p className="text-sm text-gray-500 mb-3">{job.schedule}</p>
             )}
 
-            {/* Gap-specific: missing skills callout */}
+            {/* Gap-specific: missing skills as orange pills (no yellow-on-yellow) */}
             {isGap && job.missingSkills.length > 0 && (
-              <div className="bg-amber-light rounded-lg p-3 mb-4">
-                <p className="text-xs font-semibold text-amber-dark mb-1">
-                  Additional skills may help you stand out:
+              <div className="mb-4">
+                <p className="text-xs font-bold text-graytext uppercase tracking-wider mb-2">
+                  Skills that would unlock this job:
                 </p>
-                {job.missingSkills.map((ms) => (
-                  <p
-                    key={ms}
-                    className="text-sm text-amber-dark flex items-center gap-2"
-                  >
-                    <span className="text-amber">+</span> {ms}
-                  </p>
-                ))}
+                <div className="flex flex-wrap gap-2">
+                  {job.missingSkills.map((ms) => (
+                    <span
+                      key={ms}
+                      className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-bold text-white shadow-sm"
+                      style={{
+                        background:
+                          "linear-gradient(to top, #F7A31C, #F7D323)",
+                      }}
+                    >
+                      {ms}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* CTA — depends on whether it's a gap job or qualified */}
+            {/* CTA — orange text + arrow for Tab B (no pink) */}
             {isGap ? (
-              // Tab B: redirect to upskill/training, NOT apply (they don't have the skills yet)
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   router.push("/skills");
                 }}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full
-                           font-bold text-white bg-magenta hover:bg-magenta-dark
-                           transition-colors text-sm"
+                className="inline-flex items-center gap-1.5 text-sm font-bold text-amber hover:text-amber-dark transition-colors"
               >
                 Explore these skills <ArrowRight size={14} />
               </button>
@@ -392,13 +401,17 @@ export default function JobsPage() {
       </header>
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-4">
-        {/* Email verification banner — non-blocking */}
+        {/* Email verification banner — pink, no yellow-on-yellow */}
         {profileLevel && (
-          <div className="mb-4 px-4 py-3 bg-amber-light rounded-xl flex items-center gap-3">
-            <span className="text-amber text-lg">✉</span>
-            <p className="text-sm text-amber-dark">
-              <span className="font-semibold">Check your email to secure your account.</span>
-              <span className="text-gray-500 ml-1">We sent a verification link.</span>
+          <div className="mb-4 px-4 py-3 bg-white border border-magenta/20 rounded-xl flex items-center gap-3">
+            <span className="text-magenta text-xl">✉</span>
+            <p>
+              <span className="text-magenta font-bold text-base">
+                Check your email to secure your account.
+              </span>
+              <span className="text-magenta font-medium ml-2">
+                We sent a verification link.
+              </span>
             </p>
           </div>
         )}

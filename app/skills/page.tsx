@@ -185,10 +185,10 @@ function SkillsPageInner() {
         <div className="max-w-5xl mx-auto">
           <a href="/">
             <Image
-              src="/payranker-logo.svg"
+              src="/payranker-logo.png"
               alt="PayRanker"
-              width={200}
-              height={42}
+              width={220}
+              height={46}
               priority
             />
           </a>
@@ -196,22 +196,28 @@ function SkillsPageInner() {
       </header>
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-12 pb-12">
-        {/* Headline — same as landing, stable */}
+        {/* Headline — flush left with logo, stable */}
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-magenta-headline leading-tight mb-3">
           Find the highest-paying jobs for your skills.
         </h2>
-        <p className="text-base text-graytext mb-12 max-w-2xl">
+        <p className="text-base text-graytext mb-12 max-w-2xl font-medium">
           You have more skills than you think. Enter your skills and see which
           jobs pay the most.
         </p>
 
         {/* Skill input */}
-        <div className="max-w-md mx-auto">
-          <p className="text-sm font-semibold text-magenta text-center mb-3">
+        <div className="max-w-lg mx-auto">
+          <p className="text-lg font-semibold text-magenta text-center mb-3">
             Start with one skill
           </p>
 
-          <div className="relative">
+          {/* Gradient-bordered input */}
+          <div
+            className="rounded-lg p-[2.5px] relative"
+            style={{
+              background: "linear-gradient(to right, #F6A21C, #E725E2)",
+            }}
+          >
             <input
               type="text"
               value={input}
@@ -219,7 +225,7 @@ function SkillsPageInner() {
               onKeyDown={handleKeyDown}
               placeholder="ex: driving, cooking or sales"
               disabled={isLoading}
-              className="w-full px-5 py-3.5 text-base rounded-lg border-2 border-magenta/30 bg-white focus:outline-none focus:border-magenta focus:ring-2 focus:ring-magenta/15 transition-all placeholder:text-graylabel text-center font-medium disabled:opacity-50"
+              className="w-full px-5 py-3.5 text-base rounded-[6px] bg-white focus:outline-none placeholder:text-graylabel text-center font-medium disabled:opacity-50"
               autoFocus
             />
             {isLoading && (
@@ -233,20 +239,20 @@ function SkillsPageInner() {
             Press Enter to add
           </p>
 
-          {/* Wide pink arrowhead — placeholder, replace with Caroline's PNG */}
+          {/* Wide pink down-arrow — Caroline's PNG */}
           <div className="flex justify-center my-4">
             <Image
-              src="/arrowhead.svg"
+              src="/arrowhead.png"
               alt=""
-              width={60}
-              height={28}
+              width={36}
+              height={20}
               aria-hidden="true"
             />
           </div>
         </div>
 
-        {/* YOUR SKILLS basket */}
-        <div className="max-w-2xl mx-auto mt-6">
+        {/* YOUR SKILLS basket — wider per Caroline */}
+        <div className="max-w-4xl mx-auto mt-6">
           <p className="text-xs font-bold text-graytext uppercase tracking-wider mb-2">
             Your Skills
           </p>
@@ -288,7 +294,7 @@ function SkillsPageInner() {
 
         {/* ADD RELATED SKILLS — accumulated AI suggestions */}
         {filteredSuggestions.length > 0 && (
-          <div className="max-w-2xl mx-auto mt-6">
+          <div className="max-w-4xl mx-auto mt-6">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold text-graytext uppercase tracking-wider">
                 Add Related Skills
