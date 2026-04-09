@@ -113,15 +113,24 @@ RULES:
     }
 
     let parsed: FindUpskillResponse;
+    let parseError = "";
     try {
       parsed = JSON.parse(text);
     } catch (e) {
-      console.error("Failed to parse Claude response:", text.substring(0, 200));
-      console.error("Parse error:", e instanceof Error ? e.message : e);
+      parseError = e instanceof Error ? e.message : String(e);
+      console.error("Failed to parse Claude response:", text.substring(0, 500));
       parsed = { online: [], inPerson: [] };
     }
 
     cache.set(cacheKey, { data: parsed, timestamp: Date.now() });
+
+    // Include debug info in dev/staging if parse failed
+    if (parseError || (parsed.online.length === 0 && parsed.inPerson.length === 0)) {
+      return NextResponse.json({
+        ...parsed,
+        _debug: { parseError, rawText: text.substring(0, 600) },
+      });
+    }
 
     return NextResponse.json(parsed);
   } catch (error) {
