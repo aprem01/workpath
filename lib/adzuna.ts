@@ -95,36 +95,51 @@ export async function searchJobsForSkills(
     return { qualified: [], broader: [] };
   }
 
-  // Search 1: QUALIFIED — intersection of all skills (or top 3 if many)
-  // Adzuna treats space-separated terms as AND, so this is restrictive
-  const exactQuery = skills.slice(0, 3).join(" ");
-  const exactJobs = await searchAdzunaJobs({
+  // Search 1: QUALIFIED — top 2 skills joined (Adzuna treats spaces as AND)
+  const exactQuery = skills.slice(0, 2).join(" ");
+  let exactJobs = await searchAdzunaJobs({
     what: exactQuery,
     where: location,
     results_per_page: maxResults,
     sort_by: "salary",
   });
 
-  // Search 2: GAP — use just the FIRST skill so we get many jobs in the same field.
-  // The exact-match dedupe removes already-qualified ones, leaving "close but not exact" jobs
-  // that the user is 1-2 skills away from.
-  const broaderQuery = skills[0] || "";
+  // Search 2: BROADER — use just the FIRST skill (more results in same field)
   const broaderJobs = await searchAdzunaJobs({
-    what: broaderQuery,
+    what: skills[0],
     where: location,
-    results_per_page: 20,
+    results_per_page: 25,
     sort_by: "salary",
   });
 
-  // Dedupe broader (remove jobs already in exact results)
+  // FALLBACK: if exact returned nothing, promote the broader search to "qualified"
+  // and use a different broader query for gap jobs
+  if (exactJobs.length === 0 && broaderJobs.length > 0) {
+    exactJobs = broaderJobs.slice(0, maxResults);
+
+    // For gap jobs in this case, search a broader/related term
+    let gapJobs: AdzunaJob[] = [];
+    if (skills.length >= 2) {
+      const altJobs = await searchAdzunaJobs({
+        what: skills[1],
+        where: location,
+        results_per_page: 20,
+        sort_by: "salary",
+      });
+      const exactIds = new Set(exactJobs.map((j) => j.id));
+      gapJobs = altJobs.filter((j) => !exactIds.has(j.id));
+    }
+    return { qualified: exactJobs, broader: gapJobs };
+  }
+
+  // Normal case: dedupe broader against exact
   const exactIds = new Set(exactJobs.map((j) => j.id));
   let uniqueBroader = broaderJobs.filter((j) => !exactIds.has(j.id));
 
-  // If still no gap jobs, do one more search without the user's most specific skill
-  // (search using a broader category term derived from the skill)
+  // If still no gap jobs, try last skill as broader query
   if (uniqueBroader.length === 0 && skills.length >= 2) {
     const fallbackJobs = await searchAdzunaJobs({
-      what: skills[skills.length - 1], // last skill = often broader
+      what: skills[skills.length - 1],
       where: location,
       results_per_page: 15,
       sort_by: "salary",
