@@ -43,7 +43,7 @@ function SkillsPageInner() {
   const normalizeAndAdd = useCallback(
     async (raw: string) => {
       const trimmed = raw.trim();
-      if (!trimmed || isLoading) return;
+      if (!trimmed) return;
 
       if (
         skills.some(
@@ -52,8 +52,17 @@ function SkillsPageInner() {
       )
         return;
 
-      setIsLoading(true);
+      // OPTIMISTIC UI: add the skill immediately so the user sees their input
+      const optimisticSkill: Skill = {
+        rawInput: trimmed,
+        normalizedTerm: trimmed,
+        category: "other",
+        isAISuggested: false,
+        aiResistanceScore: 50,
+      };
+      setSkills((prev) => [...prev, optimisticSkill]);
       setInput("");
+      setIsLoading(true); // shows "Finding related skills..." indicator
 
       try {
         const res = await fetch("/api/skills/normalize", {
@@ -66,37 +75,47 @@ function SkillsPageInner() {
         });
         const data = await res.json();
 
-        const newSkill: Skill = {
-          rawInput: trimmed,
-          normalizedTerm: data.normalizedTerm || trimmed,
-          category: data.category || "other",
-          isAISuggested: false,
-          aiResistanceScore: data.aiResistanceScore || 50,
-        };
-
-        setSkills((prev) => {
-          if (
-            prev.some(
-              (s) =>
-                s.normalizedTerm.toLowerCase() ===
-                newSkill.normalizedTerm.toLowerCase()
+        // Update the optimistic skill with the normalized term from AI
+        if (data.normalizedTerm && data.normalizedTerm.toLowerCase() !== trimmed.toLowerCase()) {
+          setSkills((prev) =>
+            prev.map((s) =>
+              s.normalizedTerm.toLowerCase() === trimmed.toLowerCase()
+                ? {
+                    ...s,
+                    normalizedTerm: data.normalizedTerm,
+                    category: data.category || "other",
+                    aiResistanceScore: data.aiResistanceScore || 50,
+                  }
+                : s
             )
-          )
-            return prev;
-          return [...prev, newSkill];
-        });
+          );
+        } else {
+          // Just update the score/category in place
+          setSkills((prev) =>
+            prev.map((s) =>
+              s.normalizedTerm.toLowerCase() === trimmed.toLowerCase()
+                ? {
+                    ...s,
+                    category: data.category || "other",
+                    aiResistanceScore: data.aiResistanceScore || 50,
+                  }
+                : s
+            )
+          );
+        }
 
-        // Replace suggestions with fresh ones from this skill's response
+        // Update suggestions
+        const finalNormalized = data.normalizedTerm || trimmed;
         const skillSet = new Set(
-          [...skills, newSkill].map((s) => s.normalizedTerm.toLowerCase())
+          [...skills.map((s) => s.normalizedTerm), finalNormalized].map((s) =>
+            s.toLowerCase()
+          )
         );
-
         const freshSuggestions = [
           ...(data.aiSuggestions || []),
           ...(data.childSkills || []),
           ...(data.microSkills || []),
         ];
-
         const seen = new Set<string>();
         const filtered = freshSuggestions.filter((s: string) => {
           const lower = s.toLowerCase();
@@ -104,23 +123,13 @@ function SkillsPageInner() {
           seen.add(lower);
           return true;
         });
-
         setSuggestions(filtered);
       } catch {
-        setSkills((prev) => [
-          ...prev,
-          {
-            rawInput: trimmed,
-            normalizedTerm: trimmed,
-            category: "other",
-            isAISuggested: false,
-            aiResistanceScore: 50,
-          },
-        ]);
+        // Optimistic skill is already added, no need to do anything
       }
       setIsLoading(false);
     },
-    [skills, isLoading]
+    [skills]
   );
 
   // Auto-add skill from URL param
@@ -224,20 +233,21 @@ function SkillsPageInner() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="ex: driving, cooking or sales"
-              disabled={isLoading}
-              className="w-full px-5 py-3.5 text-base rounded-[6px] bg-white focus:outline-none placeholder:text-graylabel text-center font-medium disabled:opacity-50"
+              className="w-full px-5 py-3.5 text-base rounded-[6px] bg-white focus:outline-none placeholder:text-graylabel text-center font-medium"
               autoFocus
             />
-            {isLoading && (
-              <Loader2
-                size={18}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-amber animate-spin"
-              />
-            )}
           </div>
-          <p className="text-xs text-graytext text-center mt-2 italic font-medium">
-            Press Enter to add
-          </p>
+          {/* Status line — guides the user */}
+          {isLoading ? (
+            <p className="text-xs text-magenta text-center mt-2 font-semibold flex items-center justify-center gap-1.5">
+              <Loader2 size={12} className="animate-spin" />
+              Finding related skills...
+            </p>
+          ) : (
+            <p className="text-xs text-graytext text-center mt-2 italic font-medium">
+              Press Enter to add
+            </p>
+          )}
 
           {/* Wide pink down-arrow — Caroline's PNG */}
           <div className="flex justify-center my-4">
