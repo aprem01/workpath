@@ -103,7 +103,15 @@ export default function MatchRevealPage() {
             <a href="/skills" className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors">
               Your Skills
             </a>
-            <button className="text-magenta hover:text-magenta-dark ml-1">
+            <a href="/matches" className="text-sm font-semibold text-magenta hidden sm:inline">
+              Your Matches
+            </a>
+            <a href="/messages" className="text-sm font-semibold text-graytext hover:text-magenta transition-colors hidden sm:inline">
+              Messages
+            </a>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/arrowhead-filled.png" alt="" width={20} height={12} className="hidden sm:inline" />
+            <button className="text-magenta hover:text-magenta-dark">
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M3 11h18M3 5.5h18M3 16.5h18" />
               </svg>

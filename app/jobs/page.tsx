@@ -562,23 +562,23 @@ export default function JobsPage() {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <a href="/">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/payranker-logo.svg" alt="PayRanker" width={200} height={42} />
+            <img src="/payranker-logo.png" alt="PayRanker" width={220} height={46} />
           </a>
-          <nav className="flex items-center gap-6">
-            <a
-              href="/skills"
-              className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors"
-            >
+          <nav className="flex items-center gap-5">
+            <a href="/skills" className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors hidden sm:inline">
               Your Skills
             </a>
-            <button className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors relative">
+            <a href="/matches" className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors hidden sm:inline">
+              Your Matches
+            </a>
+            <a href="/messages" className="text-sm font-semibold text-graytext hover:text-magenta transition-colors hidden sm:inline">
               Messages
-              <span className="absolute -top-1.5 -right-3 bg-magenta text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                0
-              </span>
-            </button>
+            </a>
+            {/* Filled down-arrow nav element */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/arrowhead-filled.png" alt="" width={20} height={12} className="hidden sm:inline" />
             {/* Hamburger — pink */}
-            <button className="text-magenta hover:text-magenta-dark ml-2">
+            <button className="text-magenta hover:text-magenta-dark">
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M3 11h18M3 5.5h18M3 16.5h18" />
               </svg>
