@@ -1,0 +1,62 @@
+# PayRanker
+
+> PayRanker is a skill-based job matching platform for job seekers. Enter your skills in plain English, see jobs you qualify for right now (sorted by highest pay first), and discover jobs that are just 1-2 skills away. Free for job seekers, always.
+
+## What makes PayRanker different
+
+- **Jobs sorted by pay, not date or alphabet** — the job with the highest pay appears first, always.
+- **AI skill normalization** — type "cooking" and the platform maps it to "Meal Preparation" (the term real employers use).
+- **Skill gap visibility** — see exactly which 1-2 skills would unlock higher-paying jobs.
+- **Free upskill resources** — online + in-person training near your zip code for every gap skill.
+- **Anonymous by default** — employers see your skills and anonymous handle, never your identity until you choose to reveal.
+
+## Who is it for
+
+- Home health aides, caregivers, and other frontline workers in Chicago (MVP market)
+- Career switchers re-entering the workforce
+- Anyone whose skills are worth more than their resume reflects
+- Workers displaced by AI who need to find their next role based on transferable skills
+
+## Primary pages
+
+- [Home / Skill Entry](https://workpath-iota.vercel.app/): Enter your first skill
+- [Skills Basket](https://workpath-iota.vercel.app/skills): Add skills + see AI suggestions
+- [Matches](https://workpath-iota.vercel.app/matches): Count of jobs you qualify for + count 1-2 skills away
+- [Jobs](https://workpath-iota.vercel.app/jobs): Real job listings sorted by pay, with expand-inline details
+- [Messages](https://workpath-iota.vercel.app/messages): Interview requests and direct hire offers from employers
+- [Profile](https://workpath-iota.vercel.app/profile): Anonymous handle + optional personal details
+
+## Key vocabulary
+
+- **Tab A (You qualify)** — jobs where you match 100% of required skills
+- **Tab B (1-2 skills away)** — jobs where you're 1 or 2 skills short of qualifying
+- **Skill basket** — your current list of skills
+- **Anonymous handle** — auto-generated identifier (e.g. "KeeTo325") visible to employers instead of your name
+- **AI-proof skill** — a skill with high automation resistance score (physical care, empathy, trust-building)
+
+## Partner platform
+
+PayRanker is the **job-seeker side** of a two-sided skill marketplace. The employer side is [Skillmatch](https://skillmatch-red.vercel.app), where hiring managers post jobs and see ranked anonymous candidates by skill match percentage. Together they form a complete labor market based on real skills — not inflated resumes.
+
+## Tech stack
+
+- Next.js 14 (App Router, TypeScript)
+- Tailwind CSS
+- Neon PostgreSQL (users, jobs, analytics)
+- Neo4j Aura (3-layer skill graph: aliases → canonical → micro-skills)
+- Claude Sonnet 4 (skill normalization + role taxonomy + upskill resource finder)
+- Adzuna API (real Chicago job listings)
+- Capacitor (iOS app wrapper)
+- Vercel (hosting)
+
+## API
+
+- `POST /api/skills/normalize` — normalize a raw skill input
+- `POST /api/jobs/match` — find qualified + gap jobs for a skill list
+- `POST /api/upskill/find` — find online + in-person training for a skill near a zip
+
+## Contact
+
+- Website: https://workpath-iota.vercel.app
+- Employer side: https://skillmatch-red.vercel.app
+- GitHub: https://github.com/aprem01/workpath
