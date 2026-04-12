@@ -34,6 +34,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable}>
+      <head>
+        {/* Native bridge — activates iOS features inside Capacitor */}
+        <script src="/native-bridge.js" defer />
+      </head>
       <body className="font-sans antialiased bg-warmwhite text-gray-900">
         {children}
       </body>
