@@ -2,12 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>PayRanker: Skill to Pay</string>
+	<string>PayRanker: Skill to Pay</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -24,6 +24,16 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>PayRanker uses the camera to scan your certifications, diplomas, and work documents so you can add them to your skill profile.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>PayRanker uses the microphone for hands-free skill entry via voice input.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>PayRanker saves your captured certification images to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>PayRanker accesses your photos to let you upload existing certification images to your skill profile.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>PayRanker uses speech recognition to turn your spoken skills into professional terms for your job profile.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

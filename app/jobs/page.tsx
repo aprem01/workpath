@@ -414,7 +414,7 @@ export default function JobsPage() {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  router.push("/skills");
+                  router.push("/skills/explore");
                 }}
                 className="inline-flex items-center gap-1.5 text-sm font-bold text-amber hover:text-amber-dark transition-colors"
               >

@@ -219,7 +219,7 @@ export default function MatchRevealPage() {
                 AI-proof skills prioritized. High impact on job access.
               </p>
               <button
-                onClick={() => router.push("/skills")}
+                onClick={() => router.push("/skills/explore")}
                 className="text-sm font-semibold text-magenta hover:underline"
               >
                 Explore these skills&nbsp;&rarr;
