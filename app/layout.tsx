@@ -157,8 +157,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <head>
-        {/* Native bridge — activates iOS features inside Capacitor */}
-        <script src="/native-bridge.js" defer />
         {/* JSON-LD structured data — helps AI crawlers + search engines understand content */}
         <script
           type="application/ld+json"
