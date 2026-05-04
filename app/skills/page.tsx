@@ -77,14 +77,28 @@ function SkillsPageInner() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load saved skills
+  // Load saved skills — also re-runs when the page is restored from
+  // browser back-forward cache (bfcache).
+  // Caroline's beta tester Rosalyn (5/4) reported that hitting "back"
+  // from /jobs left the "See your matches" CTA greyed out because
+  // bfcache restored the React state from before useEffect ran. The
+  // pageshow listener with event.persisted catches that case.
   useEffect(() => {
-    const saved = localStorage.getItem("payranker_skills");
-    if (saved) {
-      try {
-        setSkills(JSON.parse(saved));
-      } catch {}
+    function loadSkills() {
+      const saved = localStorage.getItem("payranker_skills");
+      if (saved) {
+        try {
+          setSkills(JSON.parse(saved));
+        } catch {}
+      }
     }
+    loadSkills();
+
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) loadSkills();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
 
   // Save skills to localStorage

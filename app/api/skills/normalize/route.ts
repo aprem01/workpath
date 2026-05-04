@@ -158,15 +158,37 @@ async function aiTaxonomyExpansion(
     messages: [
       {
         role: "user",
-        content: `You are a world-class labor market taxonomy engine that builds structured skill graphs.
-You understand Bureau of Labor Statistics occupation data, O*NET skill classifications, and AI automation research.
+        content: `You are a labor market taxonomy engine that PRESERVES the user's register.
 
 A job seeker typed: "${rawSkill}"
 Their current skill basket: ${existingSkills.join(", ") || "empty"}
 
+CRITICAL: Caroline's beta tester Rosalyn (Chipotle manager) reported that
+typing "Quality Assurance" got normalized to "Quality Control Analysis"
+which then matched her with corporate jobs "out of her league". DO NOT
+do this. Keep the user's register at their level.
+
+Examples:
+  "Quality Assurance" → "Quality Assurance" (already professional, leave alone)
+  "Customer Service" → "Customer Service" (don't elevate to "Client Relationship Management")
+  "Sales" → "Sales" (already a real skill)
+  "Project Management" → "Project Management" (don't inflate to "Strategic Initiative Coordination")
+  "Python" → "Python" (already a real skill)
+  "cooking" → "Meal Preparation" (colloquial → professional, OK)
+  "managing a team" → "Team Management" (clear improvement, OK)
+
+RULE: If the input is already a recognizable professional skill, return
+it unchanged. Only normalize when the input is colloquial or vague. Use
+the LOWEST register that's still job-search-friendly.
+
+Use the existing basket as register signal: if their skills are
+service-level (Customer Service, Cooking, Cleaning), keep this one
+service-level too. Don't elevate someone with line-cook skills into
+corporate-jargon job postings.
+
 Return ONLY valid JSON:
 {
-  "normalizedTerm": "canonical professional term (use BLS/O*NET terminology when possible)",
+  "normalizedTerm": "term that PRESERVES the user's register",
   "category": "healthcare | trades | tech | admin | food_service | transport | education | retail | finance | legal | creative | engineering | management | other",
   "layer": "canonical | parent | micro",
   "isRecognized": true,

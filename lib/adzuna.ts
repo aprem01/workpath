@@ -222,18 +222,34 @@ export async function searchJobsForSkills(
     exactJobs = broaderJobs.slice(0, maxResults);
   }
 
-  // Dedupe broader against exact
-  const exactIds = new Set(exactJobs.map((j) => j.id));
-  const candidateBroader = broaderJobs.filter((j) => !exactIds.has(j.id));
+  // RELEVANCE FILTER applies to BOTH qualified and gap jobs.
+  // Caroline's beta tester Rosalyn (Chipotle manager) reported getting
+  // physician + attorney jobs in Tab A — that was the unfiltered Adzuna
+  // dump. Now Tab A also requires keyword overlap with user skills.
+  // Tab A uses higher threshold (≥2) so qualified is more confident;
+  // Tab B uses ≥1 since by definition the user is "1-2 skills away".
+  const QUALIFIED_THRESHOLD = 2;
+  const GAP_THRESHOLD = 1;
 
-  // RELEVANCE FILTER: only keep gap jobs that share ≥1 keyword with the user.
-  // This stops "Aviation Lead" appearing for HHA queries.
-  const RELEVANCE_THRESHOLD = 1;
+  let relevantQualified = exactJobs.filter(
+    (j) => scoreJobRelevance(j, keywords) >= QUALIFIED_THRESHOLD
+  );
+  // If the strict threshold killed everything, fall back to ≥1 so the
+  // user still sees results (better than empty)
+  if (relevantQualified.length === 0 && exactJobs.length > 0) {
+    relevantQualified = exactJobs.filter(
+      (j) => scoreJobRelevance(j, keywords) >= GAP_THRESHOLD
+    );
+  }
+
+  // Dedupe broader against (filtered) qualified
+  const qualifiedIds = new Set(relevantQualified.map((j) => j.id));
+  const candidateBroader = broaderJobs.filter((j) => !qualifiedIds.has(j.id));
   const relevantBroader = candidateBroader.filter(
-    (j) => scoreJobRelevance(j, keywords) >= RELEVANCE_THRESHOLD
+    (j) => scoreJobRelevance(j, keywords) >= GAP_THRESHOLD
   );
 
-  return { qualified: exactJobs, broader: relevantBroader };
+  return { qualified: relevantQualified, broader: relevantBroader };
 }
 
 /**
