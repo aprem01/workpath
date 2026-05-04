@@ -1,9 +1,25 @@
 import { NextResponse } from "next/server";
 import { searchJobsForSkills, adzunaToInternal } from "@/lib/adzuna";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+/** Fire-and-forget analytics log (never blocks the user-facing response) */
+async function logMatchEvent(metadata: Record<string, unknown>) {
+  try {
+    await prisma.analyticsEvent.create({
+      data: {
+        event: "job_match",
+        metadata: JSON.stringify(metadata),
+      },
+    });
+  } catch {
+    // analytics failure is non-blocking
+  }
+}
+
 export async function POST(req: Request) {
+  const startTime = Date.now();
   try {
     const { userSkills } = await req.json();
     if (!Array.isArray(userSkills) || userSkills.length === 0) {
@@ -79,21 +95,36 @@ export async function POST(req: Request) {
     qualifiedJobs.sort((a, b) => b.payMax - a.payMax);
     gapJobs.sort((a, b) => b.payMax - a.payMax);
 
+    // Analytics: capture every match request for production debugging.
+    // This is what catches future "Marielee got 0 results" bugs automatically.
+    void logMatchEvent({
+      skillCount: skillTerms.length,
+      skills: skillTerms,
+      qualifiedCount: qualifiedJobs.length,
+      gapCount: gapJobs.length,
+      topQualifiedTitles: qualifiedJobs.slice(0, 3).map((j) => j.title),
+      topGapTitles: gapJobs.slice(0, 3).map((j) => j.title),
+      durationMs: Date.now() - startTime,
+      isEmpty: qualifiedJobs.length === 0 && gapJobs.length === 0,
+    });
+
     return NextResponse.json({
       qualifiedJobs,
       gapJobs,
       topGapSkills: [],
-      realJobs: [], // No longer needed as separate section
+      realJobs: [],
       source: "adzuna",
       totalAvailable: qualifiedJobs.length + gapJobs.length,
     });
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : "Unknown";
     console.error("Job matching error:", error);
+    void logMatchEvent({
+      error: errMsg,
+      durationMs: Date.now() - startTime,
+    });
     return NextResponse.json(
-      {
-        error: "Failed to match jobs",
-        detail: error instanceof Error ? error.message : "Unknown",
-      },
+      { error: "Failed to match jobs", detail: errMsg },
       { status: 500 }
     );
   }
