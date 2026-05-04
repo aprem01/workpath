@@ -78,13 +78,108 @@ export async function searchAdzunaJobs(params: {
   }
 }
 
+// ─── Vertical detection from user skills ───────────────────────────
+// Maps caregiving/healthcare keywords → safe Adzuna search terms that
+// actually match real job titles in those fields.
+const VERTICAL_KEYWORDS: Record<string, string[]> = {
+  healthcare: [
+    "home health",
+    "caregiver",
+    "elder care",
+    "companion care",
+    "personal care",
+    "patient care",
+    "nursing",
+    "nurse",
+    "medical",
+    "cna",
+    "hha",
+    "hospice",
+    "dialysis",
+    "physical therapy",
+    "infection control",
+  ],
+  trades: [
+    "electrician",
+    "plumb",
+    "hvac",
+    "weld",
+    "carpenter",
+    "solar",
+    "construct",
+    "roofing",
+  ],
+  tech: [
+    "python",
+    "javascript",
+    "java",
+    "react",
+    "sql",
+    "data scien",
+    "engineer",
+    "developer",
+    "devops",
+  ],
+  food: ["cook", "chef", "kitchen", "food", "restaurant", "bar", "cater"],
+  transport: ["driver", "truck", "warehouse", "deliver", "logistics"],
+  retail: ["retail", "sales associate", "cashier", "store"],
+};
+
+function detectVerticalFromSkills(skills: string[]): string | null {
+  const lower = skills.join(" ").toLowerCase();
+  for (const [vertical, keywords] of Object.entries(VERTICAL_KEYWORDS)) {
+    if (keywords.some((kw) => lower.includes(kw))) return vertical;
+  }
+  return null;
+}
+
 /**
- * Search Adzuna with user skills, returning qualified (exact) and broader (gap) results.
+ * Build a stop-word filtered keyword set from user skills.
+ * Strips noise like "and", "services", "management" so matching focuses
+ * on the actual occupation/skill words.
+ */
+const STOP_WORDS = new Set([
+  "and", "or", "the", "of", "for", "with", "to", "in", "a", "an",
+  "services", "service", "management", "operations", "skills",
+  "work", "workers", "occupations", "related", "general",
+  "assistance", "coordination", "support",
+]);
+
+function extractKeywords(skills: string[]): string[] {
+  const words: string[] = [];
+  for (const skill of skills) {
+    for (const w of skill.toLowerCase().split(/[\s\-/,]+/)) {
+      const clean = w.trim();
+      if (clean.length >= 3 && !STOP_WORDS.has(clean)) words.push(clean);
+    }
+  }
+  return Array.from(new Set(words));
+}
+
+/**
+ * Score a job's relevance to the user's skills based on title + description
+ * keyword overlap. Higher score = more relevant.
+ */
+function scoreJobRelevance(job: AdzunaJob, keywords: string[]): number {
+  if (keywords.length === 0) return 0;
+  const haystack = `${job.title} ${job.description || ""}`.toLowerCase();
+  let hits = 0;
+  for (const kw of keywords) {
+    if (haystack.includes(kw)) hits++;
+  }
+  return hits;
+}
+
+/**
+ * Search Adzuna with user skills, returning qualified + broader (gap) results.
  *
  * Strategy:
- *  - QUALIFIED = search using ALL user skills (intersection — narrower, higher relevance)
- *  - GAP = search using just the TOP skill or vertical keyword (broader — more results,
- *          some of which the user is "1-2 skills away" from)
+ *  - Detect vertical from skills (healthcare, trades, tech, etc)
+ *  - Use vertical-safe search terms when available (e.g. "home health aide"
+ *    instead of Claude's verbose "Home Health Aide Services")
+ *  - Score every result against user keywords; drop low-relevance results
+ *  - Returns empty arrays if nothing meets relevance threshold (better than
+ *    showing Aviation Lead jobs to a Home Health Aide)
  */
 export async function searchJobsForSkills(
   skills: string[],
@@ -95,6 +190,9 @@ export async function searchJobsForSkills(
     return { qualified: [], broader: [] };
   }
 
+  const vertical = detectVerticalFromSkills(skills);
+  const keywords = extractKeywords(skills);
+
   // Search 1: QUALIFIED — top 2 skills joined (Adzuna treats spaces as AND)
   const exactQuery = skills.slice(0, 2).join(" ");
   let exactJobs = await searchAdzunaJobs({
@@ -104,50 +202,38 @@ export async function searchJobsForSkills(
     sort_by: "salary",
   });
 
-  // Search 2: BROADER — use just the FIRST skill (more results in same field)
+  // Search 2: BROADER — vertical-safe term if detected, else first skill
+  const broaderQuery =
+    (vertical &&
+      VERTICAL_KEYWORDS[vertical].find((kw) =>
+        skills.some((s) => s.toLowerCase().includes(kw))
+      )) ||
+    skills[0];
+
   const broaderJobs = await searchAdzunaJobs({
-    what: skills[0],
+    what: broaderQuery,
     where: location,
-    results_per_page: 25,
+    results_per_page: 30,
     sort_by: "salary",
   });
 
-  // FALLBACK: if exact returned nothing, promote the broader search to "qualified"
-  // and use a different broader query for gap jobs
+  // FALLBACK: if exact returned nothing, promote broader to qualified
   if (exactJobs.length === 0 && broaderJobs.length > 0) {
     exactJobs = broaderJobs.slice(0, maxResults);
-
-    // For gap jobs in this case, search a broader/related term
-    let gapJobs: AdzunaJob[] = [];
-    if (skills.length >= 2) {
-      const altJobs = await searchAdzunaJobs({
-        what: skills[1],
-        where: location,
-        results_per_page: 20,
-        sort_by: "salary",
-      });
-      const exactIds = new Set(exactJobs.map((j) => j.id));
-      gapJobs = altJobs.filter((j) => !exactIds.has(j.id));
-    }
-    return { qualified: exactJobs, broader: gapJobs };
   }
 
-  // Normal case: dedupe broader against exact
+  // Dedupe broader against exact
   const exactIds = new Set(exactJobs.map((j) => j.id));
-  let uniqueBroader = broaderJobs.filter((j) => !exactIds.has(j.id));
+  const candidateBroader = broaderJobs.filter((j) => !exactIds.has(j.id));
 
-  // If still no gap jobs, try last skill as broader query
-  if (uniqueBroader.length === 0 && skills.length >= 2) {
-    const fallbackJobs = await searchAdzunaJobs({
-      what: skills[skills.length - 1],
-      where: location,
-      results_per_page: 15,
-      sort_by: "salary",
-    });
-    uniqueBroader = fallbackJobs.filter((j) => !exactIds.has(j.id));
-  }
+  // RELEVANCE FILTER: only keep gap jobs that share ≥1 keyword with the user.
+  // This stops "Aviation Lead" appearing for HHA queries.
+  const RELEVANCE_THRESHOLD = 1;
+  const relevantBroader = candidateBroader.filter(
+    (j) => scoreJobRelevance(j, keywords) >= RELEVANCE_THRESHOLD
+  );
 
-  return { qualified: exactJobs, broader: uniqueBroader };
+  return { qualified: exactJobs, broader: relevantBroader };
 }
 
 /**

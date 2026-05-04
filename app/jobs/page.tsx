@@ -517,18 +517,40 @@ function JobsPageInner() {
         <div>
           {qualifiedJobs.length === 0 ? (
             <div className="p-6 text-center">
-              <p className="text-sm text-gray-500 font-medium mb-2">
-                No perfect matches yet
-              </p>
-              <p className="text-xs text-gray-400 mb-3">
-                You&apos;re close! Check the &quot;1–2 more Skills&quot; column — learn one skill and jobs move here.
-              </p>
-              <a
-                href="/skills"
-                className="text-sm text-magenta font-semibold hover:underline"
-              >
-                + Add more skills
-              </a>
+              {gapJobs.length === 0 ? (
+                // Both tabs are empty — likely too-broad/too-many skills
+                <>
+                  <p className="text-sm text-gray-700 font-bold mb-2">
+                    No matches yet
+                  </p>
+                  <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                    Try focusing on 3–5 specific skills you actually use at
+                    work. Broader skill lists return less relevant results.
+                  </p>
+                  <a
+                    href="/skills"
+                    className="text-sm text-magenta font-semibold hover:underline"
+                  >
+                    Edit your skills
+                  </a>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500 font-medium mb-2">
+                    No perfect matches yet
+                  </p>
+                  <p className="text-xs text-gray-400 mb-3">
+                    You&apos;re close! Check the &quot;1–2 more Skills&quot;
+                    column — learn one skill and jobs move here.
+                  </p>
+                  <a
+                    href="/skills"
+                    className="text-sm text-magenta font-semibold hover:underline"
+                  >
+                    + Add more skills
+                  </a>
+                </>
+              )}
             </div>
           ) : (
             qualifiedJobs.map((j) => renderJobRow(j, false))

@@ -4,6 +4,53 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 
+/**
+ * MODULE-LEVEL constants & components.
+ *
+ * Critical: these MUST be defined OUTSIDE the page component, otherwise
+ * React creates a new component identity on every parent render and
+ * unmounts/remounts every input — which is why the Android keyboard
+ * dismissed on each keystroke (Caroline + Marielee, 5/4/26 beta feedback).
+ */
+const labelClass =
+  "block text-[11px] font-bold text-graytext uppercase tracking-wider mb-1.5";
+
+const gradientBorderStyle = {
+  background: "linear-gradient(to right, #F6A21C, #E725E2)",
+};
+
+const innerInputClass =
+  "w-full px-4 py-3 rounded-[10px] bg-white focus:outline-none text-sm font-medium";
+
+const innerSelectClass =
+  "w-full px-4 py-3 rounded-[10px] bg-white focus:outline-none text-sm font-medium appearance-none cursor-pointer pr-10";
+
+function Header() {
+  return (
+    <header className="bg-white border-b border-gray-100 py-5 px-6">
+      <div className="max-w-5xl mx-auto">
+        <a href="/">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/payranker-logo.png"
+            alt="PayRanker"
+            width={220}
+            height={46}
+          />
+        </a>
+      </div>
+    </header>
+  );
+}
+
+function GradientInput({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl p-[2px]" style={gradientBorderStyle}>
+      {children}
+    </div>
+  );
+}
+
 function generateHandle(): string {
   const vowels = ["a", "e", "i", "o", "u", "y"];
   const consonants = ["b","c","d","f","g","h","j","k","l","m","n","p","q","r","s","t","v","w","x","z"];
@@ -94,43 +141,6 @@ function ProfilePageInner() {
     router.push("/jobs");
   }
 
-  // ─── Style helpers ─────────────────────────────────────────
-  const labelClass =
-    "block text-[11px] font-bold text-graytext uppercase tracking-wider mb-1.5";
-
-  // Gradient border wrapper: orange F6A21C → pink E725E2
-  const gradientBorderStyle = {
-    background: "linear-gradient(to right, #F6A21C, #E725E2)",
-  };
-  const innerInputClass =
-    "w-full px-4 py-3 rounded-[10px] bg-white focus:outline-none text-sm font-medium";
-  const innerSelectClass =
-    "w-full px-4 py-3 rounded-[10px] bg-white focus:outline-none text-sm font-medium appearance-none cursor-pointer pr-10";
-
-  // Header — shared white top bar
-  const Header = () => (
-    <header className="bg-white border-b border-gray-100 py-5 px-6">
-      <div className="max-w-5xl mx-auto">
-        <a href="/">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/payranker-logo.png" alt="PayRanker" width={220} height={46} />
-        </a>
-      </div>
-    </header>
-  );
-
-  // Reusable gradient-bordered input
-  function GradientInput({ children }: { children: React.ReactNode }) {
-    return (
-      <div
-        className="rounded-xl p-[2px]"
-        style={gradientBorderStyle}
-      >
-        {children}
-      </div>
-    );
-  }
-
   // ═══ BASIC PROFILE ═══
   if (!isFullProfile) {
     return (
@@ -163,6 +173,11 @@ function ProfilePageInner() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   className={innerInputClass}
+                  inputMode="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
               </GradientInput>
             </div>
