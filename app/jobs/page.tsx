@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Loader2, ChevronDown, Globe, MapPin, ExternalLink } from "lucide-react";
 
 interface JobMatch {
@@ -61,8 +61,9 @@ interface UpskillData {
   inPerson: UpskillResource[];
 }
 
-export default function JobsPage() {
+function JobsPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"qualified" | "gap">("qualified");
   const [qualifiedJobs, setQualifiedJobs] = useState<JobMatch[]>([]);
   const [gapJobs, setGapJobs] = useState<JobMatch[]>([]);
@@ -78,6 +79,29 @@ export default function JobsPage() {
   >({});
   // Which missing skill is currently expanded (skill name)
   const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
+  // Email verification state
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [emailVerificationSent, setEmailVerificationSent] = useState<boolean>(false);
+  const [emailVerified, setEmailVerified] = useState<boolean>(false);
+
+  async function resendVerification() {
+    if (!userEmail) return;
+    try {
+      const res = await fetch("/api/auth/send-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: userEmail }),
+      });
+      const data = await res.json();
+      if (data.sent) {
+        alert("Verification email sent! Check your inbox.");
+      } else {
+        alert(data.message || "Email service not configured yet.");
+      }
+    } catch {
+      alert("Could not send email. Try again later.");
+    }
+  }
 
   useEffect(() => {
     const profile = localStorage.getItem("payranker_profile_complete");
@@ -90,14 +114,32 @@ export default function JobsPage() {
 
     setProfileLevel(profile);
 
-    // Read zip code from saved profile for upskill location filtering
+    // Read zip code + email from saved profile
     const profileData = localStorage.getItem("payranker_profile");
     if (profileData) {
       try {
         const p = JSON.parse(profileData);
         if (p.zipCode) setZipCode(p.zipCode);
+        if (p.email) setUserEmail(p.email);
       } catch {}
     }
+
+    // If user came from email verification link (?verified=1), mark verified
+    if (searchParams.get("verified") === "1") {
+      localStorage.setItem("payranker_email_verified", "true");
+      setEmailVerified(true);
+      // Clean URL so refresh doesn't keep verified=1
+      router.replace("/jobs");
+    } else {
+      setEmailVerified(
+        localStorage.getItem("payranker_email_verified") === "true"
+      );
+    }
+
+    // Read email verification state (set by /profile signup flow)
+    setEmailVerificationSent(
+      localStorage.getItem("payranker_verify_sent") === "true"
+    );
 
     const saved = localStorage.getItem("payranker_skills");
     if (!saved) {
@@ -588,8 +630,10 @@ export default function JobsPage() {
       </header>
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-4">
-        {/* Email verification banner — pink, no yellow-on-yellow */}
-        {profileLevel && (
+        {/* Verification banner — only when email is actually unverified
+            and a real verification email has been sent.
+            Hidden in MVP — wired to /api/auth/verify-email when ready. */}
+        {profileLevel && emailVerificationSent && !emailVerified && (
           <div className="mb-4 px-4 py-3 bg-white border border-magenta/20 rounded-xl flex items-center gap-3">
             <span className="text-magenta text-xl">✉</span>
             <p>
@@ -597,9 +641,16 @@ export default function JobsPage() {
                 Check your email to secure your account.
               </span>
               <span className="text-magenta font-medium ml-2">
-                We sent a verification link.
+                We sent a verification link to{" "}
+                <span className="font-bold">{userEmail}</span>.
               </span>
             </p>
+            <button
+              onClick={resendVerification}
+              className="ml-auto text-xs text-magenta font-bold hover:underline whitespace-nowrap"
+            >
+              Resend
+            </button>
           </div>
         )}
 
@@ -665,5 +716,19 @@ export default function JobsPage() {
         {/* All jobs are now real Adzuna listings shown in qualified/gap tabs above */}
       </main>
     </div>
+  );
+}
+
+export default function JobsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-warmwhite flex items-center justify-center">
+          <Loader2 className="animate-spin text-magenta" size={32} />
+        </div>
+      }
+    >
+      <JobsPageInner />
+    </Suspense>
   );
 }

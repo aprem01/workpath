@@ -73,7 +73,11 @@ export default function LandingPage() {
                 onKeyDown={handleKeyDown}
                 placeholder="ex: driving, cooking or sales"
                 className="w-full px-5 py-3.5 text-base rounded-[6px] bg-white focus:outline-none placeholder:text-graylabel text-center font-medium"
-                autoFocus
+                inputMode="text"
+                enterKeyHint="next"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
             </div>
           </form>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense, memo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { X, ArrowRight, Loader2, Plus } from "lucide-react";
 import Image from "next/image";
@@ -14,6 +14,60 @@ interface Skill {
 }
 
 const PLACEHOLDER_SKILLS = ["driving", "cooking", "sales"];
+
+/**
+ * Isolated, memoized skill input.
+ *
+ * Why this exists: Marielee (4/26 beta tester, Android) reported the
+ * keyboard dismissed on every keystroke. Cause: this input was inline
+ * in the page component, so every parent re-render (skills add, suggestions
+ * update, loading state) caused Android's IME to re-evaluate focus and dismiss.
+ *
+ * Fix: extract into its own memo'd component with stable handlers. Parent
+ * state changes no longer cause this component to re-render unless its own
+ * props change (value/onChange/onSubmit). Also removed `autoFocus` which
+ * was retriggering on Android with each parent render.
+ */
+const SkillInput = memo(function SkillInput({
+  value,
+  onChange,
+  onSubmit,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: (v: string) => void;
+}) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if ((e.key === "Enter" || e.key === ",") && value.trim()) {
+      e.preventDefault();
+      onSubmit(value);
+    }
+  }
+
+  return (
+    <div
+      className="rounded-lg p-[2.5px] relative"
+      style={{
+        background: "linear-gradient(to right, #F6A21C, #E725E2)",
+      }}
+    >
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="ex: driving, cooking or sales"
+        className="w-full px-5 py-3.5 text-base rounded-[6px] bg-white focus:outline-none placeholder:text-graylabel text-center font-medium"
+        // Android keyboard hints
+        inputMode="text"
+        enterKeyHint="done"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+      />
+    </div>
+  );
+});
 
 function SkillsPageInner() {
   const searchParams = useSearchParams();
@@ -141,13 +195,6 @@ function SkillsPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if ((e.key === "Enter" || e.key === ",") && input.trim()) {
-      e.preventDefault();
-      normalizeAndAdd(input);
-    }
-  }
-
   function removeSkill(index: number) {
     setSkills((prev) => {
       const updated = prev.filter((_, i) => i !== index);
@@ -220,23 +267,13 @@ function SkillsPageInner() {
             Start with one skill
           </p>
 
-          {/* Gradient-bordered input */}
-          <div
-            className="rounded-lg p-[2.5px] relative"
-            style={{
-              background: "linear-gradient(to right, #F6A21C, #E725E2)",
-            }}
-          >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="ex: driving, cooking or sales"
-              className="w-full px-5 py-3.5 text-base rounded-[6px] bg-white focus:outline-none placeholder:text-graylabel text-center font-medium"
-              autoFocus
-            />
-          </div>
+          {/* Gradient-bordered input — memoized to keep Android keyboard open
+              (Marielee's bug 4/26: keyboard dismissed on each keystroke) */}
+          <SkillInput
+            value={input}
+            onChange={setInput}
+            onSubmit={normalizeAndAdd}
+          />
           {/* Status line — guides the user */}
           {isLoading ? (
             <p className="text-xs text-magenta text-center mt-2 font-semibold flex items-center justify-center gap-1.5">

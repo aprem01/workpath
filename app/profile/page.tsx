@@ -59,7 +59,7 @@ function ProfilePageInner() {
     }
   }, [isFullProfile]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const profile = {
       email, password: "***", zipCode, firstName, lastName, phone,
@@ -67,6 +67,30 @@ function ProfilePageInner() {
     };
     localStorage.setItem("payranker_profile", JSON.stringify(profile));
     localStorage.setItem("payranker_profile_complete", isFullProfile ? "full" : "basic");
+
+    // Fire-and-forget: try to send verification email.
+    // If the email service isn't configured (no RESEND_API_KEY), the API
+    // returns sent:false and we just don't show the "check your email" banner.
+    // No false promises to the user.
+    if (email) {
+      try {
+        const res = await fetch("/api/auth/send-verification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        if (data.sent) {
+          localStorage.setItem("payranker_verify_sent", "true");
+        } else {
+          // API succeeded but email service not configured — clear flag
+          localStorage.removeItem("payranker_verify_sent");
+        }
+      } catch {
+        localStorage.removeItem("payranker_verify_sent");
+      }
+    }
+
     router.push("/jobs");
   }
 
