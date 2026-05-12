@@ -41,10 +41,10 @@ export default function LandingPage() {
 
       {/* Headline + subtext flush-left with logo at all viewport widths */}
       <section className="max-w-5xl mx-auto w-full px-6 pt-12">
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-magenta-headline leading-tight mb-3">
+        <h2 className="text-2xl sm:text-3xl lg:text-[2.5rem] font-semibold text-magenta-headline leading-tight mb-4 whitespace-normal sm:whitespace-nowrap">
           Find the highest-paying jobs for your skills.
         </h2>
-        <p className="text-base text-graytext mb-12 max-w-2xl font-medium">
+        <p className="text-lg text-graytext mb-12 max-w-3xl font-medium">
           You have more skills than you think. Enter your skills and see which
           jobs pay the most.
         </p>

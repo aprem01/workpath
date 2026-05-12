@@ -33,6 +33,12 @@ export async function POST(req: Request) {
       (s: { normalizedTerm: string }) => s.normalizedTerm
     );
 
+    // Compute the dominant vertical of the user's skill set — used to filter
+    // out off-register jobs (Caroline's HHA query was getting VP/Director
+    // titles in Tab B because Adzuna's keyword search matched noise in
+    // descriptions).
+    const userVertical = detectUserVertical(skillTerms);
+
     // Search Adzuna with user's skills
     const { qualified: exactJobs, broader: broaderJobs } =
       await searchJobsForSkills(skillTerms);
@@ -91,6 +97,42 @@ export async function POST(req: Request) {
       };
     });
 
+    // Caroline's HHA test case showed VP/Director jobs leaking into Tab B
+    // with $200+/hr rates. Filter out obvious off-register junk by title.
+    // Title keywords that signal C-suite / senior leadership — exclude
+    // unless the user's register is already executive.
+    const seniorTitle =
+      /\b(vice president|vp\b|svp|evp|head of|chief|c[a-z]o\b|director|executive|strategic|transformation)\b/i;
+
+    // Pay-cap per vertical: hourly cents. Caps out off-register noise without
+    // blocking legitimate within-vertical premium roles.
+    const PAY_CAP_BY_VERTICAL: Record<string, number> = {
+      healthcare: 9000, // $90/hr
+      food_service: 6000, // $60/hr
+      retail: 6000,
+      transport: 7000,
+      admin: 9000,
+      trades: 11000, // $110/hr
+      tech: 25000, // $250/hr — tech can legitimately reach this
+    };
+    const payCap = PAY_CAP_BY_VERTICAL[userVertical] ?? 12000;
+    const shouldFilter = userVertical !== "executive" && userVertical !== "other";
+
+    const passesFilter = <T extends { title?: string; payMax?: number }>(j: T) => {
+      if (!shouldFilter) return true;
+      if (seniorTitle.test(j.title || "")) return false;
+      if ((j.payMax || 0) > payCap) return false;
+      return true;
+    };
+
+    // Sort then filter — splice() to keep TypeScript happy with inferred types
+    for (let i = qualifiedJobs.length - 1; i >= 0; i--) {
+      if (!passesFilter(qualifiedJobs[i])) qualifiedJobs.splice(i, 1);
+    }
+    for (let i = gapJobs.length - 1; i >= 0; i--) {
+      if (!passesFilter(gapJobs[i])) gapJobs.splice(i, 1);
+    }
+
     // Sort both by pay descending
     qualifiedJobs.sort((a, b) => b.payMax - a.payMax);
     gapJobs.sort((a, b) => b.payMax - a.payMax);
@@ -128,6 +170,28 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Detect the dominant vertical from the user's skill set — used to filter
+ * Adzuna results that match by keyword noise but are off-register.
+ */
+function detectUserVertical(skills: string[]): string {
+  const all = skills.join(" ").toLowerCase();
+  if (/care|nurse|patient|elderly|hygiene|medication|cna|hha|caregiv/i.test(all))
+    return "healthcare";
+  if (/cook|chef|kitchen|food prep|barista|cater|server/i.test(all))
+    return "food_service";
+  if (/driv|deliver|truck|warehouse|logistics|forklift/i.test(all))
+    return "transport";
+  if (/cashier|retail|store|merchandis/i.test(all)) return "retail";
+  if (/python|javascript|react|sql|engineer|develop|cyber|devops|software/i.test(all))
+    return "tech";
+  if (/electric|plumb|hvac|weld|carpenter|solar|construct/i.test(all))
+    return "trades";
+  if (/admin|office|hr|recept|secretar|bookkeep/i.test(all)) return "admin";
+  if (/clean|housekeep|janit/i.test(all)) return "healthcare"; // home/care side
+  return "other";
 }
 
 // Simple vertical detection from job title/category

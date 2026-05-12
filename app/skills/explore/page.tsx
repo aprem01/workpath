@@ -276,14 +276,6 @@ export default function ExploreSkillsPage() {
             >
               Messages
             </a>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/arrowhead-filled.png"
-              alt=""
-              width={20}
-              height={12}
-              className="hidden sm:inline"
-            />
             <button
               className="text-magenta hover:text-magenta-dark"
               aria-label="Menu"

@@ -121,6 +121,11 @@ export default function MessagesPage() {
   const [customDate, setCustomDate] = useState("");
   const [customMessage, setCustomMessage] = useState("");
 
+  // Track the *type* of response per message so the confirmation copy is accurate
+  const [responseTypes, setResponseTypes] = useState<Record<string, string>>(
+    {}
+  );
+
   useEffect(() => {
     const profile = localStorage.getItem("payranker_profile_complete");
     if (!profile) {
@@ -130,6 +135,12 @@ export default function MessagesPage() {
     setMessages(MOCK_MESSAGES);
     const saved = localStorage.getItem("payranker_responded");
     if (saved) setRespondedIds(new Set(JSON.parse(saved)));
+    const types = localStorage.getItem("payranker_response_types");
+    if (types) {
+      try {
+        setResponseTypes(JSON.parse(types));
+      } catch {}
+    }
   }, [router]);
 
   function toggleMessage(id: string) {
@@ -137,7 +148,11 @@ export default function MessagesPage() {
     setCustomMode(null);
   }
 
-  function respond(id: string) {
+  /**
+   * action: "time_selected" | "not_interested" | "custom_time"
+   *       | "accept_offer" | "pass_offer"
+   */
+  function respond(id: string, action: string) {
     const updated = new Set(respondedIds);
     updated.add(id);
     setRespondedIds(updated);
@@ -145,6 +160,9 @@ export default function MessagesPage() {
       "payranker_responded",
       JSON.stringify(Array.from(updated))
     );
+    const types = { ...responseTypes, [id]: action };
+    setResponseTypes(types);
+    localStorage.setItem("payranker_response_types", JSON.stringify(types));
     setCustomMode(null);
   }
 
@@ -176,14 +194,6 @@ export default function MessagesPage() {
               Your Matches
             </a>
             <span className="text-sm font-semibold text-magenta">Messages</span>
-            <Image
-              src="/arrowhead-filled.png"
-              alt=""
-              width={20}
-              height={12}
-              aria-hidden="true"
-              className="hidden sm:inline"
-            />
             <button className="text-magenta hover:text-magenta-dark">
               <svg
                 width="24"
@@ -257,9 +267,20 @@ export default function MessagesPage() {
                     {hasResponded ? (
                       <p className="text-sm text-graytext italic flex items-center gap-1.5">
                         <Check size={14} className="text-green-600" />
-                        {isDirectHire
-                          ? "You accepted this offer."
-                          : "Your time selection was sent."}
+                        {(() => {
+                          const a = responseTypes[msg.id];
+                          if (a === "accept_offer")
+                            return "You accepted this offer.";
+                          if (a === "pass_offer")
+                            return "You passed on this offer.";
+                          if (a === "time_selected")
+                            return "Your time selection was sent.";
+                          if (a === "custom_time")
+                            return "Your availability was sent.";
+                          if (a === "not_interested")
+                            return "You marked this as not interested.";
+                          return "Response sent.";
+                        })()}
                       </p>
                     ) : isDirectHire ? (
                       // ─── DIRECT HIRE OFFER FLOW ──────────────────────
@@ -268,7 +289,7 @@ export default function MessagesPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              respond(msg.id);
+                              respond(msg.id, "pass_offer");
                             }}
                             className="px-6 py-2.5 rounded-full text-sm font-bold text-gray-600 bg-gray-200 hover:bg-gray-300 transition-colors"
                           >
@@ -277,7 +298,7 @@ export default function MessagesPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              respond(msg.id);
+                              respond(msg.id, "accept_offer");
                             }}
                             className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-full text-sm font-bold text-white bg-green-600 hover:bg-green-700 transition-colors"
                           >
@@ -301,7 +322,7 @@ export default function MessagesPage() {
                                     key={i}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      respond(msg.id);
+                                      respond(msg.id, "time_selected");
                                     }}
                                     className="w-full px-5 py-3 rounded-xl border-2 border-gray-200 hover:border-magenta hover:bg-magenta/5 transition-all text-left flex items-center justify-between group"
                                   >
@@ -327,7 +348,7 @@ export default function MessagesPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  respond(msg.id);
+                                  respond(msg.id, "not_interested");
                                 }}
                                 className="px-6 py-2.5 rounded-full text-sm font-bold text-gray-600 bg-gray-200 hover:bg-gray-300 transition-colors"
                               >
@@ -394,7 +415,7 @@ export default function MessagesPage() {
                                 Cancel
                               </button>
                               <button
-                                onClick={() => respond(msg.id)}
+                                onClick={() => respond(msg.id, "custom_time")}
                                 disabled={!customDate}
                                 className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-xs font-bold text-white bg-magenta hover:bg-magenta-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               >

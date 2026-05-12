@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Loader2, ChevronDown, Globe, MapPin, ExternalLink } from "lucide-react";
+import { ArrowRight, Loader2, ChevronDown, Globe, MapPin, ExternalLink, Check } from "lucide-react";
 
 interface JobMatch {
   id: string;
@@ -150,8 +150,12 @@ function JobsPageInner() {
     const parsed: Skill[] = JSON.parse(saved);
     setSkills(parsed);
 
-    const applied = localStorage.getItem("payranker_applied");
-    if (applied) setAppliedJobs(new Set(JSON.parse(applied)));
+    // Visited = user clicked through to an external job page. Legacy
+    // "payranker_applied" key migrated to the new "payranker_visited" name.
+    const visited =
+      localStorage.getItem("payranker_visited") ||
+      localStorage.getItem("payranker_applied");
+    if (visited) setAppliedJobs(new Set(JSON.parse(visited)));
 
     async function fetchJobs() {
       try {
@@ -219,14 +223,46 @@ function JobsPageInner() {
     }
   }
 
-  function applyToJob(jobId: string) {
-    const updated = new Set(appliedJobs);
+  /**
+   * Status tracking — we have 3 distinct states, not just "Applied":
+   *  - "visited"  — user clicked through to the external job page
+   *  - "applied"  — user explicitly confirmed they applied
+   *  - "saved"    — user bookmarked for later (future)
+   *
+   * Caroline's bug: clicking out to view Adzuna was being marked "Applied"
+   * which broke trust. Now we mark Visited on click, then ask later.
+   */
+  function markVisited(jobId: string) {
+    const updated = new Set(appliedJobs); // reuse the set name for backwards-compat
     updated.add(jobId);
     setAppliedJobs(updated);
     localStorage.setItem(
-      "payranker_applied",
+      "payranker_visited",
       JSON.stringify(Array.from(updated))
     );
+  }
+
+  function confirmApplied(jobId: string) {
+    const raw = localStorage.getItem("payranker_applied_confirmed");
+    const set = new Set<string>(raw ? JSON.parse(raw) : []);
+    set.add(jobId);
+    localStorage.setItem(
+      "payranker_applied_confirmed",
+      JSON.stringify(Array.from(set))
+    );
+    // Force a re-render by touching state
+    setAppliedJobs(new Set(appliedJobs));
+  }
+
+  function isApplied(jobId: string): boolean {
+    if (typeof window === "undefined") return false;
+    const raw = localStorage.getItem("payranker_applied_confirmed");
+    if (!raw) return false;
+    try {
+      return new Set<string>(JSON.parse(raw)).has(jobId);
+    } catch {
+      return false;
+    }
   }
 
   /* ------------------------------------------------------------------ */
@@ -234,7 +270,8 @@ function JobsPageInner() {
   /* ------------------------------------------------------------------ */
   function renderJobRow(job: JobMatch, isGap: boolean) {
     const isExpanded = expandedJob === job.id;
-    const isApplied = appliedJobs.has(job.id);
+    const hasVisited = appliedJobs.has(job.id);
+    const hasApplied = isApplied(job.id);
 
     // For Tab B (gap jobs), hide employer name with "---" placeholder
     // until user completes profile
@@ -462,11 +499,51 @@ function JobsPageInner() {
               >
                 Explore these skills <ArrowRight size={14} />
               </button>
-            ) : isApplied ? (
+            ) : hasApplied ? (
               <div>
-                <span className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold bg-gray-200 text-gray-500">
-                  Applied
+                <span className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold bg-green-100 text-green-700">
+                  <Check size={14} /> Applied
                 </span>
+              </div>
+            ) : hasVisited ? (
+              // User clicked through to the external page but didn't confirm.
+              // Show truthful "Visited" status + inline "Did you apply?" prompt.
+              <div className="flex flex-col gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 self-start">
+                  Visited
+                </span>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-graytext">Did you apply?</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      confirmApplied(job.id);
+                    }}
+                    className="px-3 py-1 rounded-full bg-magenta text-white font-semibold text-xs hover:bg-magenta-dark transition-colors"
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Re-open the external page
+                      if (job.applyUrl) window.open(job.applyUrl, "_blank");
+                    }}
+                    className="px-3 py-1 rounded-full border border-gray-300 text-graytext font-semibold text-xs hover:bg-gray-50 transition-colors"
+                  >
+                    Not yet
+                  </button>
+                </div>
+                {job.applyUrl && (
+                  <a
+                    href={job.applyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-magenta font-semibold hover:underline self-start"
+                  >
+                    View again <ExternalLink size={11} />
+                  </a>
+                )}
               </div>
             ) : job.applyUrl ? (
               <a
@@ -475,7 +552,7 @@ function JobsPageInner() {
                 rel="noopener noreferrer"
                 onClick={(e) => {
                   e.stopPropagation();
-                  applyToJob(job.id);
+                  markVisited(job.id);
                 }}
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full
                            font-bold text-white bg-magenta hover:bg-magenta-dark
@@ -485,7 +562,7 @@ function JobsPageInner() {
               </a>
             ) : (
               <button
-                onClick={() => applyToJob(job.id)}
+                onClick={() => markVisited(job.id)}
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full
                            font-bold text-white bg-magenta hover:bg-magenta-dark
                            transition-colors text-sm"
@@ -639,8 +716,6 @@ function JobsPageInner() {
               Messages
             </a>
             {/* Filled down-arrow nav element */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/arrowhead-filled.png" alt="" width={20} height={12} className="hidden sm:inline" />
             {/* Hamburger — pink */}
             <button className="text-magenta hover:text-magenta-dark">
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5">

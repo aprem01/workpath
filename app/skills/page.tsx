@@ -402,7 +402,7 @@ function SkillsPageInner() {
               See your matches <ArrowRight size={20} />
             </button>
             {skills.length < 5 && (
-              <p className="text-xs text-graytext mt-3 italic">
+              <p className="text-base text-magenta mt-3 font-semibold">
                 Add {5 - skills.length} more skill
                 {5 - skills.length !== 1 ? "s" : ""} to continue
               </p>
