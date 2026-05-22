@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense, memo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { X, ArrowRight, Loader2, Plus } from "lucide-react";
 import Image from "next/image";
+import { getDomainById } from "@/lib/domains";
 
 interface Skill {
   rawInput: string;
@@ -76,6 +77,21 @@ function SkillsPageInner() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [domainId, setDomainId] = useState<string>("");
+
+  // Read the user's primary domain (chosen on the landing page)
+  useEffect(() => {
+    const saved = localStorage.getItem("payranker_domain");
+    if (saved) {
+      setDomainId(saved);
+    } else {
+      // No domain picked — bounce back to landing where Step 1 lives.
+      // Caroline: domain anchoring is required for matching to work.
+      router.replace("/");
+    }
+  }, [router]);
+
+  const domain = getDomainById(domainId);
 
   // Load saved skills — also re-runs when the page is restored from
   // browser back-forward cache (bfcache).
@@ -139,6 +155,9 @@ function SkillsPageInner() {
           body: JSON.stringify({
             rawSkill: trimmed,
             existingSkills: skills.map((s) => s.normalizedTerm),
+            // Domain context anchors interpretation: "management" means
+            // different things in healthcare vs. logistics vs. retail.
+            domainId,
           }),
         });
         const data = await res.json();
@@ -266,6 +285,24 @@ function SkillsPageInner() {
       </header>
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-12 pb-12">
+        {/* Domain anchor — visible at all times so the user remembers which
+            register their skills will be interpreted in. Not permanent
+            (Caroline's UX rule): clicking "change" goes back to the landing. */}
+        {domain && (
+          <div className="mb-4 inline-flex items-center gap-2 text-sm">
+            <span className="px-3 py-1 rounded-full bg-magenta/10 text-magenta font-semibold">
+              {domain.label}
+            </span>
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="text-graytext underline-offset-2 hover:underline italic font-medium"
+            >
+              change
+            </button>
+          </div>
+        )}
+
         {/* Headline — flush left with logo, stable */}
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-magenta-headline leading-tight mb-3">
           Find the highest-paying jobs for your skills.

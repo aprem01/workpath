@@ -184,17 +184,34 @@ function scoreJobRelevance(job: AdzunaJob, keywords: string[]): number {
 export async function searchJobsForSkills(
   skills: string[],
   location: string = "Chicago",
-  maxResults: number = 15
+  maxResults: number = 15,
+  domainQueries?: { primary: string; broad: string } | null
 ): Promise<{ qualified: AdzunaJob[]; broader: AdzunaJob[] }> {
-  if (skills.length === 0) {
+  if (skills.length === 0 && !domainQueries) {
     return { qualified: [], broader: [] };
   }
 
   const vertical = detectVerticalFromSkills(skills);
   const keywords = extractKeywords(skills);
 
-  // Search 1: QUALIFIED — top 2 skills joined (Adzuna treats spaces as AND)
-  const exactQuery = skills.slice(0, 2).join(" ");
+  // ── Caroline's round-2 testing (5/22) fixed two big bugs here:
+  //
+  // BUG #1: "more skills = fewer matches"
+  //   We were using skills.slice(0, 2).join(" ") as the Adzuna query, which
+  //   means whatever the user happened to enter first became the search.
+  //   With 5 skills it worked; with 20 skills the first two might be
+  //   "Caregiving Medical Reminders" — and no real job title contains both
+  //   those exact phrases, so Adzuna returned zero.
+  //
+  // BUG #2: "Sales / Customer Service → zero matches"
+  //   Same root cause — joining "Clienteling Luxury Retail Sales" as a
+  //   keyword search never matched Adzuna's "Sales Associate" listings.
+  //
+  // FIX: when we know the user's domain (from the landing page dropdown),
+  //   use a *curated* Adzuna-friendly query as the search anchor. Skills
+  //   are still used to score/rank — they no longer drive the search.
+  const exactQuery = domainQueries?.primary || skills.slice(0, 2).join(" ");
+
   let exactJobs = await searchAdzunaJobs({
     what: exactQuery,
     where: location,
@@ -202,8 +219,9 @@ export async function searchJobsForSkills(
     sort_by: "salary",
   });
 
-  // Search 2: BROADER — vertical-safe term if detected, else first skill
+  // Broader query: curated domain-broad term if available, else fallback
   const broaderQuery =
+    domainQueries?.broad ||
     (vertical &&
       VERTICAL_KEYWORDS[vertical].find((kw) =>
         skills.some((s) => s.toLowerCase().includes(kw))

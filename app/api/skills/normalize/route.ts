@@ -150,8 +150,13 @@ Rules:
 // Inspired by Karpathy's jobs project: LLM scoring for AI exposure.
 async function aiTaxonomyExpansion(
   rawSkill: string,
-  existingSkills: string[]
+  existingSkills: string[],
+  domainLabel?: string | null
 ) {
+  const domainContext = domainLabel
+    ? `\n\nUSER'S PRIMARY BACKGROUND (domain anchor): ${domainLabel}\nInterpret the input skill THROUGH this domain. "Management" inside ${domainLabel} means something different than "Management" inside another domain. Stay in this lane.`
+    : "";
+
   const message = await client.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 1000,
@@ -161,7 +166,7 @@ async function aiTaxonomyExpansion(
         content: `You are a labor market taxonomy engine that PRESERVES the user's register.
 
 A job seeker typed: "${rawSkill}"
-Their current skill basket: ${existingSkills.join(", ") || "empty"}
+Their current skill basket: ${existingSkills.join(", ") || "empty"}${domainContext}
 
 CRITICAL: Caroline's beta tester Rosalyn (Chipotle manager) reported that
 typing "Quality Assurance" got normalized to "Quality Control Analysis"
@@ -254,6 +259,30 @@ export async function POST(req: Request) {
     const body = await req.json();
     rawSkill = body.rawSkill;
     const existingSkills: string[] = body.existingSkills || [];
+    // Caroline's "domain anchoring" (5/18): skills mean different things in
+    // different industries. We pass the user's primary background to Claude
+    // so "management" inside Logistics ≠ "management" inside Healthcare.
+    const domainId: string | undefined = body.domainId;
+    const domainLabel = (() => {
+      if (!domainId) return null;
+      // Inline lookup — avoid coupling this API file to the React app file
+      const DOMAIN_LABELS: Record<string, string> = {
+        retail_sales: "Retail Sales",
+        customer_service: "Customer Service",
+        logistics: "Logistics & Transportation",
+        healthcare_support: "Healthcare Support",
+        hospitality: "Hospitality",
+        construction: "Construction",
+        manufacturing: "Manufacturing",
+        admin_office: "Administrative & Office",
+        skilled_trades: "Skilled Trades",
+        technology_it: "Technology / IT",
+        education: "Education",
+        food_service: "Food Service",
+        other: "",
+      };
+      return DOMAIN_LABELS[domainId] || null;
+    })();
 
     if (!rawSkill || typeof rawSkill !== "string") {
       return NextResponse.json(
@@ -322,8 +351,8 @@ export async function POST(req: Request) {
       return NextResponse.json(result);
     }
 
-    // Stage 2: AI taxonomy expansion
-    const aiResult = await aiTaxonomyExpansion(rawSkill, existingSkills);
+    // Stage 2: AI taxonomy expansion (domain-aware)
+    const aiResult = await aiTaxonomyExpansion(rawSkill, existingSkills, domainLabel);
     aiResult.source = "ai";
 
     // Stage 3: Enrich with graph data

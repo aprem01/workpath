@@ -60,6 +60,7 @@ export default function MatchRevealPage() {
               normalizedTerm: s.normalizedTerm,
               proficiencyLevel: "intermediate",
             })),
+            domainId: localStorage.getItem("payranker_domain") || undefined,
           }),
         });
         const data = await res.json();

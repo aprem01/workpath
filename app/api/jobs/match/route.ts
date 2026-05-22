@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { searchJobsForSkills, adzunaToInternal } from "@/lib/adzuna";
+import { getDomainQueries, getDomainById } from "@/lib/domains";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,8 @@ async function logMatchEvent(metadata: Record<string, unknown>) {
 export async function POST(req: Request) {
   const startTime = Date.now();
   try {
-    const { userSkills } = await req.json();
+    const body = await req.json();
+    const { userSkills, domainId } = body;
     if (!Array.isArray(userSkills) || userSkills.length === 0) {
       return NextResponse.json(
         { error: "userSkills array is required" },
@@ -33,15 +35,19 @@ export async function POST(req: Request) {
       (s: { normalizedTerm: string }) => s.normalizedTerm
     );
 
-    // Compute the dominant vertical of the user's skill set — used to filter
-    // out off-register jobs (Caroline's HHA query was getting VP/Director
-    // titles in Tab B because Adzuna's keyword search matched noise in
-    // descriptions).
-    const userVertical = detectUserVertical(skillTerms);
+    // ── Caroline's domain anchor (5/22 round-2 fix) ─────────────────
+    // If the user picked a primary background on the landing page, use it
+    // both for (a) Adzuna search query and (b) vertical filter. This
+    // eliminates "Management" skills hallucinating into MD/Escrow jobs.
+    const domain = getDomainById(domainId);
+    const domainQueries = getDomainQueries(domainId);
 
-    // Search Adzuna with user's skills
+    // User vertical: prefer the explicit domain choice over skill inference.
+    const userVertical = domain?.vertical || detectUserVertical(skillTerms);
+
+    // Search Adzuna using the domain-curated query (not skill string join).
     const { qualified: exactJobs, broader: broaderJobs } =
-      await searchJobsForSkills(skillTerms);
+      await searchJobsForSkills(skillTerms, "Chicago", 15, domainQueries);
 
     // Convert to our format
     const qualifiedJobs = exactJobs.map((aj, i) => {
@@ -70,9 +76,59 @@ export async function POST(req: Request) {
       };
     });
 
+    // Compute REAL missing skills per gap job (Caroline 5/22: "Additional
+    // skills may be required" was meaningless — show actual orange pills).
+    // Strategy: scan the job description for any of the domain's suggested
+    // skills that aren't in the user's basket. Those are the gap pills.
+    const userSkillSet = new Set(skillTerms.map((s: string) => s.toLowerCase()));
+    const domainSuggestedSkills = domain?.suggestedSkills || [];
+
+    const computeMissingSkills = (job: { title: string; description: string }) => {
+      const haystack = `${job.title} ${job.description}`.toLowerCase();
+      const missing: string[] = [];
+
+      // First pass: skills from the user's domain that are mentioned in the
+      // job description but not in the user's basket.
+      for (const skill of domainSuggestedSkills) {
+        if (missing.length >= 3) break;
+        const low = skill.toLowerCase();
+        if (userSkillSet.has(low)) continue;
+        // Check if the job description mentions this skill or a keyword from it
+        const kws = low.split(/[\s/]+/).filter((w) => w.length > 3);
+        if (kws.some((k) => haystack.includes(k))) missing.push(skill);
+      }
+
+      // Second pass: if domain didn't surface enough, look for certs/keywords
+      // commonly required in job postings (license, certification, experience).
+      if (missing.length === 0) {
+        const CERT_PATTERNS: Array<[RegExp, string]> = [
+          [/\bcpr\b|first aid/, "CPR / First Aid"],
+          [/cdl\b/, "CDL License"],
+          [/osha[- ]?\d+/, "OSHA-10 Certification"],
+          [/food[- ]?safety/, "Food Safety Certification"],
+          [/forklift/, "Forklift Certification"],
+          [/(yardi|leasing agent)/, "Property Mgmt License"],
+          [/(2\+|three years|years.{1,10}experience)/, "Years of Experience"],
+          [/\bcertified\b|certification/, "Industry Certification"],
+        ];
+        for (const [re, label] of CERT_PATTERNS) {
+          if (re.test(haystack)) {
+            missing.push(label);
+            if (missing.length >= 2) break;
+          }
+        }
+      }
+
+      return missing.length > 0 ? missing : ["1-2 more skills needed"];
+    };
+
     // Broader jobs = "1-2 skills away" (related but not exact match)
     const gapJobs = broaderJobs.map((aj, i) => {
       const converted = adzunaToInternal(aj, detectVertical(aj));
+      const missingSkills = computeMissingSkills({
+        title: converted.title,
+        description: converted.description,
+      });
       return {
         id: `adzuna_gap_${aj.id || i}`,
         title: converted.title,
@@ -87,10 +143,10 @@ export async function POST(req: Request) {
         postedAt: new Date(aj.created || Date.now()),
         optionalScore: 0,
         matchedRequired: 0,
-        totalRequired: 1,
+        totalRequired: missingSkills.length || 1,
         matchedOptional: 0,
         totalOptional: 0,
-        missingSkills: ["Additional skills may be required"],
+        missingSkills,
         requiredSkills: [],
         isReal: true,
         applyUrl: aj.redirect_url,
