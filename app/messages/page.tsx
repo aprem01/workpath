@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { Check, ArrowRight } from "lucide-react";
+import AppHeader from "@/components/AppHeader";
 
 interface InterviewSlot {
   date: string;
@@ -168,46 +168,7 @@ export default function MessagesPage() {
 
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
-      {/* White top bar with nav */}
-      <header className="bg-white border-b border-gray-100 py-5 px-6">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <a href="/">
-            <Image
-              src="/payranker-logo.png"
-              alt="PayRanker"
-              width={220}
-              height={46}
-              priority
-            />
-          </a>
-          <nav className="flex items-center gap-5">
-            <a
-              href="/skills"
-              className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors hidden sm:inline"
-            >
-              Your Skills
-            </a>
-            <a
-              href="/matches"
-              className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors hidden sm:inline"
-            >
-              Your Matches
-            </a>
-            <span className="text-sm font-semibold text-magenta">Messages</span>
-            <button className="text-magenta hover:text-magenta-dark">
-              <svg
-                width="24"
-                height="24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path d="M3 11h18M3 5.5h18M3 16.5h18" />
-              </svg>
-            </button>
-          </nav>
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-8 pb-12">
         <p className="text-xs font-bold text-graytext uppercase tracking-wider mb-4">
@@ -215,6 +176,20 @@ export default function MessagesPage() {
         </p>
 
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          {messages.length === 0 && (
+            <div className="px-6 py-16 flex flex-col items-center justify-center text-center">
+              <div className="w-14 h-14 rounded-full bg-magenta/10 flex items-center justify-center mb-4">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#E725E2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+              </div>
+              <p className="text-gray-900 font-bold text-base mb-1">No messages yet</p>
+              <p className="text-graytext text-sm max-w-xs">
+                When an employer reaches out about your skills, you&rsquo;ll see it here. Your profile stays anonymous until you choose to share.
+              </p>
+            </div>
+          )}
           {messages.map((msg) => {
             const isExpanded = expandedId === msg.id;
             const hasResponded = respondedIds.has(msg.id);

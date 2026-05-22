@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import AppHeader from "@/components/AppHeader";
 
 interface Skill {
   rawInput: string;
@@ -93,31 +94,7 @@ export default function MatchRevealPage() {
 
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
-      {/* ── White top bar with nav ── */}
-      <header className="bg-white border-b border-gray-100 py-5 px-6">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <a href="/">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/payranker-logo.png" alt="PayRanker" width={220} height={46} />
-          </a>
-          <nav className="flex items-center gap-6">
-            <a href="/skills" className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors">
-              Your Skills
-            </a>
-            <a href="/matches" className="text-sm font-semibold text-magenta hidden sm:inline">
-              Your Matches
-            </a>
-            <a href="/messages" className="text-sm font-semibold text-graytext hover:text-magenta transition-colors hidden sm:inline">
-              Messages
-            </a>
-            <button className="text-magenta hover:text-magenta-dark">
-              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M3 11h18M3 5.5h18M3 16.5h18" />
-              </svg>
-            </button>
-          </nav>
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 pt-8 pb-12">
         {/* ── Two-panel match reveal ── */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
+import AppHeader from "@/components/AppHeader";
 import {
   ArrowLeft,
   MapPin,
@@ -246,54 +246,7 @@ export default function ExploreSkillsPage() {
 
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
-      {/* White top bar */}
-      <header className="bg-white border-b border-gray-100 py-5 px-6">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <a href="/">
-            <Image
-              src="/payranker-logo.png"
-              alt="PayRanker"
-              width={220}
-              height={46}
-              priority
-            />
-          </a>
-          <nav className="flex items-center gap-5">
-            <a
-              href="/skills"
-              className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors hidden sm:inline"
-            >
-              Your Skills
-            </a>
-            <a
-              href="/matches"
-              className="text-sm font-semibold text-graytext hover:text-gray-700 transition-colors hidden sm:inline"
-            >
-              Your Matches
-            </a>
-            <a
-              href="/messages"
-              className="text-sm font-semibold text-graytext hover:text-magenta transition-colors hidden sm:inline"
-            >
-              Messages
-            </a>
-            <button
-              className="text-magenta hover:text-magenta-dark"
-              aria-label="Menu"
-            >
-              <svg
-                width="24"
-                height="24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path d="M3 11h18M3 5.5h18M3 16.5h18" />
-              </svg>
-            </button>
-          </nav>
-        </div>
-      </header>
+      <AppHeader />
 
       {/* Back link */}
       <div className="max-w-3xl mx-auto w-full px-6 pt-5">
