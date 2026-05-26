@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { searchJobsForSkills, adzunaToInternal } from "@/lib/adzuna";
 import { getDomainQueries, getDomainById } from "@/lib/domains";
+import {
+  classifySkillCluster,
+  jobFitsCluster,
+  verticalToIndustry,
+} from "@/lib/taxonomy";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +49,15 @@ export async function POST(req: Request) {
 
     // User vertical: prefer the explicit domain choice over skill inference.
     const userVertical = domain?.vertical || detectUserVertical(skillTerms);
+
+    // ── Cluster classification (Caroline 5/22) ──────────────────────
+    // Treat the basket as a coherent unit. A warehouse-manager basket
+    // with one stray "Patient Care" skill must not unlock physician
+    // jobs. We compute the dominant industry from the basket (biased
+    // toward the user's domain anchor) and use it to filter jobs whose
+    // vertical disagrees.
+    const anchorIndustry = verticalToIndustry(userVertical);
+    const cluster = classifySkillCluster(skillTerms, anchorIndustry);
 
     // Search Adzuna using the domain-curated query (not skill string join).
     const { qualified: exactJobs, broader: broaderJobs } =
@@ -174,10 +188,18 @@ export async function POST(req: Request) {
     const payCap = PAY_CAP_BY_VERTICAL[userVertical] ?? 12000;
     const shouldFilter = userVertical !== "executive" && userVertical !== "other";
 
-    const passesFilter = <T extends { title?: string; payMax?: number }>(j: T) => {
+    const passesFilter = <T extends { title?: string; payMax?: number; vertical?: string }>(
+      j: T
+    ) => {
       if (!shouldFilter) return true;
       if (seniorTitle.test(j.title || "")) return false;
       if ((j.payMax || 0) > payCap) return false;
+      // Cluster fit: drop jobs whose vertical disagrees with the basket's
+      // dominant industry. Only enforced when confidence is decent — if
+      // the cluster is mush (e.g. one generic skill), don't over-block.
+      if (cluster.confidence >= 0.5 && !jobFitsCluster(j.vertical, cluster)) {
+        return false;
+      }
       return true;
     };
 
@@ -204,6 +226,10 @@ export async function POST(req: Request) {
       topGapTitles: gapJobs.slice(0, 3).map((j) => j.title),
       durationMs: Date.now() - startTime,
       isEmpty: qualifiedJobs.length === 0 && gapJobs.length === 0,
+      clusterIndustry: cluster.industry,
+      clusterConfidence: cluster.confidence,
+      clusterOutliers: cluster.outliers,
+      clusterUnknown: cluster.unknown,
     });
 
     return NextResponse.json({
