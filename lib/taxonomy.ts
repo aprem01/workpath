@@ -1,5 +1,23 @@
 /**
- * Hierarchical skill taxonomy: Industry > Role > Skill.
+ * ⚑ Canonical seed for the shared matching DB ⚑
+ *
+ * This file is the EDITABLE source of truth for the Industry > Role >
+ * Skill taxonomy. It is mirrored across the PayRanker and Skilmatch
+ * repos (kept in sync manually for MVP); the long-form store lives in
+ * Neo4j Aura, populated by `scripts/seed-taxonomy-graph.ts`. Both apps
+ * point at the same Neo4j instance, so the graph IS the shared DB at
+ * runtime — this TS file exists for editability and synchronous
+ * React-side lookups (clarification UI) where a network call isn't
+ * appropriate.
+ *
+ * When you change this file:
+ *   1. Edit in PayRanker repo (workpath/lib/taxonomy.ts) — that's
+ *      the editable copy.
+ *   2. Copy to skillmatch/lib/taxonomy.ts.
+ *   3. Run `npx tsx scripts/seed-taxonomy-graph.ts` from PayRanker to
+ *      push to Neo4j Aura. Idempotent — re-running is safe.
+ *
+ * ─── Hierarchical skill taxonomy: Industry > Role > Skill. ─────────
  *
  * Caroline 5/22: matching must treat a user's skills as a CLUSTER, not
  * independent atoms. Without this, a basket like ["Operations Management",
@@ -374,6 +392,180 @@ export const TAXONOMY: TaxonomyEntry[] = [
     ],
   },
 
+  // ── Automotive ────────────────────────────────────────────────────
+  {
+    industry: "Automotive",
+    role: "Auto Mechanic",
+    skills: [
+      "Engine Diagnostics",
+      "Brake Repair",
+      "Transmission Service",
+      "ASE Certification",
+      "OBD-II Scanning",
+      "Suspension & Alignment",
+      "Hand & Power Tools",
+    ],
+  },
+  {
+    industry: "Automotive",
+    role: "Auto Body Technician",
+    skills: [
+      "Collision Repair",
+      "Frame Straightening",
+      "Auto Painting",
+      "Welding",
+      "Dent Removal",
+      "ICAR Certification",
+    ],
+  },
+  {
+    industry: "Automotive",
+    role: "Service Advisor",
+    skills: [
+      "Customer Service",
+      "Service Writing",
+      "Estimating",
+      "Dealership Management System",
+      "Upselling",
+    ],
+  },
+  {
+    industry: "Automotive",
+    role: "Parts Specialist",
+    skills: [
+      "Parts Catalog Lookup",
+      "Inventory Management",
+      "Customer Service",
+      "Shipping & Receiving",
+    ],
+  },
+
+  // ── Finance ───────────────────────────────────────────────────────
+  {
+    industry: "Finance",
+    role: "Bookkeeper",
+    skills: [
+      "QuickBooks",
+      "Accounts Payable",
+      "Accounts Receivable",
+      "Bank Reconciliation",
+      "Excel",
+      "Payroll Processing",
+    ],
+  },
+  {
+    industry: "Finance",
+    role: "Accountant",
+    skills: [
+      "GAAP",
+      "Financial Statements",
+      "Tax Preparation",
+      "CPA License",
+      "Audit Support",
+      "QuickBooks",
+      "Excel",
+    ],
+  },
+  {
+    industry: "Finance",
+    role: "Financial Analyst",
+    skills: [
+      "Financial Modeling",
+      "Excel",
+      "Forecasting",
+      "Variance Analysis",
+      "SQL",
+      "Power BI",
+    ],
+  },
+  {
+    industry: "Finance",
+    role: "Loan Officer",
+    skills: [
+      "Mortgage Origination",
+      "Underwriting",
+      "Credit Analysis",
+      "NMLS License",
+      "Customer Service",
+      "Compliance",
+    ],
+  },
+  {
+    industry: "Finance",
+    role: "Bank Teller",
+    skills: [
+      "Cash Handling",
+      "Customer Service",
+      "Transaction Processing",
+      "Fraud Detection",
+      "Cross-Selling",
+    ],
+  },
+
+  // ── Marketing ─────────────────────────────────────────────────────
+  {
+    industry: "Marketing",
+    role: "Digital Marketing Specialist",
+    skills: [
+      "Google Ads",
+      "Meta Ads",
+      "SEO",
+      "Google Analytics",
+      "Email Marketing",
+      "Conversion Tracking",
+      "A/B Testing",
+    ],
+  },
+  {
+    industry: "Marketing",
+    role: "Social Media Manager",
+    skills: [
+      "Content Calendar",
+      "Instagram Strategy",
+      "TikTok Strategy",
+      "Community Management",
+      "Copywriting",
+      "Influencer Outreach",
+    ],
+  },
+  {
+    industry: "Marketing",
+    role: "Content Marketer",
+    skills: [
+      "Copywriting",
+      "SEO",
+      "Editorial Calendar",
+      "CMS Software",
+      "Email Marketing",
+      "Brand Voice",
+    ],
+  },
+  {
+    industry: "Marketing",
+    role: "Brand Manager",
+    skills: [
+      "Brand Strategy",
+      "Market Research",
+      "Creative Direction",
+      "Campaign Management",
+      "Stakeholder Communication",
+      "P&L Responsibility",
+    ],
+  },
+  {
+    industry: "Marketing",
+    role: "Email Marketing Specialist",
+    skills: [
+      "Email Marketing",
+      "Mailchimp",
+      "Klaviyo",
+      "Segmentation",
+      "Deliverability",
+      "Copywriting",
+      "A/B Testing",
+    ],
+  },
+
   // ── Education ─────────────────────────────────────────────────────
   {
     industry: "Education",
@@ -509,11 +701,52 @@ const VERTICAL_TO_INDUSTRY: Record<string, string> = {
   tech: "Technology",
   technology: "Technology",
   education: "Education",
+  automotive: "Automotive",
+  finance: "Finance",
+  banking: "Finance",
+  accounting: "Finance",
+  marketing: "Marketing",
+  advertising: "Marketing",
 };
 
 export function verticalToIndustry(vertical: string | null | undefined): string | null {
   if (!vertical) return null;
   return VERTICAL_TO_INDUSTRY[vertical.toLowerCase()] ?? null;
+}
+
+/**
+ * Industries this single skill belongs to. Used by the per-skill
+ * clarification UI: if a skill lives in 2+ industries AND the user's
+ * anchor isn't one of them, prompt for clarification before adding it
+ * to the basket. Caroline 5/22 sketch: "if skill is ambiguous AI
+ * requests the industry clarification".
+ */
+export function getSkillIndustries(skill: string): string[] {
+  const industries = SKILL_INDEX.get(skill.toLowerCase());
+  return industries ? Array.from(industries) : [];
+}
+
+/**
+ * Should we prompt for clarification when this skill is being added to
+ * a basket anchored to `anchorIndustry`?
+ *
+ * Returns the candidate industries when:
+ *  - the skill is known to the taxonomy AND
+ *  - it lives in 2+ industries AND
+ *  - the anchor (if any) is NOT one of them — meaning the anchor
+ *    can't resolve the ambiguity for free.
+ *
+ * Returns null when no prompt is needed (skill is unambiguous, or the
+ * anchor already disambiguates it, or we have no signal at all).
+ */
+export function needsIndustryClarification(
+  skill: string,
+  anchorIndustry?: string | null
+): string[] | null {
+  const industries = getSkillIndustries(skill);
+  if (industries.length < 2) return null;
+  if (anchorIndustry && industries.includes(anchorIndustry)) return null;
+  return industries;
 }
 
 /**

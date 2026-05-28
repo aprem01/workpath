@@ -308,3 +308,34 @@ export async function getAIProofSkills(
     await session.close();
   }
 }
+
+/**
+ * Graph-backed industry lookup for a skill.
+ *
+ * Reads the `industries` array property written by
+ * scripts/seed-taxonomy-graph.ts. Returns [] when the skill isn't in the
+ * graph yet, which is the cue for callers to fall back to the synchronous
+ * lib/taxonomy.ts lookup (getSkillIndustries).
+ *
+ * Caroline 5/22: the matching DB she sketched is a single shared store.
+ * Both PayRanker and Skilmatch point at the same Neo4j Aura instance, so
+ * this function is the canonical industry source at runtime; the TS
+ * taxonomy is the editable seed source and React-side fallback.
+ */
+export async function getSkillIndustriesFromGraph(
+  skill: string
+): Promise<string[]> {
+  const session = driver.session({ database: process.env.NEO4J_DATABASE });
+  try {
+    const result = await session.run(
+      `MATCH (s:Skill) WHERE toLower(s.canonicalTerm) = $term
+       RETURN coalesce(s.industries, []) AS industries
+       LIMIT 1`,
+      { term: skill.toLowerCase().trim() }
+    );
+    if (result.records.length === 0) return [];
+    return (result.records[0].get("industries") as string[]) || [];
+  } finally {
+    await session.close();
+  }
+}

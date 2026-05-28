@@ -5,6 +5,10 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { X, ArrowRight, Loader2, Plus } from "lucide-react";
 import Image from "next/image";
 import { getDomainById } from "@/lib/domains";
+import {
+  needsIndustryClarification,
+  verticalToIndustry,
+} from "@/lib/taxonomy";
 
 interface Skill {
   rawInput: string;
@@ -78,6 +82,16 @@ function SkillsPageInner() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [domainId, setDomainId] = useState<string>("");
+  // Caroline 5/22 sketch: "if skill is ambiguous AI requests the industry
+  // clarification." When the user types a skill that lives in 2+ industries
+  // AND their domain anchor doesn't cover it, we pause the add and show a
+  // chip picker — they confirm which industry they meant before it joins
+  // the basket. Prevents "Management" silently locking to Healthcare just
+  // because the user picked that domain.
+  const [pendingClarification, setPendingClarification] = useState<{
+    rawSkill: string;
+    industries: string[];
+  } | null>(null);
 
   // Read the user's primary domain (chosen on the landing page)
   useEffect(() => {
@@ -125,7 +139,7 @@ function SkillsPageInner() {
   }, [skills]);
 
   const normalizeAndAdd = useCallback(
-    async (raw: string) => {
+    async (raw: string, bypassClarification = false) => {
       const trimmed = raw.trim();
       if (!trimmed) return;
 
@@ -135,6 +149,22 @@ function SkillsPageInner() {
         )
       )
         return;
+
+      // Per-skill clarification gate (Caroline 5/22 sketch). If the skill
+      // is ambiguous AND the user's domain anchor doesn't disambiguate it,
+      // pause and ask. bypassClarification=true is used by the picker chip
+      // once the user has resolved the ambiguity.
+      if (!bypassClarification) {
+        const anchor = verticalToIndustry(
+          getDomainById(domainId)?.vertical || null
+        );
+        const candidates = needsIndustryClarification(trimmed, anchor);
+        if (candidates) {
+          setPendingClarification({ rawSkill: trimmed, industries: candidates });
+          setInput("");
+          return;
+        }
+      }
 
       // OPTIMISTIC UI: add the skill immediately so the user sees their input
       const optimisticSkill: Skill = {
@@ -323,7 +353,7 @@ function SkillsPageInner() {
           <SkillInput
             value={input}
             onChange={setInput}
-            onSubmit={normalizeAndAdd}
+            onSubmit={(v) => normalizeAndAdd(v)}
           />
           {/* Status line — guides the user */}
           {isLoading ? (
@@ -335,6 +365,43 @@ function SkillsPageInner() {
             <p className="text-xs text-graytext text-center mt-2 italic font-medium">
               Press Enter to add
             </p>
+          )}
+
+          {/* Per-skill industry clarification (Caroline 5/22 sketch).
+              "Management" lives in many industries — make the user pick
+              which one before it joins the basket. */}
+          {pendingClarification && (
+            <div className="mt-3 p-4 rounded-xl border-2 border-magenta/30 bg-magenta/5">
+              <p className="text-sm font-semibold text-gray-800 mb-2">
+                &ldquo;{pendingClarification.rawSkill}&rdquo; — which industry did you mean?
+              </p>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {pendingClarification.industries.map((ind) => (
+                  <button
+                    key={ind}
+                    onClick={() => {
+                      const raw = pendingClarification.rawSkill;
+                      setPendingClarification(null);
+                      // Tag the basket with this industry for the run by
+                      // storing the user's choice (later baskets can sum
+                      // these into a stronger anchor signal). For MVP we
+                      // simply proceed to add the skill — the cluster
+                      // classifier will weight it correctly.
+                      void normalizeAndAdd(raw, true);
+                    }}
+                    className="px-3 py-1.5 rounded-full text-sm font-semibold bg-white border-2 border-magenta/40 text-magenta hover:bg-magenta hover:text-white transition-colors"
+                  >
+                    {ind}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setPendingClarification(null)}
+                className="text-xs text-graytext hover:text-magenta underline"
+              >
+                Cancel
+              </button>
+            </div>
           )}
 
           {/* Wide pink down-arrow — Caroline's PNG */}
