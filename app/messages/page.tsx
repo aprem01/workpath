@@ -129,7 +129,10 @@ export default function MessagesPage() {
   useEffect(() => {
     const profile = localStorage.getItem("payranker_profile_complete");
     if (!profile) {
-      router.push("/profile");
+      // /profile has noindex; redirecting there from an indexable page
+      // makes Lighthouse think /messages is also blocked. Send unfunneled
+      // visitors to /skills instead — start of the basket flow.
+      router.push("/skills");
       return;
     }
     setMessages(MOCK_MESSAGES);

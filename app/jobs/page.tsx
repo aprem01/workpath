@@ -108,9 +108,12 @@ function JobsPageInner() {
   useEffect(() => {
     const profile = localStorage.getItem("payranker_profile_complete");
 
-    // No profile at all → must create basic profile first
+    // No profile at all → send them to /skills (start of the funnel).
+    // We used to push to /profile, but that has noindex set — when
+    // crawlers landed on /jobs with no localStorage they ended up
+    // auditing /profile's DOM and reporting /jobs as non-indexable.
     if (!profile) {
-      router.push("/profile");
+      router.push("/skills");
       return;
     }
 
@@ -145,7 +148,7 @@ function JobsPageInner() {
 
     const saved = localStorage.getItem("payranker_skills");
     if (!saved) {
-      router.push("/profile");
+      router.push("/skills");
       return;
     }
 
