@@ -4,6 +4,7 @@ import { getDomainQueries, getDomainById } from "@/lib/domains";
 import {
   classifySkillCluster,
   jobFitsCluster,
+  jobPassesCredentials,
   verticalToIndustry,
 } from "@/lib/taxonomy";
 import { prisma } from "@/lib/prisma";
@@ -36,8 +37,18 @@ export async function POST(req: Request) {
       );
     }
 
+    // Each incoming skill may carry an industry `context` set by the
+    // clarification chip picker on /skills. We track context per-skill
+    // so "Management (Logistics)" travels through matching as Logistics,
+    // even when the worker's other skills span other industries.
     const skillTerms = userSkills.map(
       (s: { normalizedTerm: string }) => s.normalizedTerm
+    );
+    const skillsWithContext = userSkills.map(
+      (s: { normalizedTerm: string; context?: string }) => ({
+        term: s.normalizedTerm,
+        context: s.context,
+      })
     );
 
     // ── Caroline's domain anchor (5/22 round-2 fix) ─────────────────
@@ -188,15 +199,32 @@ export async function POST(req: Request) {
     const payCap = PAY_CAP_BY_VERTICAL[userVertical] ?? 12000;
     const shouldFilter = userVertical !== "executive" && userVertical !== "other";
 
-    const passesFilter = <T extends { title?: string; payMax?: number; vertical?: string }>(
+    const passesFilter = <
+      T extends {
+        title?: string;
+        description?: string;
+        payMax?: number;
+        vertical?: string;
+      },
+    >(
       j: T
     ) => {
       if (!shouldFilter) return true;
       if (seniorTitle.test(j.title || "")) return false;
       if ((j.payMax || 0) > payCap) return false;
-      // Cluster fit: drop jobs whose vertical disagrees with the basket's
-      // dominant industry. Only enforced when confidence is decent — if
-      // the cluster is mush (e.g. one generic skill), don't over-block.
+      // HARD credential gate. If the job needs an MD / RN / CDL / NMLS /
+      // etc. and the user's basket doesn't include it, drop the job. This
+      // is the honest, defensible "why hidden": "you don't have that
+      // license," not "your cluster looked wrong."
+      const credCheck = jobPassesCredentials(
+        j.title || "",
+        j.description || "",
+        skillTerms
+      );
+      if (!credCheck.passes) return false;
+      // Cluster fit (secondary). Drop jobs whose vertical disagrees with
+      // the basket's dominant industry when confidence is decent. Below
+      // 0.5 we don't enforce — multi-industry baskets stay open.
       if (cluster.confidence >= 0.5 && !jobFitsCluster(j.vertical, cluster)) {
         return false;
       }
@@ -228,8 +256,10 @@ export async function POST(req: Request) {
       isEmpty: qualifiedJobs.length === 0 && gapJobs.length === 0,
       clusterIndustry: cluster.industry,
       clusterConfidence: cluster.confidence,
+      clusterAffinities: cluster.affinities,
       clusterOutliers: cluster.outliers,
       clusterUnknown: cluster.unknown,
+      skillsWithContextCount: skillsWithContext.filter((s) => s.context).length,
     });
 
     return NextResponse.json({

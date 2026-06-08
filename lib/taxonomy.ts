@@ -43,6 +43,18 @@ export interface TaxonomyEntry {
   industry: string;
   role: string;
   skills: string[];
+  /**
+   * HARD credentials this role legally requires — licenses, board certs,
+   * regulator-issued credentials a worker cannot perform the role without.
+   * Distinguished from in-skill certs like "OSHA-10" which are policy-based.
+   *
+   * The match API uses these as an ABSOLUTE gate: if a job needs an
+   * RN License and the user doesn't have one, the job is dropped. This is
+   * a stricter, more honest guardrail than the cluster-vertical filter —
+   * "you don't have an MD" beats "your skills cluster looks like Logistics"
+   * as a reason to hide physician jobs.
+   */
+  credentials?: string[];
 }
 
 export const TAXONOMY: TaxonomyEntry[] = [
@@ -50,6 +62,7 @@ export const TAXONOMY: TaxonomyEntry[] = [
   {
     industry: "Healthcare",
     role: "Home Health Aide",
+    credentials: ["HHA Certification"],
     skills: [
       "Personal Care Assistance",
       "Vital Signs Monitoring",
@@ -66,6 +79,7 @@ export const TAXONOMY: TaxonomyEntry[] = [
   {
     industry: "Healthcare",
     role: "Certified Nursing Assistant",
+    credentials: ["CNA License"],
     skills: [
       "Patient Care",
       "Vital Signs Monitoring",
@@ -94,6 +108,7 @@ export const TAXONOMY: TaxonomyEntry[] = [
   {
     industry: "Wellness",
     role: "Massage Therapist",
+    credentials: ["Massage Therapy License"],
     skills: [
       "Swedish Massage",
       "Deep Tissue Massage",
@@ -144,6 +159,7 @@ export const TAXONOMY: TaxonomyEntry[] = [
   {
     industry: "Construction",
     role: "Electrician",
+    credentials: ["Trade License"],
     skills: [
       "Electrical Wiring",
       "Conduit Bending",
@@ -195,6 +211,7 @@ export const TAXONOMY: TaxonomyEntry[] = [
   {
     industry: "Logistics",
     role: "Truck Driver",
+    credentials: ["CDL License"],
     skills: [
       "CDL License",
       "Route Planning",
@@ -456,6 +473,7 @@ export const TAXONOMY: TaxonomyEntry[] = [
   {
     industry: "Finance",
     role: "Accountant",
+    credentials: ["CPA License"],
     skills: [
       "GAAP",
       "Financial Statements",
@@ -481,6 +499,7 @@ export const TAXONOMY: TaxonomyEntry[] = [
   {
     industry: "Finance",
     role: "Loan Officer",
+    credentials: ["NMLS License"],
     skills: [
       "Mortgage Origination",
       "Underwriting",
@@ -618,6 +637,15 @@ export interface ClusterResult {
   industry: string | null;
   /** All industries the basket touched, with their specificity-weighted score. */
   industryScores: { industry: string; score: number }[];
+  /**
+   * Industry affinities as percentages (0..1) of total signal. Sums to 1
+   * across reported industries. Use this when the basket genuinely spans
+   * multiple industries — a Hospitality + Travel + Luxury Retail worker
+   * should see jobs from all three, not get force-bucketed into one.
+   *
+   * Only includes industries with ≥ 5% signal so the list stays useful.
+   */
+  affinities: { industry: string; percent: number }[];
   /** Skills that don't fit the dominant industry. */
   outliers: string[];
   /** Skills not found in the taxonomy at all. */
@@ -667,6 +695,16 @@ export function classifySkillCluster(
   const total = sorted.reduce((s, x) => s + x.score, 0);
   const confidence = total > 0 && industry ? (sorted[0].score / total) : 0;
 
+  // Affinities: same scores reframed as percentages. Drop any below 5% so
+  // the list reads cleanly. Reflects the multi-industry reality of real
+  // careers (e.g. Hospitality 40% / Travel 35% / Luxury Retail 25%).
+  const affinities =
+    total > 0
+      ? sorted
+          .map((x) => ({ industry: x.industry, percent: x.score / total }))
+          .filter((a) => a.percent >= 0.05)
+      : [];
+
   // Outliers: skills whose industry-set doesn't include the dominant one.
   const outliers: string[] = [];
   if (industry) {
@@ -677,7 +715,14 @@ export function classifySkillCluster(
     }
   }
 
-  return { industry, industryScores: sorted, outliers, unknown, confidence };
+  return {
+    industry,
+    industryScores: sorted,
+    affinities,
+    outliers,
+    unknown,
+    confidence,
+  };
 }
 
 /**
@@ -768,4 +813,145 @@ export function jobFitsCluster(
   if (!jobIndustry) return true;
   if (!cluster.industry) return true;
   return jobIndustry === cluster.industry;
+}
+
+// ─── Credential gates ─────────────────────────────────────────────
+//
+// The honest guardrail. Cross-vertical filtering is a *proxy* for
+// "you don't have the credential this job requires." Credentials are
+// the underlying truth: an MD job needs an MD license, an HHA job
+// needs HHA certification, a truck driver needs a CDL. When we drop
+// a job, we should be able to point at exactly the credential that
+// caused it.
+//
+// Detection runs over the job title + description (Adzuna gives us
+// both). A credential is required if its regex matches the posting.
+// The user "has" a credential if a matching token is in their skill
+// basket. Cheap, deterministic, easy to explain.
+
+interface CredentialPattern {
+  /** The canonical credential label we'd recognise in a skill basket. */
+  label: string;
+  /** Regex against `${title} ${description}`.toLowerCase(). */
+  jobPattern: RegExp;
+  /** Aliases the user might have entered; matched case-insensitive. */
+  userAliases: string[];
+}
+
+const CREDENTIAL_PATTERNS: CredentialPattern[] = [
+  // Healthcare
+  {
+    label: "MD License",
+    jobPattern: /\b(physician|md\b|medical doctor|attending\b|surgeon|psychiatrist|cardiologist|oncologist|radiologist)\b/,
+    userAliases: ["md license", "md", "medical doctor", "physician license"],
+  },
+  {
+    label: "RN License",
+    jobPattern: /\b(registered nurse|rn\b)\b/,
+    userAliases: ["rn license", "rn", "registered nurse license"],
+  },
+  {
+    label: "LPN License",
+    jobPattern: /\b(licensed practical nurse|lpn\b|lvn\b|licensed vocational nurse)\b/,
+    userAliases: ["lpn license", "lpn", "lvn", "licensed practical nurse license"],
+  },
+  {
+    label: "NP License",
+    jobPattern: /\b(nurse practitioner|np\b)\b/,
+    userAliases: ["np license", "nurse practitioner license"],
+  },
+  {
+    label: "PT License",
+    jobPattern: /\b(physical therapist|pt\b)\b/,
+    userAliases: ["pt license", "physical therapist license", "dpt"],
+  },
+  {
+    label: "OT License",
+    jobPattern: /\b(occupational therapist|otr\b)\b/,
+    userAliases: ["ot license", "occupational therapist license", "otr"],
+  },
+  {
+    label: "CNA License",
+    jobPattern: /\b(cna\b|certified nursing assistant)\b/,
+    userAliases: ["cna license", "cna", "certified nursing assistant"],
+  },
+  {
+    label: "HHA Certification",
+    jobPattern: /\b(hha\b|home health aide)\b/,
+    userAliases: ["hha certification", "hha", "home health aide certification"],
+  },
+  // Wellness
+  {
+    label: "Massage Therapy License",
+    jobPattern: /\b(licensed massage therapist|lmt\b|massage therapist)\b/,
+    userAliases: ["massage therapy license", "lmt", "massage license"],
+  },
+  // Logistics
+  {
+    label: "CDL License",
+    jobPattern: /\b(cdl\b|class a driver|class b driver|commercial drivers? license)\b/,
+    userAliases: ["cdl license", "cdl", "cdl-a", "cdl-b", "class a", "class b"],
+  },
+  // Finance
+  {
+    label: "CPA License",
+    jobPattern: /\b(cpa\b|certified public accountant)\b/,
+    userAliases: ["cpa license", "cpa", "certified public accountant"],
+  },
+  {
+    label: "NMLS License",
+    jobPattern: /\b(nmls\b|licensed mortgage|mortgage loan originator|mlo\b)\b/,
+    userAliases: ["nmls license", "nmls", "mortgage license"],
+  },
+  // Construction trades
+  {
+    label: "Trade License",
+    jobPattern: /\b(journeyman|master electrician|licensed electrician|licensed plumber|master plumber)\b/,
+    userAliases: ["trade license", "journeyman license", "electrical license", "plumbing license"],
+  },
+];
+
+/**
+ * Which hard credentials does this job posting require?
+ * Scans title + description for credential keywords.
+ */
+export function detectJobCredentials(jobTitle: string, jobDescription: string): string[] {
+  const haystack = `${jobTitle || ""} ${jobDescription || ""}`.toLowerCase();
+  const found: string[] = [];
+  for (const cred of CREDENTIAL_PATTERNS) {
+    if (cred.jobPattern.test(haystack)) found.push(cred.label);
+  }
+  return found;
+}
+
+/**
+ * Does the user's basket cover a given credential?
+ * Case-insensitive substring match against every alias.
+ */
+export function userHasCredential(
+  userSkills: string[],
+  credential: string
+): boolean {
+  const pattern = CREDENTIAL_PATTERNS.find((c) => c.label === credential);
+  if (!pattern) return false;
+  const lower = userSkills.map((s) => s.toLowerCase());
+  return pattern.userAliases.some((alias) =>
+    lower.some((s) => s.includes(alias))
+  );
+}
+
+/**
+ * The credential gate. Returns true when the user satisfies every credential
+ * the job requires. Returns false ONLY when a required credential is missing
+ * from the user's basket — that's an honest reason to hide the job.
+ */
+export function jobPassesCredentials(
+  jobTitle: string,
+  jobDescription: string,
+  userSkills: string[]
+): { passes: boolean; missingCredentials: string[] } {
+  const required = detectJobCredentials(jobTitle, jobDescription);
+  if (required.length === 0) return { passes: true, missingCredentials: [] };
+  const missing = required.filter((c) => !userHasCredential(userSkills, c));
+  return { passes: missing.length === 0, missingCredentials: missing };
 }

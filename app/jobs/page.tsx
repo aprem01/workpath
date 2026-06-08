@@ -29,6 +29,7 @@ interface JobMatch {
 
 interface Skill {
   normalizedTerm: string;
+  context?: string;
 }
 
 function formatPay(cents: number) {
@@ -167,6 +168,7 @@ function JobsPageInner() {
             userSkills: parsed.map((s: Skill) => ({
               normalizedTerm: s.normalizedTerm,
               proficiencyLevel: "intermediate",
+              context: s.context,
             })),
             domainId: localStorage.getItem("payranker_domain") || undefined,
           }),

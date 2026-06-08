@@ -16,6 +16,17 @@ interface Skill {
   category: string;
   isAISuggested: boolean;
   aiResistanceScore: number;
+  /**
+   * Industry context attached to *this skill* — not to the person.
+   * Caroline's career-mobility insight: "Management" means something
+   * different in Logistics vs Healthcare, but the WORKER may have done
+   * both. Store the picked industry on the skill, render as
+   * "Management (Logistics)" on the pill.
+   *
+   * Set when the clarification chip picker resolves an ambiguous skill.
+   * Undefined for unambiguous skills.
+   */
+  context?: string;
 }
 
 const PLACEHOLDER_SKILLS = ["driving", "cooking", "sales"];
@@ -139,7 +150,7 @@ function SkillsPageInner() {
   }, [skills]);
 
   const normalizeAndAdd = useCallback(
-    async (raw: string, bypassClarification = false) => {
+    async (raw: string, bypassClarification = false, context?: string) => {
       const trimmed = raw.trim();
       if (!trimmed) return;
 
@@ -150,10 +161,12 @@ function SkillsPageInner() {
       )
         return;
 
-      // Per-skill clarification gate (Caroline 5/22 sketch). If the skill
-      // is ambiguous AND the user's domain anchor doesn't disambiguate it,
-      // pause and ask. bypassClarification=true is used by the picker chip
-      // once the user has resolved the ambiguity.
+      // Per-skill clarification gate. If the skill is ambiguous AND the
+      // user's domain anchor doesn't disambiguate it, pause and ask.
+      // bypassClarification=true is used by the picker chip once the user
+      // has resolved the ambiguity, and `context` carries which industry
+      // they picked — stored on the skill so "Management (Logistics)"
+      // travels with it through matching.
       if (!bypassClarification) {
         const anchor = verticalToIndustry(
           getDomainById(domainId)?.vertical || null
@@ -173,6 +186,7 @@ function SkillsPageInner() {
         category: "other",
         isAISuggested: false,
         aiResistanceScore: 50,
+        context,
       };
       setSkills((prev) => [...prev, optimisticSkill]);
       setInput("");
@@ -382,12 +396,11 @@ function SkillsPageInner() {
                     onClick={() => {
                       const raw = pendingClarification.rawSkill;
                       setPendingClarification(null);
-                      // Tag the basket with this industry for the run by
-                      // storing the user's choice (later baskets can sum
-                      // these into a stronger anchor signal). For MVP we
-                      // simply proceed to add the skill — the cluster
-                      // classifier will weight it correctly.
-                      void normalizeAndAdd(raw, true);
+                      // Attach the picked industry as `context` on the
+                      // skill itself — not on the person. Pill renders as
+                      // "Management (Logistics)" so the worker can see
+                      // and edit the resolution.
+                      void normalizeAndAdd(raw, true, ind);
                     }}
                     className="px-3 py-1.5 rounded-full text-sm font-semibold bg-white border-2 border-magenta/40 text-magenta hover:bg-magenta hover:text-white transition-colors"
                   >
@@ -444,6 +457,11 @@ function SkillsPageInner() {
                     }}
                   >
                     {s.normalizedTerm}
+                    {s.context && (
+                      <span className="text-[10px] font-semibold bg-white/25 px-1.5 py-0.5 rounded-full">
+                        {s.context}
+                      </span>
+                    )}
                     <button
                       onClick={() => removeSkill(i)}
                       className="hover:opacity-70 transition-opacity ml-0.5"

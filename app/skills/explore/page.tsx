@@ -13,6 +13,7 @@ import { formatPay } from "@/lib/utils";
 
 interface Skill {
   normalizedTerm: string;
+  context?: string;
 }
 
 interface JobMatch {
@@ -109,6 +110,7 @@ export default function ExploreSkillsPage() {
             userSkills: parsed.map((s) => ({
               normalizedTerm: s.normalizedTerm,
               proficiencyLevel: "intermediate",
+              context: s.context,
             })),
             domainId: localStorage.getItem("payranker_domain") || undefined,
           }),

@@ -11,6 +11,7 @@ interface Skill {
   category: string;
   isAISuggested: boolean;
   aiResistanceScore: number;
+  context?: string;
 }
 
 interface MatchResults {
@@ -60,6 +61,7 @@ export default function MatchRevealPage() {
             userSkills: parsed.map((s) => ({
               normalizedTerm: s.normalizedTerm,
               proficiencyLevel: "intermediate",
+              context: s.context,
             })),
             domainId: localStorage.getItem("payranker_domain") || undefined,
           }),

@@ -25,6 +25,7 @@ interface SkillData {
   proficiencyLevel: string;
   rawInput: string;
   isAISuggested: boolean;
+  context?: string;
 }
 
 interface JobResult {
@@ -253,6 +254,7 @@ export default function DashboardPage() {
           userSkills: skillsData.map((s) => ({
             normalizedTerm: s.normalizedTerm,
             proficiencyLevel: s.proficiencyLevel,
+            context: s.context,
           })),
         }),
         signal,
