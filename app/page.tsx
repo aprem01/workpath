@@ -57,6 +57,7 @@ export default function LandingPage() {
         </div>
       </header>
 
+      <main>
       {/* Headline + subtext flush-left with logo */}
       <section className="max-w-5xl mx-auto w-full px-6 pt-12">
         <h2 className="text-2xl sm:text-3xl lg:text-[2.5rem] font-semibold text-magenta-headline leading-tight mb-4 whitespace-normal sm:whitespace-nowrap">
@@ -84,9 +85,10 @@ export default function LandingPage() {
             <select
               value={domain}
               onChange={handleDomainChange}
+              aria-label="Choose your primary background"
               className="w-full px-5 py-3.5 text-base rounded-[6px] bg-white focus:outline-none text-center font-medium appearance-none cursor-pointer pr-12"
               style={{
-                color: domain ? "#1f2937" : "#C1C1C1",
+                color: domain ? "#1f2937" : "#8C8C8C",
               }}
             >
               <option value="" disabled>
@@ -154,6 +156,7 @@ export default function LandingPage() {
           </p>
         </div>
       </section>
+      </main>
     </div>
   );
 }

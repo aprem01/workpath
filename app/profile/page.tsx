@@ -165,9 +165,10 @@ function ProfilePageInner() {
 
           <form onSubmit={handleSubmit} className="space-y-5 max-w-md">
             <div>
-              <label className={labelClass}>Email</label>
+              <label htmlFor="profile-email" className={labelClass}>Email</label>
               <GradientInput>
                 <input
+                  id="profile-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -183,10 +184,11 @@ function ProfilePageInner() {
             </div>
 
             <div>
-              <label className={labelClass}>Create Your Password</label>
+              <label htmlFor="profile-password" className={labelClass}>Create Your Password</label>
               <GradientInput>
                 <div className="relative bg-white rounded-[10px]">
                   <input
+                    id="profile-password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -197,7 +199,8 @@ function ProfilePageInner() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 w-11 h-11 flex items-center justify-center"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -209,10 +212,11 @@ function ProfilePageInner() {
             </div>
 
             <div>
-              <label className={labelClass}>Zip Code</label>
+              <label htmlFor="profile-zip" className={labelClass}>Zip Code</label>
               <div className="max-w-[140px]">
                 <GradientInput>
                   <input
+                    id="profile-zip"
                     type="text"
                     value={zipCode}
                     onChange={(e) => setZipCode(e.target.value)}

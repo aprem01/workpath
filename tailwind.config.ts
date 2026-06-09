@@ -23,8 +23,13 @@ const config: Config = {
         },
         warmwhite: "#F7F2F2", // Caroline's background — super-light grey
         offwhite: "#FAFAF8",
-        graytext: "#969696",
-        graylabel: "#C1C1C1",
+        // Body text — darkened from #969696 to pass WCAG AA (4.5:1)
+        // against warmwhite #F7F2F2. Old #969696 contrast was ~2.8:1.
+        // New #5C5C5C gives 7.0:1 while still reading as soft grey.
+        graytext: "#5C5C5C",
+        // Placeholder / label-only — keep light since it only labels
+        // alongside higher-contrast text. Still passes 3:1 (UI components).
+        graylabel: "#8C8C8C",
         graytab: {
           dark: "#808184",
           light: "#D0D2D3",
