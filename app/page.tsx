@@ -9,30 +9,47 @@ import { DOMAINS } from "@/lib/domains";
 export default function LandingPage() {
   const router = useRouter();
   const [domain, setDomain] = useState<string>("");
+  const [skipped, setSkipped] = useState(false);
   const [skill, setSkill] = useState("");
 
-  // Restore a previously-selected domain so refreshing the page doesn't
-  // make the user pick again (Caroline: "not rigid, not permanent")
+  // Restore prior selection — pick OR skip.
   useEffect(() => {
     const saved = localStorage.getItem("payranker_domain");
     if (saved) setDomain(saved);
+    if (localStorage.getItem("payranker_domain_skipped") === "true") {
+      setSkipped(true);
+    }
   }, []);
 
   function handleDomainChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const next = e.target.value;
     setDomain(next);
-    if (next) localStorage.setItem("payranker_domain", next);
+    if (next) {
+      localStorage.setItem("payranker_domain", next);
+      // Picking a domain supersedes a prior Skip.
+      localStorage.removeItem("payranker_domain_skipped");
+      setSkipped(false);
+    }
   }
+
+  function handleSkip() {
+    setSkipped(true);
+    setDomain("");
+    localStorage.setItem("payranker_domain_skipped", "true");
+    localStorage.removeItem("payranker_domain");
+  }
+
+  const ready = Boolean(domain) || skipped;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = skill.trim();
-    if (!domain || !trimmed) return;
+    if (!ready || !trimmed) return;
     router.push(`/skills?skill=${encodeURIComponent(trimmed)}`);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "," && skill.trim() && domain) {
+    if (e.key === "," && skill.trim() && ready) {
       e.preventDefault();
       router.push(
         `/skills?skill=${encodeURIComponent(skill.trim().replace(/,$/, ""))}`
@@ -40,7 +57,7 @@ export default function LandingPage() {
     }
   }
 
-  const inputReady = Boolean(domain);
+  const inputReady = ready;
 
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
@@ -70,14 +87,19 @@ export default function LandingPage() {
       </section>
 
       <section className="max-w-5xl mx-auto w-full px-6 pb-24">
-        {/* STEP 1 — Background dropdown */}
+        {/* STEP 1 — Background dropdown (now OPTIONAL — Caroline 6/9).
+            Workers whose careers span industries can skip and let the
+            per-skill clarification picker provide context per ambiguous
+            skill instead of locking the whole profile to one domain. */}
         <div className="max-w-lg mx-auto">
           <p className="text-base font-semibold text-magenta text-center mb-3">
-            What best describes your primary background?
+            What are you currently most active in?
           </p>
 
           <div
-            className="rounded-lg p-[2.5px] focus-within:p-[3px] transition-all relative"
+            className={`rounded-lg p-[2.5px] focus-within:p-[3px] transition-all relative ${
+              skipped ? "opacity-40" : ""
+            }`}
             style={{
               background: "linear-gradient(to right, #F6A21C, #E725E2)",
             }}
@@ -85,14 +107,14 @@ export default function LandingPage() {
             <select
               value={domain}
               onChange={handleDomainChange}
-              aria-label="Choose your primary background"
+              aria-label="Choose what you're currently most active in"
               className="w-full px-5 py-3.5 text-base rounded-[6px] bg-white focus:outline-none text-center font-medium appearance-none cursor-pointer pr-12"
               style={{
                 color: domain ? "#1f2937" : "#8C8C8C",
               }}
             >
               <option value="" disabled>
-                Choose your background…
+                Choose your current focus…
               </option>
               {DOMAINS.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -105,9 +127,23 @@ export default function LandingPage() {
               className="absolute right-4 top-1/2 -translate-y-1/2 text-magenta pointer-events-none"
             />
           </div>
-          <p className="text-xs text-graytext text-center mt-2 italic font-medium">
-            You can change this later
-          </p>
+
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-graytext italic font-medium">
+              You can change this later
+            </p>
+            <button
+              type="button"
+              onClick={handleSkip}
+              className={`text-xs font-semibold underline transition-colors ${
+                skipped
+                  ? "text-magenta"
+                  : "text-graytext hover:text-magenta"
+              }`}
+            >
+              {skipped ? "Skipped ✓" : "Skip if it varies"}
+            </button>
+          </div>
         </div>
 
         {/* STEP 2 — Skill input (enabled after domain pick) */}

@@ -10,6 +10,7 @@ interface JobMatch {
   title: string;
   employer: string;
   location: string;
+  vertical?: string;
   payMin: number;
   payMax: number;
   payType: string;
@@ -239,26 +240,52 @@ function JobsPageInner() {
    * Caroline's bug: clicking out to view Adzuna was being marked "Applied"
    * which broke trust. Now we mark Visited on click, then ask later.
    */
-  function markVisited(jobId: string) {
+  function trackApplication(job: JobMatch, action: "viewed" | "applied") {
+    if (typeof window === "undefined") return;
+    const handle = localStorage.getItem("payranker_handle");
+    if (!handle) return; // sync route requires it
+    void fetch("/api/applications/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        anonymousHandle: handle,
+        jobId: job.id,
+        jobTitle: job.title,
+        employer: job.employer,
+        location: job.location,
+        vertical: job.vertical,
+        payMin: job.payMin,
+        payMax: job.payMax,
+        applyUrl: job.applyUrl,
+        action,
+      }),
+    }).catch(() => {
+      // Non-blocking: localStorage state still updates client-side
+    });
+  }
+
+  function markVisited(job: JobMatch) {
     const updated = new Set(appliedJobs); // reuse the set name for backwards-compat
-    updated.add(jobId);
+    updated.add(job.id);
     setAppliedJobs(updated);
     localStorage.setItem(
       "payranker_visited",
       JSON.stringify(Array.from(updated))
     );
+    trackApplication(job, "viewed");
   }
 
-  function confirmApplied(jobId: string) {
+  function confirmApplied(job: JobMatch) {
     const raw = localStorage.getItem("payranker_applied_confirmed");
     const set = new Set<string>(raw ? JSON.parse(raw) : []);
-    set.add(jobId);
+    set.add(job.id);
     localStorage.setItem(
       "payranker_applied_confirmed",
       JSON.stringify(Array.from(set))
     );
     // Force a re-render by touching state
     setAppliedJobs(new Set(appliedJobs));
+    trackApplication(job, "applied");
   }
 
   function isApplied(jobId: string): boolean {
@@ -524,7 +551,7 @@ function JobsPageInner() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      confirmApplied(job.id);
+                      confirmApplied(job);
                     }}
                     className="px-3 py-1 rounded-full bg-magenta text-white font-semibold text-xs hover:bg-magenta-dark transition-colors"
                   >
@@ -559,7 +586,7 @@ function JobsPageInner() {
                 rel="noopener noreferrer"
                 onClick={(e) => {
                   e.stopPropagation();
-                  markVisited(job.id);
+                  markVisited(job);
                 }}
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full
                            font-bold text-white bg-magenta hover:bg-magenta-dark
@@ -569,7 +596,7 @@ function JobsPageInner() {
               </a>
             ) : (
               <button
-                onClick={() => markVisited(job.id)}
+                onClick={() => markVisited(job)}
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full
                            font-bold text-white bg-magenta hover:bg-magenta-dark
                            transition-colors text-sm"

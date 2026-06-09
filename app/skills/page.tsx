@@ -104,16 +104,25 @@ function SkillsPageInner() {
     industries: string[];
   } | null>(null);
 
-  // Read the user's primary domain (chosen on the landing page)
+  // Read the user's primary domain (chosen on the landing page).
+  // Caroline 6/9: domain is now OPTIONAL — workers whose careers span
+  // industries (massage therapist → flight attendant → luxury sales) get
+  // distorted by a single anchor. If they Skip on landing, we honour
+  // that and let the per-skill clarification picker provide context as
+  // needed.
   useEffect(() => {
     const saved = localStorage.getItem("payranker_domain");
+    const skipped = localStorage.getItem("payranker_domain_skipped") === "true";
     if (saved) {
       setDomainId(saved);
-    } else {
-      // No domain picked — bounce back to landing where Step 1 lives.
-      // Caroline: domain anchoring is required for matching to work.
+    } else if (!skipped) {
+      // Neither picked nor explicitly skipped — bounce to landing so the
+      // user at least sees the option.
       router.replace("/");
     }
+    // Skipped path: domainId stays empty. Cluster classifier works fine
+    // without an anchor; per-skill context picker kicks in for ambiguous
+    // skills.
   }, [router]);
 
   const domain = getDomainById(domainId);
@@ -147,6 +156,42 @@ function SkillsPageInner() {
     if (skills.length > 0) {
       localStorage.setItem("payranker_skills", JSON.stringify(skills));
     }
+  }, [skills]);
+
+  // Sync basket to the DB so Skilmatch can see real candidates.
+  // Debounced: fires 800ms after the basket goes idle so we don't hit
+  // the route on every keystroke. Requires an anonymousHandle (which
+  // /matches generates automatically). No-op until that exists.
+  useEffect(() => {
+    if (skills.length === 0) return;
+    if (typeof window === "undefined") return;
+    let handle = localStorage.getItem("payranker_handle");
+    if (!handle) {
+      // Generate one now so the first sync has a key. Matches the
+      // syllable scheme used elsewhere (/matches).
+      const syl = ["kee","joo","mee","too","noo","bee","zee","loo","ka","to","bu","mi","ze","ri","lu","na","fi","da"];
+      const s1 = syl[Math.floor(Math.random() * syl.length)];
+      const s2 = syl[Math.floor(Math.random() * syl.length)];
+      handle = `${s1}${s2}${Math.floor(100 + Math.random() * 900)}`;
+      localStorage.setItem("payranker_handle", handle);
+    }
+    const t = setTimeout(() => {
+      void fetch("/api/users/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          anonymousHandle: handle,
+          zipCode: undefined,
+          profileComplete: localStorage.getItem("payranker_profile_complete")
+            ? true
+            : false,
+          skills,
+        }),
+      }).catch(() => {
+        // Non-blocking: localStorage remains the source of truth client-side
+      });
+    }, 800);
+    return () => clearTimeout(t);
   }, [skills]);
 
   const normalizeAndAdd = useCallback(
