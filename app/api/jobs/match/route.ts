@@ -10,6 +10,9 @@ import {
   findNearestRoleByTitle,
 } from "@/lib/taxonomy";
 import { getTransferability } from "@/lib/transferability";
+import { getWage, payVsMedian } from "@/lib/wages";
+import { getProjection, projectionLabel } from "@/lib/projections";
+import { getMetroById, DEFAULT_METRO_ID } from "@/lib/metros";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +35,7 @@ export async function POST(req: Request) {
   const startTime = Date.now();
   try {
     const body = await req.json();
-    const { userSkills, domainId } = body;
+    const { userSkills, domainId, metroId } = body;
     if (!Array.isArray(userSkills) || userSkills.length === 0) {
       return NextResponse.json(
         { error: "userSkills array is required" },
@@ -81,13 +84,28 @@ export async function POST(req: Request) {
     // you think" instead.
     const nearestRole = findNearestRole(skillTerms);
 
-    // Search Adzuna using the domain-curated query (not skill string join).
+    // Phase 4 geographic expansion: resolve the worker's metro choice
+    // (set on landing, persisted in localStorage as "payranker_metro").
+    // Falls back to Chicago — the MVP market.
+    const metro = getMetroById(metroId) || getMetroById(DEFAULT_METRO_ID)!;
+
+    // Search Adzuna using the domain-curated query (not skill string join)
+    // in the selected metro.
     const { qualified: exactJobs, broader: broaderJobs } =
-      await searchJobsForSkills(skillTerms, "Chicago", 15, domainQueries);
+      await searchJobsForSkills(skillTerms, metro.adzunaWhere, 15, domainQueries);
 
     // Convert to our format
     const qualifiedJobs = exactJobs.map((aj, i) => {
       const converted = adzunaToInternal(aj, detectVertical(aj));
+      // Phase 4 wage benchmark — map title → TAXONOMY role → BLS wage.
+      // Each qualified job now carries a "median Chicago wage" and a
+      // "this job pays X% above/below market" signal.
+      const taxonomyRole = findNearestRoleByTitle(converted.title);
+      const wage = getWage(taxonomyRole?.entry.socCode);
+      const projection = getProjection(taxonomyRole?.entry.socCode);
+      const payDiffPct = wage
+        ? payVsMedian(taxonomyRole?.entry.socCode, converted.payMax)
+        : null;
       return {
         id: `adzuna_${aj.id || i}`,
         title: converted.title,
@@ -109,6 +127,20 @@ export async function POST(req: Request) {
         requiredSkills: [],
         isReal: true,
         applyUrl: aj.redirect_url,
+        wage: wage
+          ? {
+              medianHourly: wage.medianHourly,
+              medianAnnual: wage.medianAnnual,
+              metro: wage.metro,
+              payDiffPct,
+            }
+          : null,
+        projection: projection
+          ? {
+              growthPct: projection.growthPct,
+              label: projectionLabel(projection),
+            }
+          : null,
       };
     });
 
@@ -193,6 +225,13 @@ export async function POST(req: Request) {
         }
       }
 
+      // Phase 4 wage + projection benchmarks (same as qualified jobs).
+      const gapWage = getWage(targetRole?.entry.socCode);
+      const gapProjection = getProjection(targetRole?.entry.socCode);
+      const gapPayDiffPct = gapWage
+        ? payVsMedian(targetRole?.entry.socCode, converted.payMax)
+        : null;
+
       return {
         id: `adzuna_gap_${aj.id || i}`,
         title: converted.title,
@@ -215,6 +254,20 @@ export async function POST(req: Request) {
         isReal: true,
         applyUrl: aj.redirect_url,
         transferability,
+        wage: gapWage
+          ? {
+              medianHourly: gapWage.medianHourly,
+              medianAnnual: gapWage.medianAnnual,
+              metro: gapWage.metro,
+              payDiffPct: gapPayDiffPct,
+            }
+          : null,
+        projection: gapProjection
+          ? {
+              growthPct: gapProjection.growthPct,
+              label: projectionLabel(gapProjection),
+            }
+          : null,
       };
     });
 
@@ -302,6 +355,8 @@ export async function POST(req: Request) {
       skillsWithContextCount: skillsWithContext.filter((s) => s.context).length,
       nearestRoleSoc: nearestRole?.entry.socCode || null,
       nearestRoleName: nearestRole?.entry.role || null,
+      metroId: metro.id,
+      metroLabel: metro.label,
     });
 
     return NextResponse.json({

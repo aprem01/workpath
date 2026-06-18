@@ -37,6 +37,25 @@ interface JobMatch {
     fromRole?: string;
     toRole?: string;
   } | null;
+  /**
+   * Phase 4 wage benchmark — BLS OEWS Chicago / National wage for the
+   * TAXONOMY role this job mapped to. payDiffPct is positive when the
+   * listing pays above median, negative when below.
+   */
+  wage?: {
+    medianHourly: number;
+    medianAnnual: number;
+    metro: "Chicago" | "National";
+    payDiffPct: number | null;
+  } | null;
+  /**
+   * Phase 4 employment projection — BLS 2024-2034 growth %.
+   * Label is a short worker-facing phrase ("growing fast", "declining").
+   */
+  projection?: {
+    growthPct: number;
+    label: string;
+  } | null;
 }
 
 interface Skill {
@@ -186,6 +205,7 @@ function JobsPageInner() {
               context: s.context,
             })),
             domainId: localStorage.getItem("payranker_domain") || undefined,
+            metroId: localStorage.getItem("payranker_metro") || undefined,
           }),
         });
         const data = await res.json();
@@ -377,10 +397,23 @@ function JobsPageInner() {
             {shiftLabel(job.shiftType)}
           </span>
 
-          {/* Pay — always visible */}
-          <span className="text-sm font-bold text-gray-900 whitespace-nowrap">
-            {formatPay(job.payMax)}/hr
-          </span>
+          {/* Pay — always visible. Phase 4: tag "above/below market"
+              when we have a BLS wage benchmark for this role. */}
+          <div className="text-right whitespace-nowrap">
+            <span className="text-sm font-bold text-gray-900">
+              {formatPay(job.payMax)}/hr
+            </span>
+            {job.wage && typeof job.wage.payDiffPct === "number" && job.wage.payDiffPct !== 0 && (
+              <span
+                className={`block text-[10px] font-bold ${
+                  job.wage.payDiffPct > 0 ? "text-green-600" : "text-red-500"
+                }`}
+              >
+                {job.wage.payDiffPct > 0 ? "+" : ""}
+                {job.wage.payDiffPct}% vs median
+              </span>
+            )}
+          </div>
 
           <ChevronDown
             size={16}
@@ -408,6 +441,54 @@ function JobsPageInner() {
                     From <span className="font-semibold">{job.transferability.fromRole}</span>{" "}
                     → <span className="font-semibold">{job.transferability.toRole}</span>
                   </p>
+                )}
+              </div>
+            )}
+
+            {/* Phase 4: BLS wage benchmark + 10-year projection.
+                Hard data the worker won't get elsewhere — sits prominently
+                above the description so it's read before they bounce. */}
+            {(job.wage || job.projection) && (
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                {job.wage && (
+                  <div className="px-3 py-2 rounded-lg bg-gray-100 border border-gray-200">
+                    <p className="text-[10px] uppercase tracking-wider text-graytext font-bold">
+                      {job.wage.metro} median
+                    </p>
+                    <p className="text-sm font-bold text-gray-900">
+                      ${job.wage.medianHourly.toFixed(2)}/hr
+                    </p>
+                    <p className="text-[10px] text-graytext">
+                      ${job.wage.medianAnnual.toLocaleString("en-US")}/yr
+                    </p>
+                  </div>
+                )}
+                {job.projection && (
+                  <div
+                    className={`px-3 py-2 rounded-lg border ${
+                      job.projection.growthPct >= 4
+                        ? "bg-green-50 border-green-200"
+                        : job.projection.growthPct >= -3
+                        ? "bg-amber-50 border-amber-200"
+                        : "bg-red-50 border-red-200"
+                    }`}
+                  >
+                    <p className="text-[10px] uppercase tracking-wider text-graytext font-bold">
+                      2024 → 2034
+                    </p>
+                    <p
+                      className={`text-sm font-bold ${
+                        job.projection.growthPct >= 4
+                          ? "text-green-700"
+                          : job.projection.growthPct >= -3
+                          ? "text-amber-700"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {job.projection.growthPct > 0 ? "+" : ""}
+                      {job.projection.growthPct}% — {job.projection.label}
+                    </p>
+                  </div>
                 )}
               </div>
             )}

@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { ChevronDown } from "lucide-react";
 import { DOMAINS } from "@/lib/domains";
+import { METROS, DEFAULT_METRO_ID } from "@/lib/metros";
 
 export default function LandingPage() {
   const router = useRouter();
   const [domain, setDomain] = useState<string>("");
   const [skipped, setSkipped] = useState(false);
   const [skill, setSkill] = useState("");
+  const [metro, setMetro] = useState<string>(DEFAULT_METRO_ID);
 
   // Restore prior selection — pick OR skip.
   useEffect(() => {
@@ -19,7 +21,15 @@ export default function LandingPage() {
     if (localStorage.getItem("payranker_domain_skipped") === "true") {
       setSkipped(true);
     }
+    const savedMetro = localStorage.getItem("payranker_metro");
+    if (savedMetro) setMetro(savedMetro);
   }, []);
+
+  function handleMetroChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const next = e.target.value;
+    setMetro(next);
+    localStorage.setItem("payranker_metro", next);
+  }
 
   function handleDomainChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const next = e.target.value;
@@ -143,6 +153,31 @@ export default function LandingPage() {
             >
               {skipped ? "Skipped ✓" : "Skip if it varies"}
             </button>
+          </div>
+
+          {/* Metro picker — Phase 4 geographic expansion. Small,
+              unobtrusive, defaults to Chicago. Workers in other metros
+              pick once; persists to localStorage. */}
+          <div className="mt-3 flex items-center justify-center gap-2">
+            <span className="text-xs text-graytext">Showing jobs in</span>
+            <div className="relative">
+              <select
+                value={metro}
+                onChange={handleMetroChange}
+                aria-label="Choose your metro area"
+                className="text-xs font-semibold text-magenta bg-transparent border-b border-magenta/40 pl-1 pr-5 py-0.5 focus:outline-none cursor-pointer appearance-none"
+              >
+                {METROS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={11}
+                className="absolute right-0 top-1/2 -translate-y-1/2 text-magenta pointer-events-none"
+              />
+            </div>
           </div>
         </div>
 

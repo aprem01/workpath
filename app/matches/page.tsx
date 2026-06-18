@@ -83,6 +83,7 @@ export default function MatchRevealPage() {
               context: s.context,
             })),
             domainId: localStorage.getItem("payranker_domain") || undefined,
+            metroId: localStorage.getItem("payranker_metro") || undefined,
           }),
         });
         const data = await res.json();
