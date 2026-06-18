@@ -26,6 +26,17 @@ interface JobMatch {
   requiredSkills: { normalizedTerm: string; isRequired: boolean }[];
   isReal?: boolean;
   applyUrl?: string;
+  /**
+   * Phase 3 transferability — server-computed score from the worker's
+   * nearest TAXONOMY role to this job's nearest TAXONOMY role.
+   * Null when no clear taxonomic mapping exists for either side.
+   */
+  transferability?: {
+    score: number;
+    percent: number;
+    fromRole?: string;
+    toRole?: string;
+  } | null;
 }
 
 interface Skill {
@@ -334,10 +345,26 @@ function JobsPageInner() {
             <p className="text-xs text-graytext truncate">
               {job.location.split(",")[0]}
             </p>
-            {/* Show missing skills in collapsed row for gap jobs */}
-            {isGap && job.missingSkills.length > 0 && !isExpanded && (
-              <p className="text-[11px] text-amber-dark mt-0.5 truncate">
-                Need: {job.missingSkills.join(", ")}
+            {/* Show transferability percentage + missing skills in
+                collapsed row for gap jobs (Phase 3 — Caroline's
+                emotional frame). Transferability gives the warmth
+                ("you're closer than you think"); missing skills give
+                the specificity. */}
+            {isGap && !isExpanded && (
+              <p className="text-[11px] mt-0.5 truncate">
+                {job.transferability && job.transferability.percent > 0 && (
+                  <span className="text-magenta font-bold">
+                    {job.transferability.percent}% match
+                  </span>
+                )}
+                {job.transferability && job.transferability.percent > 0 && job.missingSkills.length > 0 && (
+                  <span className="text-graytext"> · </span>
+                )}
+                {job.missingSkills.length > 0 && (
+                  <span className="text-amber-dark">
+                    Need: {job.missingSkills.join(", ")}
+                  </span>
+                )}
               </p>
             )}
           </div>
@@ -366,6 +393,25 @@ function JobsPageInner() {
         {/* ---- Expanded detail ---- */}
         {isExpanded && (
           <div className="px-4 py-4 bg-gray-50 border-b border-gray-100 animate-fade-in">
+            {/* Phase 3 transferability framing — Caroline's "warmth" panel.
+                Shows for gap jobs where we can map both sides into the
+                taxonomy. "You're 75% of the way from Solar Installer to
+                Elevator Installer" replaces the harsh "1-2 skills away"
+                cutoff with a continuous, encouraging signal. */}
+            {isGap && job.transferability && job.transferability.percent > 0 && (
+              <div className="mb-3 px-3 py-2.5 rounded-lg bg-magenta/5 border border-magenta/20">
+                <p className="text-sm font-bold text-magenta mb-0.5">
+                  You&rsquo;re {job.transferability.percent}% of the way there.
+                </p>
+                {job.transferability.fromRole && job.transferability.toRole && (
+                  <p className="text-xs text-graytext">
+                    From <span className="font-semibold">{job.transferability.fromRole}</span>{" "}
+                    → <span className="font-semibold">{job.transferability.toRole}</span>
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Description — hide for Tab B (gap jobs) until full profile complete */}
             {isGap && profileLevel !== "full" ? (
               <p className="text-sm text-graytext mb-3 leading-relaxed font-medium tracking-wider">

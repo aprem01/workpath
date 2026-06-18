@@ -25,6 +25,23 @@ interface MatchResults {
   }[];
 }
 
+interface AdjacentRole {
+  socCode: string;
+  role: string;
+  industry: string;
+  score: number;
+  sharedSkillCount: number;
+  needToLearn: string[];
+  credentials?: string[];
+}
+interface NearestRole {
+  socCode: string;
+  role: string;
+  industry: string;
+  matchPercent: number;
+  sharedSkillCount: number;
+}
+
 export default function MatchRevealPage() {
   const router = useRouter();
   const [, setSkills] = useState<Skill[]>([]);
@@ -33,6 +50,8 @@ export default function MatchRevealPage() {
   const [topGapSkills, setTopGapSkills] = useState<
     { skill: string; count: number; avgPay: number; aiResistanceScore: number; isAIProof: boolean }[]
   >([]);
+  const [nearestRole, setNearestRole] = useState<NearestRole | null>(null);
+  const [adjacent, setAdjacent] = useState<AdjacentRole[]>([]);
 
   useEffect(() => {
     const saved = localStorage.getItem("payranker_skills");
@@ -72,6 +91,24 @@ export default function MatchRevealPage() {
         // Use pre-computed top gap skills from API (sorted by AI-resistance + count)
         const sorted = (data.topGapSkills || []).slice(0, 3);
         setTopGapSkills(sorted);
+
+        // Phase 3: also fetch adjacent careers so we can surface a
+        // "You're closest to X — adjacent roles" panel.
+        try {
+          const r = await fetch("/api/roles/transfers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              skills: parsed.map((s) => s.normalizedTerm),
+              topN: 5,
+            }),
+          });
+          const tj = await r.json();
+          if (tj.nearestRole) setNearestRole(tj.nearestRole);
+          if (Array.isArray(tj.transfers)) setAdjacent(tj.transfers);
+        } catch {
+          // Non-blocking: matches reveal still works without adjacency
+        }
       } catch {
         setResults({ qualifiedJobs: [], gapJobs: [] });
       }
@@ -203,6 +240,50 @@ export default function MatchRevealPage() {
                 Explore these skills&nbsp;&rarr;
               </button>
             </div>
+          </div>
+        )}
+
+        {/* ── Phase 3: Adjacent careers (Caroline's emotional frame) ──
+            "You're closest to Solar Photovoltaic Installer. Adjacent
+            careers: Elevator Installer (26% transferable, need 3 more
+            skills), Solar Thermal (25%, 3 more)." Replaces the binary
+            qualify/don't-qualify cutoff with continuous warmth. */}
+        {nearestRole && adjacent.length > 0 && (
+          <div className="mb-10">
+            <p className="text-gray-700 font-bold mb-1">
+              You&rsquo;re closest to{" "}
+              <span className="text-magenta">{nearestRole.role}</span>.
+            </p>
+            <p className="text-graytext text-sm mb-3">
+              Adjacent careers you could grow into:
+            </p>
+
+            <div className="space-y-2 mb-3">
+              {adjacent.slice(0, 5).map((adj) => (
+                <div
+                  key={adj.socCode}
+                  className="px-4 py-3 rounded-xl bg-white border border-gray-200 hover:border-magenta/40 transition-colors"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-gray-900 truncate">{adj.role}</p>
+                      <p className="text-xs text-graytext">{adj.industry}</p>
+                    </div>
+                    <span className="text-magenta font-bold text-sm whitespace-nowrap">
+                      {Math.round(adj.score * 100)}% transferable
+                    </span>
+                  </div>
+                  {adj.needToLearn.length > 0 && (
+                    <p className="text-[11px] text-amber-dark mt-1.5 truncate">
+                      Add: {adj.needToLearn.slice(0, 3).join(" · ")}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-graytext italic">
+              You&rsquo;re closer than you think.
+            </p>
           </div>
         )}
 

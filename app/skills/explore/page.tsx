@@ -53,6 +53,8 @@ interface MissingSkillCard {
   jobCount: number;
   resources?: UpskillData;
   loading: boolean;
+  /** Phase 3 unlock count — how many taxonomy roles list this skill. */
+  unlocksRoleCount?: number;
 }
 
 const MAX_NEAR_YOU = 2;
@@ -197,7 +199,29 @@ export default function ExploreSkillsPage() {
         setSkillCards(initialCards);
         setIsLoading(false);
 
-        // 3) Fetch upskill resources in parallel for each top skill
+        // 3a) Fetch Phase 3 unlock counts (how many TAXONOMY roles
+        //     require this skill). Cheap — no AI, in-memory lookup.
+        void Promise.all(
+          initialCards.map(async (card, idx) => {
+            try {
+              const r = await fetch(
+                `/api/skills/roles?skill=${encodeURIComponent(card.skill)}`
+              );
+              const j = await r.json();
+              setSkillCards((prev) => {
+                const next = [...prev];
+                if (next[idx]) {
+                  next[idx] = { ...next[idx], unlocksRoleCount: j.count };
+                }
+                return next;
+              });
+            } catch {
+              // Non-blocking
+            }
+          })
+        );
+
+        // 3b) Fetch upskill resources in parallel for each top skill
         await Promise.all(
           initialCards.map(async (card, idx) => {
             try {
@@ -339,7 +363,7 @@ function SkillCard({
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
       {/* Header row */}
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
         <span
           className="inline-flex items-center px-4 py-1.5 rounded-full text-sm font-bold text-white shadow-sm"
           style={{
@@ -354,6 +378,15 @@ function SkillCard({
           </span>
         )}
       </div>
+
+      {/* Phase 3 unlock count — how many TAXONOMY roles list this
+          skill. Frames the gap-skill as a foundation, not a one-off. */}
+      {typeof card.unlocksRoleCount === "number" && card.unlocksRoleCount > 0 && (
+        <p className="text-xs text-magenta font-semibold mb-4">
+          Adding this skill is required for {card.unlocksRoleCount} different role
+          {card.unlocksRoleCount === 1 ? "" : "s"}.
+        </p>
+      )}
 
       {/* Loading inside card */}
       {card.loading && (

@@ -6,7 +6,10 @@ import {
   jobFitsCluster,
   jobPassesCredentials,
   verticalToIndustry,
+  findNearestRole,
+  findNearestRoleByTitle,
 } from "@/lib/taxonomy";
+import { getTransferability } from "@/lib/transferability";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +72,14 @@ export async function POST(req: Request) {
     // vertical disagrees.
     const anchorIndustry = verticalToIndustry(userVertical);
     const cluster = classifySkillCluster(skillTerms, anchorIndustry);
+
+    // ── Nearest TAXONOMY role to the worker's basket (Phase 3) ─────
+    // Used to compute per-gap-job transferability scores: "you're 75%
+    // of the way from Solar Installer to Elevator Installer". The match
+    // API would otherwise hide gap jobs the worker couldn't fully
+    // qualify for; transferability lets us surface them as "closer than
+    // you think" instead.
+    const nearestRole = findNearestRole(skillTerms);
 
     // Search Adzuna using the domain-curated query (not skill string join).
     const { qualified: exactJobs, broader: broaderJobs } =
@@ -154,6 +165,34 @@ export async function POST(req: Request) {
         title: converted.title,
         description: converted.description,
       });
+
+      // Phase 3 transferability: how close is the worker to this job?
+      // Match the job's title to a TAXONOMY role, then look up the
+      // edge from the worker's nearest role. Score 0 means we couldn't
+      // map the title; that's fine — the UI falls back to the
+      // "1-2 skills away" framing.
+      const targetRole = findNearestRoleByTitle(converted.title);
+      let transferability: {
+        score: number;
+        percent: number;
+        fromRole?: string;
+        toRole?: string;
+      } | null = null;
+      if (nearestRole?.entry.socCode && targetRole?.entry.socCode) {
+        const score = getTransferability(
+          nearestRole.entry.socCode,
+          targetRole.entry.socCode
+        );
+        if (score > 0) {
+          transferability = {
+            score,
+            percent: Math.round(score * 100),
+            fromRole: nearestRole.entry.role,
+            toRole: targetRole.entry.role,
+          };
+        }
+      }
+
       return {
         id: `adzuna_gap_${aj.id || i}`,
         title: converted.title,
@@ -175,6 +214,7 @@ export async function POST(req: Request) {
         requiredSkills: [],
         isReal: true,
         applyUrl: aj.redirect_url,
+        transferability,
       };
     });
 
@@ -260,6 +300,8 @@ export async function POST(req: Request) {
       clusterOutliers: cluster.outliers,
       clusterUnknown: cluster.unknown,
       skillsWithContextCount: skillsWithContext.filter((s) => s.context).length,
+      nearestRoleSoc: nearestRole?.entry.socCode || null,
+      nearestRoleName: nearestRole?.entry.role || null,
     });
 
     return NextResponse.json({

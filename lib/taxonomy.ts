@@ -24744,3 +24744,92 @@ export function jobPassesCredentials(
   const missing = required.filter((c) => !userHasCredential(userSkills, c));
   return { passes: missing.length === 0, missingCredentials: missing };
 }
+
+// ─── Role matching helpers (Phase 3 — transferability) ────────────
+//
+// Given a worker's skill basket, find the TAXONOMY role they're closest
+// to (by Jaccard over skill sets). Given a job's title, find the
+// TAXONOMY role whose name overlaps it most (simple keyword match).
+// Both used by the match API to wire transferability scores into
+// gap jobs without duplicating the matching logic across routes.
+
+/**
+ * Find the TAXONOMY role whose skill set has the highest Jaccard overlap
+ * with the worker's basket. Returns the entry + score + shared-skill
+ * count. Returns null when no role has any overlap at all (basket of
+ * unknown skills).
+ */
+export function findNearestRole(
+  skills: string[]
+): { entry: TaxonomyEntry; score: number; shared: number } | null {
+  if (skills.length === 0) return null;
+  const userSet = new Set(
+    skills.map((s) => canonicalize(s).toLowerCase().trim()).filter(Boolean)
+  );
+  let best: { entry: TaxonomyEntry; score: number; shared: number } | null =
+    null;
+  for (const entry of TAXONOMY) {
+    if (!entry.socCode) continue;
+    let shared = 0;
+    const roleSet = new Set(entry.skills.map((s) => s.toLowerCase()));
+    userSet.forEach((s) => {
+      if (roleSet.has(s)) shared++;
+    });
+    if (shared === 0) continue;
+    const union = roleSet.size + userSet.size - shared;
+    const score = union > 0 ? shared / union : 0;
+    if (!best || score > best.score) best = { entry, score, shared };
+  }
+  return best;
+}
+
+const STOP_WORDS = new Set([
+  "the","of","and","for","to","a","an","in","at","on","with","by",
+  "or","as","is","are","was","were","be","been","being","have","has",
+  "had","do","does","did","will","would","should","may","might",
+  "all","other","general","specialist","senior","junior","level","first","second",
+]);
+
+function titleKeywords(title: string): Set<string> {
+  return new Set(
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length >= 3 && !STOP_WORDS.has(w))
+  );
+}
+
+/**
+ * Find the TAXONOMY role whose name most resembles the given job title.
+ * Used to map Adzuna jobs (which have no SOC code) into our taxonomy
+ * so we can look up transferability scores against them.
+ *
+ * Returns null when no role's name shares ≥ 1 meaningful keyword with
+ * the title — better to skip transferability than guess wrong.
+ */
+export function findNearestRoleByTitle(
+  jobTitle: string
+): { entry: TaxonomyEntry; score: number } | null {
+  if (!jobTitle?.trim()) return null;
+  const titleWords = titleKeywords(jobTitle);
+  if (titleWords.size === 0) return null;
+
+  let best: { entry: TaxonomyEntry; score: number } | null = null;
+  for (const entry of TAXONOMY) {
+    if (!entry.socCode) continue;
+    const roleWords = titleKeywords(entry.role);
+    if (roleWords.size === 0) continue;
+    let shared = 0;
+    roleWords.forEach((w) => {
+      if (titleWords.has(w)) shared++;
+    });
+    if (shared === 0) continue;
+    // Jaccard over the keyword sets — favours short, focused matches
+    const union = roleWords.size + titleWords.size - shared;
+    const score = union > 0 ? shared / union : 0;
+    if (!best || score > best.score) best = { entry, score };
+  }
+  // Below 0.25 the match is probably wrong; treat as "no clear match"
+  return best && best.score >= 0.25 ? best : null;
+}
