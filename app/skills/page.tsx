@@ -5,10 +5,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { X, ArrowRight, Loader2, Plus } from "lucide-react";
 import Image from "next/image";
 import { getDomainById } from "@/lib/domains";
-import {
-  needsIndustryClarification,
-  verticalToIndustry,
-} from "@/lib/taxonomy";
 
 interface Skill {
   rawInput: string;
@@ -208,19 +204,33 @@ function SkillsPageInner() {
 
       // Per-skill clarification gate. If the skill is ambiguous AND the
       // user's domain anchor doesn't disambiguate it, pause and ask.
-      // bypassClarification=true is used by the picker chip once the user
-      // has resolved the ambiguity, and `context` carries which industry
+      // bypassClarification=true is used by the picker chip once the
+      // user has resolved the ambiguity. `context` carries which industry
       // they picked — stored on the skill so "Management (Logistics)"
       // travels with it through matching.
+      //
+      // We POST to /api/skills/clarify so the 900KB+ O*NET taxonomy
+      // stays on the server. Fire-and-forget on network failure — better
+      // to add the skill than to block on a timeout.
       if (!bypassClarification) {
-        const anchor = verticalToIndustry(
-          getDomainById(domainId)?.vertical || null
-        );
-        const candidates = needsIndustryClarification(trimmed, anchor);
-        if (candidates) {
-          setPendingClarification({ rawSkill: trimmed, industries: candidates });
-          setInput("");
-          return;
+        try {
+          const res = await fetch("/api/skills/clarify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ skill: trimmed, domainId }),
+          });
+          const data = await res.json();
+          if (data.candidates) {
+            setPendingClarification({
+              rawSkill: trimmed,
+              industries: data.candidates,
+            });
+            setInput("");
+            return;
+          }
+        } catch {
+          // Network failure → proceed without clarification rather than
+          // blocking the worker.
         }
       }
 
