@@ -24384,6 +24384,8 @@ export const TAXONOMY: TaxonomyEntry[] = [
   },
 ];
 
+import { canonicalize } from "./equivalencies";
+
 // ─── Reverse index: skill (lowercased) → set of industries it appears in ─
 const SKILL_INDEX: Map<string, Set<string>> = (() => {
   const map = new Map<string, Set<string>>();
@@ -24397,12 +24399,23 @@ const SKILL_INDEX: Map<string, Set<string>> = (() => {
   return map;
 })();
 
+/** Look up the SKILL_INDEX with synonym folding (Phase 2 equivalencies). */
+function lookupIndustries(rawSkill: string): Set<string> | undefined {
+  // Try the raw form first (covers exact-canonical matches without a
+  // map lookup), then fall back to canonicalized form for synonyms.
+  const direct = SKILL_INDEX.get(rawSkill.toLowerCase());
+  if (direct) return direct;
+  const canonical = canonicalize(rawSkill);
+  if (canonical === rawSkill) return undefined;
+  return SKILL_INDEX.get(canonical.toLowerCase());
+}
+
 // Inverse-document-frequency-ish weight: skills appearing in many industries
 // (e.g. "Team Leadership") get a low specificity score; skills appearing in
 // one industry (e.g. "Solar Panel Installation") get high specificity. We
 // use this to weight the cluster vote so generic skills can't dominate.
 function skillSpecificity(skill: string): number {
-  const industries = SKILL_INDEX.get(skill.toLowerCase());
+  const industries = lookupIndustries(skill);
   if (!industries || industries.size === 0) return 0;
   return 1 / industries.size;
 }
@@ -24445,7 +24458,7 @@ export function classifySkillCluster(
   const unknown: string[] = [];
 
   for (const raw of skills) {
-    const industries = SKILL_INDEX.get(raw.toLowerCase());
+    const industries = lookupIndustries(raw);
     if (!industries || industries.size === 0) {
       unknown.push(raw);
       continue;
@@ -24484,7 +24497,7 @@ export function classifySkillCluster(
   const outliers: string[] = [];
   if (industry) {
     for (const raw of skills) {
-      const industries = SKILL_INDEX.get(raw.toLowerCase());
+      const industries = lookupIndustries(raw);
       if (!industries || industries.size === 0) continue;
       if (!industries.has(industry)) outliers.push(raw);
     }
@@ -24542,7 +24555,8 @@ export function verticalToIndustry(vertical: string | null | undefined): string 
  * requests the industry clarification".
  */
 export function getSkillIndustries(skill: string): string[] {
-  const industries = SKILL_INDEX.get(skill.toLowerCase());
+  // Synonym-aware: lookupIndustries folds equivalent terms first.
+  const industries = lookupIndustries(skill);
   return industries ? Array.from(industries) : [];
 }
 
