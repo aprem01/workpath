@@ -12,7 +12,9 @@ import {
 import { getTransferability } from "@/lib/transferability";
 import { getWage, payVsMedian } from "@/lib/wages";
 import { getProjection, projectionLabel } from "@/lib/projections";
+import { getWorkplace, workplaceHighlight } from "@/lib/workplace";
 import { getMetroById, DEFAULT_METRO_ID } from "@/lib/metros";
+import { getAiResistance, isAiProof } from "@/lib/ai-resistance";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -97,12 +99,11 @@ export async function POST(req: Request) {
     // Convert to our format
     const qualifiedJobs = exactJobs.map((aj, i) => {
       const converted = adzunaToInternal(aj, detectVertical(aj));
-      // Phase 4 wage benchmark — map title → TAXONOMY role → BLS wage.
-      // Each qualified job now carries a "median Chicago wage" and a
-      // "this job pays X% above/below market" signal.
+      // Phase 4/5 enrichment: map title → TAXONOMY role → BLS data.
       const taxonomyRole = findNearestRoleByTitle(converted.title);
       const wage = getWage(taxonomyRole?.entry.socCode);
       const projection = getProjection(taxonomyRole?.entry.socCode);
+      const workplace = getWorkplace(taxonomyRole?.entry.socCode);
       const payDiffPct = wage
         ? payVsMedian(taxonomyRole?.entry.socCode, converted.payMax)
         : null;
@@ -139,6 +140,15 @@ export async function POST(req: Request) {
           ? {
               growthPct: projection.growthPct,
               label: projectionLabel(projection),
+            }
+          : null,
+        workplace: workplace
+          ? {
+              injuriesPer100: workplace.injuriesPer100,
+              healthInsurancePct: workplace.healthInsurancePct,
+              avgHoursPerWeek: workplace.avgHoursPerWeek,
+              overtimePrevalencePct: workplace.overtimePrevalencePct,
+              highlight: workplaceHighlight(workplace),
             }
           : null,
       };
@@ -225,9 +235,10 @@ export async function POST(req: Request) {
         }
       }
 
-      // Phase 4 wage + projection benchmarks (same as qualified jobs).
+      // Phase 4/5 enrichment (same as qualified jobs).
       const gapWage = getWage(targetRole?.entry.socCode);
       const gapProjection = getProjection(targetRole?.entry.socCode);
+      const gapWorkplace = getWorkplace(targetRole?.entry.socCode);
       const gapPayDiffPct = gapWage
         ? payVsMedian(targetRole?.entry.socCode, converted.payMax)
         : null;
@@ -266,6 +277,15 @@ export async function POST(req: Request) {
           ? {
               growthPct: gapProjection.growthPct,
               label: projectionLabel(gapProjection),
+            }
+          : null,
+        workplace: gapWorkplace
+          ? {
+              injuriesPer100: gapWorkplace.injuriesPer100,
+              healthInsurancePct: gapWorkplace.healthInsurancePct,
+              avgHoursPerWeek: gapWorkplace.avgHoursPerWeek,
+              overtimePrevalencePct: gapWorkplace.overtimePrevalencePct,
+              highlight: workplaceHighlight(gapWorkplace),
             }
           : null,
       };
@@ -359,10 +379,40 @@ export async function POST(req: Request) {
       metroLabel: metro.label,
     });
 
+    // Phase 5: populate topGapSkills from the gap jobs' missingSkills.
+    // Rank by (count × AI-resistance score) — high-resistance skills
+    // surface first because they're worth the worker's investment.
+    const gapSkillCounts = new Map<
+      string,
+      { count: number; payTotal: number }
+    >();
+    for (const gap of gapJobs) {
+      for (const skill of gap.missingSkills) {
+        if (skill === "1-2 more skills needed") continue;
+        const existing = gapSkillCounts.get(skill) || { count: 0, payTotal: 0 };
+        existing.count++;
+        existing.payTotal += gap.payMax || 0;
+        gapSkillCounts.set(skill, existing);
+      }
+    }
+    const topGapSkills = Array.from(gapSkillCounts.entries())
+      .map(([skill, { count, payTotal }]) => ({
+        skill,
+        count,
+        avgPay: Math.round(payTotal / count),
+        aiResistanceScore: getAiResistance(skill),
+        isAIProof: isAiProof(skill),
+      }))
+      .sort(
+        (a, b) =>
+          b.count * b.aiResistanceScore - a.count * a.aiResistanceScore
+      )
+      .slice(0, 5);
+
     return NextResponse.json({
       qualifiedJobs,
       gapJobs,
-      topGapSkills: [],
+      topGapSkills,
       realJobs: [],
       source: "adzuna",
       totalAvailable: qualifiedJobs.length + gapJobs.length,

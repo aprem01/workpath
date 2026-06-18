@@ -56,6 +56,18 @@ interface JobMatch {
     growthPct: number;
     label: string;
   } | null;
+  /**
+   * Phase 5 workplace conditions — BLS SOII + NCS + CPS data.
+   * Highlight is a 1–2 phrase summary like "Health insurance prevalent ·
+   * Heavy overtime common". Workers see this above the description.
+   */
+  workplace?: {
+    injuriesPer100: number;
+    healthInsurancePct: number;
+    avgHoursPerWeek: number;
+    overtimePrevalencePct: number;
+    highlight: string;
+  } | null;
 }
 
 interface Skill {
@@ -445,11 +457,11 @@ function JobsPageInner() {
               </div>
             )}
 
-            {/* Phase 4: BLS wage benchmark + 10-year projection.
+            {/* Phase 4/5: BLS wage + projection + workplace benchmarks.
                 Hard data the worker won't get elsewhere — sits prominently
                 above the description so it's read before they bounce. */}
-            {(job.wage || job.projection) && (
-              <div className="mb-3 grid grid-cols-2 gap-2">
+            {(job.wage || job.projection || job.workplace) && (
+              <div className="mb-3 grid grid-cols-2 lg:grid-cols-3 gap-2">
                 {job.wage && (
                   <div className="px-3 py-2 rounded-lg bg-gray-100 border border-gray-200">
                     <p className="text-[10px] uppercase tracking-wider text-graytext font-bold">
@@ -488,6 +500,23 @@ function JobsPageInner() {
                       {job.projection.growthPct > 0 ? "+" : ""}
                       {job.projection.growthPct}% — {job.projection.label}
                     </p>
+                  </div>
+                )}
+                {job.workplace && (
+                  <div className="px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 col-span-2 lg:col-span-1">
+                    <p className="text-[10px] uppercase tracking-wider text-graytext font-bold">
+                      Typical workplace
+                    </p>
+                    <p className="text-xs text-blue-900 font-semibold leading-snug">
+                      {job.workplace.healthInsurancePct}% have health insurance
+                      {" · "}
+                      {job.workplace.avgHoursPerWeek}h/wk avg
+                    </p>
+                    {job.workplace.highlight && (
+                      <p className="text-[10px] text-blue-700 mt-0.5">
+                        {job.workplace.highlight}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
