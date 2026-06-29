@@ -26,6 +26,22 @@ export interface Metro {
 }
 
 export const METROS: Metro[] = [
+  // ── Pseudo-metros for non-geographic search (Caroline 6/27 Round 4)
+  {
+    id: "remote",
+    label: "Remote only",
+    adzunaWhere: "United States",  // Adzuna handles "remote" via keyword filter, we add it server-side
+    blsAreaCode: "0000000",
+    zipPrefixes: [],
+  },
+  {
+    id: "us",
+    label: "Anywhere in the US",
+    adzunaWhere: "United States",
+    blsAreaCode: "0000000",
+    zipPrefixes: [],
+  },
+  // ── Major metros
   {
     id: "chicago",
     label: "Chicago, IL",

@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Loader2, ChevronDown, Globe, MapPin, ExternalLink, Check } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
+import { METROS, DEFAULT_METRO_ID } from "@/lib/metros";
 
 interface JobMatch {
   id: string;
@@ -118,6 +119,10 @@ function JobsPageInner() {
   const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set());
   const [profileLevel, setProfileLevel] = useState<string | null>(null);
   const [zipCode, setZipCode] = useState<string>("");
+  // Caroline 6/27 Round 4: metro picker lives here now (was on landing).
+  // Refines results AFTER the worker has seen them — the "where" question
+  // comes second, after "what can my skills do?".
+  const [metroId, setMetroId] = useState<string>(DEFAULT_METRO_ID);
   // Upskill resources cache: skill name → loading/data
   const [upskillCache, setUpskillCache] = useState<
     Record<string, { loading: boolean; data?: UpskillData }>
@@ -149,6 +154,10 @@ function JobsPageInner() {
   }
 
   useEffect(() => {
+    // Restore the worker's prior metro choice (or default).
+    const savedMetro = localStorage.getItem("payranker_metro");
+    if (savedMetro) setMetroId(savedMetro);
+
     const profile = localStorage.getItem("payranker_profile_complete");
 
     // No profile at all → send them to /skills (start of the funnel).
@@ -231,7 +240,17 @@ function JobsPageInner() {
       setIsLoading(false);
     }
     fetchJobs();
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router, metroId]);
+
+  // Caroline 6/27: when the worker changes the metro picker, re-fetch
+  // the match. Tracked via metroId in deps above.
+  function handleMetroChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const next = e.target.value;
+    setMetroId(next);
+    localStorage.setItem("payranker_metro", next);
+    setIsLoading(true);
+  }
 
   // userSkillSet no longer needed — Adzuna jobs don't have structured requiredSkills
   void skills; // keep skills in state for future use
@@ -914,6 +933,32 @@ function JobsPageInner() {
             </button>
           </div>
         )}
+
+        {/* Metro picker — Caroline 6/27 Round 4. Was on landing, moved
+            here so the "where" question comes AFTER the worker sees
+            their matches. Includes Remote + Anywhere in the US options
+            for non-geographic searches. */}
+        <div className="mb-4 flex items-center gap-2 text-sm">
+          <span className="text-graytext">Showing jobs in</span>
+          <div className="relative">
+            <select
+              value={metroId}
+              onChange={handleMetroChange}
+              aria-label="Choose your search area"
+              className="text-sm font-semibold text-magenta bg-transparent border-b border-magenta/40 pl-1 pr-6 py-0.5 focus:outline-none cursor-pointer appearance-none"
+            >
+              {METROS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={13}
+              className="absolute right-0 top-1/2 -translate-y-1/2 text-magenta pointer-events-none"
+            />
+          </div>
+        </div>
 
         <p className="text-xs text-gray-500 mb-4">
           Click a position to view more details.

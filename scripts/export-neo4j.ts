@@ -132,7 +132,7 @@ async function main() {
   await driver.close();
 
   // Wait for stream flush
-  await new Promise((r) => stream.on("close", r));
+  await new Promise<void>((r) => stream.on("close", () => r()));
 
   const stat = fs.statSync(out);
   console.log(`\nWrote ${out} (${stat.size.toLocaleString()} bytes)`);

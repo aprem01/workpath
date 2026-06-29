@@ -17,7 +17,7 @@ const client = new Anthropic();
  */
 type CatalogEntry = {
   free?: Array<{ title: string; provider: string; url: string; duration?: string }>;
-  paid?: Array<{ title: string; provider: string; url: string; duration?: string; priceUSD?: number }>;
+  paid?: Array<{ title: string; provider: string; url: string; duration?: string; priceUSD?: number | string }>;
 };
 let TRAINING_CATALOG_CACHE: Record<string, CatalogEntry> | null = null;
 async function getCachedTraining(skill: string): Promise<CatalogEntry | null> {

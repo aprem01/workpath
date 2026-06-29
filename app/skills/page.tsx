@@ -100,28 +100,16 @@ function SkillsPageInner() {
     industries: string[];
   } | null>(null);
 
-  // Read the user's primary domain (chosen on the landing page).
-  // Caroline 6/9: domain is now OPTIONAL — workers whose careers span
-  // industries (massage therapist → flight attendant → luxury sales) get
-  // distorted by a single anchor. If they Skip on landing, we honour
-  // that and let the per-skill clarification picker provide context as
-  // needed.
+  // Caroline 6/27 Round 4: domain anchor removed from landing entirely.
+  // The per-skill clarification picker is the canonical mechanism for
+  // attaching industry context — to SKILLS, not to the PERSON. We still
+  // read a legacy payranker_domain from localStorage for users who had
+  // it set in a prior session, but no new picks happen.
   useEffect(() => {
     const saved = localStorage.getItem("payranker_domain");
-    const skipped = localStorage.getItem("payranker_domain_skipped") === "true";
-    if (saved) {
-      setDomainId(saved);
-    } else if (!skipped) {
-      // Neither picked nor explicitly skipped — bounce to landing so the
-      // user at least sees the option.
-      router.replace("/");
-    }
-    // Skipped path: domainId stays empty. Cluster classifier works fine
-    // without an anchor; per-skill context picker kicks in for ambiguous
-    // skills.
+    if (saved) setDomainId(saved);
   }, [router]);
-
-  const domain = getDomainById(domainId);
+  void getDomainById; // legacy import kept for now
 
   // Load saved skills — also re-runs when the page is restored from
   // browser back-forward cache (bfcache).
@@ -384,23 +372,9 @@ function SkillsPageInner() {
       </header>
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-12 pb-12">
-        {/* Domain anchor — visible at all times so the user remembers which
-            register their skills will be interpreted in. Not permanent
-            (Caroline's UX rule): clicking "change" goes back to the landing. */}
-        {domain && (
-          <div className="mb-4 inline-flex items-center gap-2 text-sm">
-            <span className="px-3 py-1 rounded-full bg-magenta/10 text-magenta font-semibold">
-              {domain.label}
-            </span>
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="text-graytext underline-offset-2 hover:underline italic font-medium"
-            >
-              change
-            </button>
-          </div>
-        )}
+        {/* Caroline 6/27: removed the domain badge. Industry context now
+            lives ON skills (via the per-skill clarification picker),
+            not on the person. */}
 
         {/* Headline — flush left with logo, stable */}
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-magenta-headline leading-tight mb-3">

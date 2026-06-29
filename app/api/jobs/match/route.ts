@@ -87,14 +87,24 @@ export async function POST(req: Request) {
     const nearestRole = findNearestRole(skillTerms);
 
     // Phase 4 geographic expansion: resolve the worker's metro choice
-    // (set on landing, persisted in localStorage as "payranker_metro").
-    // Falls back to Chicago — the MVP market.
+    // (set on /jobs metro picker, persisted in localStorage as
+    // "payranker_metro"). Falls back to Chicago.
     const metro = getMetroById(metroId) || getMetroById(DEFAULT_METRO_ID)!;
+
+    // For the "remote" pseudo-metro we append the keyword to the domain
+    // query so Adzuna filters for remote listings within the US.
+    const adzunaQueries =
+      metro.id === "remote" && domainQueries
+        ? {
+            primary: `${domainQueries.primary} remote`,
+            broad: `${domainQueries.broad} remote`,
+          }
+        : domainQueries;
 
     // Search Adzuna using the domain-curated query (not skill string join)
     // in the selected metro.
     const { qualified: exactJobs, broader: broaderJobs } =
-      await searchJobsForSkills(skillTerms, metro.adzunaWhere, 15, domainQueries);
+      await searchJobsForSkills(skillTerms, metro.adzunaWhere, 15, adzunaQueries);
 
     // Convert to our format
     const qualifiedJobs = exactJobs.map((aj, i) => {

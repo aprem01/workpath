@@ -121,7 +121,7 @@ async function main() {
     lines.push(`export interface TrainingResource {`);
     lines.push(`  title: string; provider: string; url: string; duration?: string; priceUSD?: number;`);
     lines.push(`}`);
-    lines.push(`export interface TrainingCatalogEntry { free: TrainingResource[]; paid: TrainingResource[]; }`);
+    lines.push(`export interface TrainingCatalogEntry { free?: TrainingResource[]; paid?: TrainingResource[]; }`);
     lines.push("");
     lines.push(`export const TRAINING_CATALOG: Record<string, TrainingCatalogEntry> = ${JSON.stringify(catalog, null, 2)};`);
     lines.push("");
