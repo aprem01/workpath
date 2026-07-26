@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import BetaBanner from "./BetaBanner";
 
 const MENU_ITEMS: { label: string; href: string; key: string }[] = [
   { label: "Our Mission", href: "/mission", key: "mission" },
@@ -41,6 +42,8 @@ export default function AppHeader() {
   };
 
   return (
+    <>
+      <BetaBanner />
     <header className="bg-white border-b border-gray-100 py-5 px-6">
       <div className="max-w-5xl mx-auto flex items-center justify-between">
         <a href="/">
@@ -74,5 +77,6 @@ export default function AppHeader() {
         </div>
       </div>
     </header>
+    </>
   );
 }

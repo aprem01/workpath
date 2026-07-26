@@ -7,6 +7,27 @@ import { getDomainById } from "@/lib/domains";
 
 export const dynamic = "force-dynamic";
 
+// Caroline 7/18 Round 5 P4: some skill labels are colloquially so
+// common that they NEVER map cleanly to a single O*NET industry, yet
+// the taxonomy sometimes ships them as single-industry entries.
+// "Management inside Logistics" is a wholly different job than
+// "Management inside Healthcare" — force the picker for these.
+const FORCE_AMBIGUOUS: Record<string, string[]> = {
+  management: [
+    "Retail",
+    "Food Service",
+    "Healthcare",
+    "Trades",
+    "Logistics",
+    "Administrative",
+  ],
+  "customer service": ["Retail", "Food Service", "Healthcare", "Administrative"],
+  supervisor: ["Retail", "Food Service", "Healthcare", "Trades", "Logistics"],
+  scheduling: ["Healthcare", "Administrative", "Logistics"],
+  inventory: ["Retail", "Warehouse", "Food Service"],
+  training: ["Healthcare", "Trades", "Retail", "Administrative"],
+};
+
 /**
  * POST /api/skills/clarify
  *
@@ -29,7 +50,12 @@ export async function POST(req: Request) {
     const anchor = verticalToIndustry(
       getDomainById(domainId)?.vertical || null
     );
-    const candidates = needsIndustryClarification(skill.trim(), anchor);
+    const trimmed = skill.trim();
+    const forced = FORCE_AMBIGUOUS[trimmed.toLowerCase()];
+    if (forced && !(anchor && forced.includes(anchor))) {
+      return NextResponse.json({ candidates: forced });
+    }
+    const candidates = needsIndustryClarification(trimmed, anchor);
     return NextResponse.json({ candidates });
   } catch {
     return NextResponse.json({ candidates: null });

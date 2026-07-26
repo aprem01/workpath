@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
+import BetaBanner from "@/components/BetaBanner";
 
 /**
  * MODULE-LEVEL constants & components.
@@ -27,19 +28,22 @@ const innerSelectClass =
 
 function Header() {
   return (
-    <header className="bg-white border-b border-gray-100 py-5 px-6">
-      <div className="max-w-5xl mx-auto">
-        <a href="/">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/payranker-logo.png"
-            alt="PayRanker"
-            width={220}
-            height={46}
-          />
-        </a>
-      </div>
-    </header>
+    <>
+      <BetaBanner />
+      <header className="bg-white border-b border-gray-100 py-5 px-6">
+        <div className="max-w-5xl mx-auto">
+          <a href="/">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/payranker-logo.png"
+              alt="PayRanker"
+              width={220}
+              height={46}
+            />
+          </a>
+        </div>
+      </header>
+    </>
   );
 }
 

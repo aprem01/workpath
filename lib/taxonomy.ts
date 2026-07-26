@@ -24600,6 +24600,22 @@ export function jobFitsCluster(
 ): boolean {
   const jobIndustry = verticalToIndustry(jobVertical);
   if (!jobIndustry) return true;
+  // Caroline 7/18 Round 5: multi-industry baskets (HHA + Driving +
+  // Customer Service) previously classified as "Hospitality-dominant"
+  // at ~40% confidence, which then rejected legitimate Healthcare
+  // (HHA) jobs even though Healthcare was the SECOND affinity.
+  // Accept the job if its industry is in ANY of the basket's strong
+  // affinities (top 3 at ≥15%), not just the #1. This preserves the
+  // Rosalyn/Chipotle guard (physician jobs still get dropped from a
+  // food-service basket because Healthcare wouldn't be in the top 3)
+  // while giving realistic multi-industry workers visibility.
+  const strongAffinities = (cluster.affinities || [])
+    .filter((a) => a.percent >= 0.15)
+    .slice(0, 3)
+    .map((a) => a.industry);
+  if (strongAffinities.length > 0 && strongAffinities.includes(jobIndustry)) {
+    return true;
+  }
   if (!cluster.industry) return true;
   return jobIndustry === cluster.industry;
 }

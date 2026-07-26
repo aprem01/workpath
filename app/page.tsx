@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Footer from "@/components/Footer";
+import BetaBanner from "@/components/BetaBanner";
 
 /**
  * Landing page — Caroline 6/27 Round 4.
@@ -53,6 +54,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
+      <BetaBanner />
       {/* White top bar */}
       <header className="bg-white border-b border-gray-100 py-5 px-6">
         <div className="max-w-5xl mx-auto">

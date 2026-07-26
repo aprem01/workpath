@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense, memo } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense, memo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { X, ArrowRight, Loader2, Plus } from "lucide-react";
 import Image from "next/image";
 import { getDomainById } from "@/lib/domains";
 import Footer from "@/components/Footer";
+import BetaBanner from "@/components/BetaBanner";
 
 interface Skill {
   rawInput: string;
@@ -89,6 +90,11 @@ function SkillsPageInner() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // Caroline 5/22 Phase-1 UX: block adding the NEXT skill while the
+  // previous one's suggestions are still loading. Ref lets us gate the
+  // submit handler without adding isLoading to normalizeAndAdd's deps
+  // (that would remount the memoized SkillInput and drop Android IME).
+  const isLoadingRef = useRef(false);
   const domainId = ""; // Round 5: legacy anchor removed; per-skill clarification is the only path
   // Caroline 5/22 sketch: "if skill is ambiguous AI requests the industry
   // clarification." When the user types a skill that lives in 2+ industries
@@ -185,6 +191,11 @@ function SkillsPageInner() {
       const trimmed = raw.trim();
       if (!trimmed) return;
 
+      // Phase-1 gate: don't accept another skill while suggestions for the
+      // previous skill are still being fetched. Prevents state-race where
+      // skill B's suggestions overwrite skill A's mid-render.
+      if (isLoadingRef.current) return;
+
       if (
         skills.some(
           (s) => s.normalizedTerm.toLowerCase() === trimmed.toLowerCase()
@@ -235,6 +246,7 @@ function SkillsPageInner() {
       };
       setSkills((prev) => [...prev, optimisticSkill]);
       setInput("");
+      isLoadingRef.current = true;
       setIsLoading(true); // shows "Finding related skills..." indicator
 
       try {
@@ -303,6 +315,7 @@ function SkillsPageInner() {
       } catch {
         // Optimistic skill is already added, no need to do anything
       }
+      isLoadingRef.current = false;
       setIsLoading(false);
     },
     [skills]
@@ -323,6 +336,27 @@ function SkillsPageInner() {
       localStorage.setItem("payranker_skills", JSON.stringify(updated));
       return updated;
     });
+  }
+
+  // Caroline 7/18 Round 5 P4: "Skills Basket reset should truly clear
+  // prior state" — removing skills alone left the AI suggestions, the
+  // legacy domain anchor, and the sync-handle in place, which was
+  // surprising to users on shared devices. Reset means wipe.
+  function resetBasket() {
+    if (skills.length === 0) return;
+    const confirmed = window.confirm(
+      "Start over? This clears every skill in your basket and resets suggestions."
+    );
+    if (!confirmed) return;
+    setSkills([]);
+    setSuggestions([]);
+    setInput("");
+    setPendingClarification(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("payranker_skills");
+      localStorage.removeItem("payranker_domain");
+      localStorage.removeItem("payranker_metro");
+    }
   }
 
   function addSuggestion(term: string) {
@@ -358,6 +392,7 @@ function SkillsPageInner() {
 
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
+      <BetaBanner />
       {/* White top bar */}
       <header className="bg-white border-b border-gray-100 py-5 px-6">
         <div className="max-w-5xl mx-auto">
@@ -394,17 +429,28 @@ function SkillsPageInner() {
           </p>
 
           {/* Gradient-bordered input — memoized to keep Android keyboard open
-              (Marielee's bug 4/26: keyboard dismissed on each keystroke) */}
-          <SkillInput
-            value={input}
-            onChange={setInput}
-            onSubmit={(v) => normalizeAndAdd(v)}
-          />
+              (Marielee's bug 4/26: keyboard dismissed on each keystroke).
+              Wrapper dims while loading to signal input is temporarily
+              blocked (Caroline's Phase-1 UX: one skill at a time). */}
+          <div
+            className={
+              isLoading
+                ? "opacity-50 pointer-events-none transition-opacity"
+                : "transition-opacity"
+            }
+            aria-busy={isLoading}
+          >
+            <SkillInput
+              value={input}
+              onChange={setInput}
+              onSubmit={(v) => normalizeAndAdd(v)}
+            />
+          </div>
           {/* Status line — guides the user */}
           {isLoading ? (
             <p className="text-xs text-magenta text-center mt-2 font-semibold flex items-center justify-center gap-1.5">
               <Loader2 size={12} className="animate-spin" />
-              Finding related skills...
+              Finding related skills&hellip; add the next one in a moment.
             </p>
           ) : (
             <p className="text-xs text-graytext text-center mt-2 italic font-medium">
@@ -462,9 +508,20 @@ function SkillsPageInner() {
 
         {/* YOUR SKILLS basket — wider per Caroline */}
         <div className="max-w-4xl mx-auto mt-6">
-          <p className="text-xs font-bold text-graytext uppercase tracking-wider mb-2">
-            Your Skills
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-graytext uppercase tracking-wider">
+              Your Skills
+            </p>
+            {skills.length > 0 && (
+              <button
+                type="button"
+                onClick={resetBasket}
+                className="text-xs font-semibold text-graytext hover:text-magenta transition-colors underline underline-offset-2"
+              >
+                Start over
+              </button>
+            )}
+          </div>
           <div className="bg-white border-[3px] border-gray-200 rounded-2xl p-4 min-h-[100px]">
             <div className="flex flex-wrap gap-2">
               {showPlaceholders ? (
