@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { X, ArrowRight, Loader2, Plus } from "lucide-react";
 import Image from "next/image";
 import { getDomainById } from "@/lib/domains";
+import Footer from "@/components/Footer";
 
 interface Skill {
   rawInput: string;
@@ -88,7 +89,7 @@ function SkillsPageInner() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [domainId, setDomainId] = useState<string>("");
+  const domainId = ""; // Round 5: legacy anchor removed; per-skill clarification is the only path
   // Caroline 5/22 sketch: "if skill is ambiguous AI requests the industry
   // clarification." When the user types a skill that lives in 2+ industries
   // AND their domain anchor doesn't cover it, we pause the add and show a
@@ -100,16 +101,17 @@ function SkillsPageInner() {
     industries: string[];
   } | null>(null);
 
-  // Caroline 6/27 Round 4: domain anchor removed from landing entirely.
-  // The per-skill clarification picker is the canonical mechanism for
-  // attaching industry context — to SKILLS, not to the PERSON. We still
-  // read a legacy payranker_domain from localStorage for users who had
-  // it set in a prior session, but no new picks happen.
+  // Caroline 7/18 Round 5: legacy payranker_domain from Round 3 was still
+  // forcing the AI to interpret every subsequent skill through the anchor's
+  // lens (Charles → Creative Direction → Children's Activity Design because
+  // caregiving was the anchor). Wipe on load so returning users get a clean
+  // slate; per-skill clarification is now the only path for attaching
+  // industry context.
   useEffect(() => {
-    const saved = localStorage.getItem("payranker_domain");
-    if (saved) setDomainId(saved);
-  }, [router]);
+    if (typeof window !== "undefined") localStorage.removeItem("payranker_domain");
+  }, []);
   void getDomainById; // legacy import kept for now
+  void router; // referenced elsewhere
 
   // Load saved skills — also re-runs when the page is restored from
   // browser back-forward cache (bfcache).
@@ -561,6 +563,7 @@ function SkillsPageInner() {
           </div>
         )}
       </main>
+      <Footer />
     </div>
   );
 }

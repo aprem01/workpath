@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Loader2, ChevronDown, Globe, MapPin, ExternalLink, Check } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
+import Footer from "@/components/Footer";
 import { METROS, DEFAULT_METRO_ID } from "@/lib/metros";
 
 interface JobMatch {
@@ -1021,6 +1022,7 @@ function JobsPageInner() {
 
         {/* All jobs are now real Adzuna listings shown in qualified/gap tabs above */}
       </main>
+      <Footer />
     </div>
   );
 }

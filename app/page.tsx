@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Footer from "@/components/Footer";
 
 /**
  * Landing page — Caroline 6/27 Round 4.
@@ -115,6 +116,7 @@ export default function LandingPage() {
           </div>
         </section>
       </main>
+      <Footer />
     </div>
   );
 }

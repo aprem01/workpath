@@ -194,23 +194,27 @@ export async function searchJobsForSkills(
   const vertical = detectVerticalFromSkills(skills);
   const keywords = extractKeywords(skills);
 
-  // ── Caroline's round-2 testing (5/22) fixed two big bugs here:
-  //
-  // BUG #1: "more skills = fewer matches"
-  //   We were using skills.slice(0, 2).join(" ") as the Adzuna query, which
-  //   means whatever the user happened to enter first became the search.
-  //   With 5 skills it worked; with 20 skills the first two might be
-  //   "Caregiving Medical Reminders" — and no real job title contains both
-  //   those exact phrases, so Adzuna returned zero.
-  //
-  // BUG #2: "Sales / Customer Service → zero matches"
-  //   Same root cause — joining "Clienteling Luxury Retail Sales" as a
-  //   keyword search never matched Adzuna's "Sales Associate" listings.
-  //
-  // FIX: when we know the user's domain (from the landing page dropdown),
-  //   use a *curated* Adzuna-friendly query as the search anchor. Skills
-  //   are still used to score/rank — they no longer drive the search.
-  const exactQuery = domainQueries?.primary || skills.slice(0, 2).join(" ");
+  // Caroline 7/18 Round 5: the landing-page domain picker was removed in
+  // Round 4, so `domainQueries` is null for every user now. The skill-join
+  // fallback below returns zero Adzuna hits for realistic baskets like
+  // ["Home Health Assistance", "Meal Preparation"] because no job title
+  // contains both phrases. When no domain is set, derive queries from the
+  // detected vertical instead — restores the "guided search" that made
+  // Round 3 matching work.
+  const VERTICAL_QUERIES: Record<string, { primary: string; broad: string }> = {
+    healthcare: { primary: "home health aide caregiver", broad: "caregiver" },
+    trades: { primary: "electrician plumber technician", broad: "skilled trades" },
+    tech: { primary: "software engineer developer", broad: "developer" },
+    food: { primary: "cook restaurant kitchen", broad: "food service" },
+    transport: { primary: "driver delivery warehouse", broad: "driver" },
+    retail: { primary: "sales associate cashier", broad: "retail" },
+  };
+  const effectiveQueries =
+    domainQueries ||
+    (vertical && VERTICAL_QUERIES[vertical]) ||
+    null;
+
+  const exactQuery = effectiveQueries?.primary || skills.slice(0, 2).join(" ");
 
   let exactJobs = await searchAdzunaJobs({
     what: exactQuery,
@@ -219,9 +223,10 @@ export async function searchJobsForSkills(
     sort_by: "salary",
   });
 
-  // Broader query: curated domain-broad term if available, else fallback
+  // Broader query: curated domain-broad term if available, else vertical
+  // fallback, else the first skill.
   const broaderQuery =
-    domainQueries?.broad ||
+    effectiveQueries?.broad ||
     (vertical &&
       VERTICAL_KEYWORDS[vertical].find((kw) =>
         skills.some((s) => s.toLowerCase().includes(kw))

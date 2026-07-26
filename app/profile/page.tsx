@@ -81,6 +81,7 @@ function ProfilePageInner() {
   const [workAuth, setWorkAuth] = useState("");
   const [veteranStatus, setVeteranStatus] = useState("");
   const [disabilityStatus, setDisabilityStatus] = useState("");
+  const [tosAccepted, setTosAccepted] = useState(false);
 
   useEffect(() => {
     let h = localStorage.getItem("payranker_handle");
@@ -108,9 +109,11 @@ function ProfilePageInner() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!tosAccepted) return; // native `required` on the checkbox also guards this
     const profile = {
       email, password: "***", zipCode, firstName, lastName, phone,
       workAuth, veteranStatus, disabilityStatus, handle,
+      tosAcceptedAt: new Date().toISOString(),
     };
     localStorage.setItem("payranker_profile", JSON.stringify(profile));
     localStorage.setItem("payranker_profile_complete", isFullProfile ? "full" : "basic");
@@ -228,10 +231,34 @@ function ProfilePageInner() {
               </div>
             </div>
 
+            <div className="pt-2">
+              <label className="flex items-start gap-2.5 text-sm text-graytext cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={tosAccepted}
+                  onChange={(e) => setTosAccepted(e.target.checked)}
+                  required
+                  className="mt-0.5 w-4 h-4 accent-magenta cursor-pointer"
+                />
+                <span>
+                  I agree to the{" "}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-magenta hover:underline">
+                    Terms of Service
+                  </a>{" "}
+                  and{" "}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-magenta hover:underline">
+                    Privacy Policy
+                  </a>
+                  .
+                </span>
+              </label>
+            </div>
+
             <div className="text-center pt-6">
               <button
                 type="submit"
-                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-white bg-magenta hover:bg-magenta-dark transition-colors"
+                disabled={!tosAccepted}
+                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-white bg-magenta hover:bg-magenta-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continue to your job list <ArrowRight size={18} />
               </button>
@@ -393,10 +420,34 @@ function ProfilePageInner() {
             </div>
           </div>
 
+          <div className="pt-2">
+            <label className="flex items-start gap-2.5 text-sm text-graytext cursor-pointer">
+              <input
+                type="checkbox"
+                checked={tosAccepted}
+                onChange={(e) => setTosAccepted(e.target.checked)}
+                required
+                className="mt-0.5 w-4 h-4 accent-magenta cursor-pointer"
+              />
+              <span>
+                I agree to the{" "}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-magenta hover:underline">
+                  Terms of Service
+                </a>{" "}
+                and{" "}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-magenta hover:underline">
+                  Privacy Policy
+                </a>
+                .
+              </span>
+            </label>
+          </div>
+
           <div className="text-center pt-6">
             <button
               type="submit"
-              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-white bg-magenta hover:bg-magenta-dark transition-colors"
+              disabled={!tosAccepted}
+              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-white bg-magenta hover:bg-magenta-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               See full job details <ArrowRight size={18} />
             </button>

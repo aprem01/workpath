@@ -153,8 +153,12 @@ async function aiTaxonomyExpansion(
   existingSkills: string[],
   domainLabel?: string | null
 ) {
+  // Caroline 7/18 Round 5: the "stay in this lane" instruction was pulling
+  // cross-domain skills into the anchor (Creative Direction after caregiving
+  // → Children's Activity Design). Domain hint is now advisory ONLY for
+  // truly ambiguous colloquial terms; specific skills override it.
   const domainContext = domainLabel
-    ? `\n\nUSER'S PRIMARY BACKGROUND (domain anchor): ${domainLabel}\nInterpret the input skill THROUGH this domain. "Management" inside ${domainLabel} means something different than "Management" inside another domain. Stay in this lane.`
+    ? `\n\nDomain hint (only for ambiguous colloquial terms like "management" or "sales"): the user has done work in ${domainLabel}. If "${rawSkill}" is already a specific professional skill from a DIFFERENT domain, IGNORE this hint and interpret the skill on its own terms.`
     : "";
 
   const message = await client.messages.create({
@@ -186,10 +190,21 @@ RULE: If the input is already a recognizable professional skill, return
 it unchanged. Only normalize when the input is colloquial or vague. Use
 the LOWEST register that's still job-search-friendly.
 
-Use the existing basket as register signal: if their skills are
-service-level (Customer Service, Cooking, Cleaning), keep this one
-service-level too. Don't elevate someone with line-cook skills into
-corporate-jargon job postings.
+Use the existing basket as REGISTER signal ONLY (service-level vs
+corporate-jargon), NOT as a domain signal. If someone has "caregiving"
+in their basket and adds "creative direction", DO NOT interpret
+creative direction through a caregiving lens — users have multi-industry
+work histories. Interpret each new skill on its own terms; the basket
+tells you what LEVEL of vocabulary to use, not what INDUSTRY the new
+skill belongs to.
+
+Correct: basket=[caregiving], new="creative direction"
+  → normalize to "Creative Direction" (Art/Design domain), suggest
+    "Visual Concept Development", "Brand Storytelling", NOT
+    "Children's Activity Design" or "Sensory Play Planning"
+
+Wrong: basket=[caregiving], new="creative direction"
+  → force it into caregiving-adjacent suggestions.
 
 Return ONLY valid JSON:
 {

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const MENU_ITEMS: { label: string; href: string; key: string }[] = [
-  { label: "Our Mission", href: "/", key: "mission" },
+  { label: "Our Mission", href: "/mission", key: "mission" },
   { label: "Your Profile", href: "/profile", key: "profile" },
   { label: "Your Skills", href: "/skills", key: "skills" },
   { label: "Your Matches", href: "/matches", key: "matches" },
