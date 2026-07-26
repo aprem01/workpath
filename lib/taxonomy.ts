@@ -24702,13 +24702,36 @@ const CREDENTIAL_PATTERNS: CredentialPattern[] = [
 
 /**
  * Which hard credentials does this job posting require?
- * Scans title + description for credential keywords.
+ *
+ * Round 5 fix: previously scanned title AND description, which
+ * over-fired for caregiver postings that mentioned "CNA preferred"
+ * or "under RN supervision" and dropped every otherwise-fine HHA job
+ * from realistic multi-skill baskets. We now trust the title as the
+ * signal that a credential is actually required (that's what a real
+ * "Registered Nurse — ICU" posting says), and only fall back to the
+ * description when the phrase makes requirement explicit
+ * ("must be", "required", "licensed").
  */
 export function detectJobCredentials(jobTitle: string, jobDescription: string): string[] {
-  const haystack = `${jobTitle || ""} ${jobDescription || ""}`.toLowerCase();
+  const title = (jobTitle || "").toLowerCase();
+  const desc = (jobDescription || "").toLowerCase();
   const found: string[] = [];
   for (const cred of CREDENTIAL_PATTERNS) {
-    if (cred.jobPattern.test(haystack)) found.push(cred.label);
+    if (cred.jobPattern.test(title)) {
+      found.push(cred.label);
+      continue;
+    }
+    // Description only counts when paired with explicit "required" language
+    if (cred.jobPattern.test(desc)) {
+      const src = desc;
+      const match = src.match(cred.jobPattern);
+      if (!match) continue;
+      const idx = match.index ?? 0;
+      const window = src.slice(Math.max(0, idx - 60), idx + 60);
+      if (/\b(required|must be|must hold|must have|licensed|licensure)\b/.test(window)) {
+        found.push(cred.label);
+      }
+    }
   }
   return found;
 }
