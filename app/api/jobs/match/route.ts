@@ -346,9 +346,14 @@ export async function POST(req: Request) {
       );
       if (!credCheck.passes) return false;
       // Cluster fit (secondary). Drop jobs whose vertical disagrees with
-      // the basket's dominant industry when confidence is decent. Below
-      // 0.5 we don't enforce — multi-industry baskets stay open.
-      if (cluster.confidence >= 0.5 && !jobFitsCluster(j.vertical, cluster)) {
+      // the basket's dominant industry ONLY when the cluster is highly
+      // confident (Round 5: threshold raised from 0.5 → 0.7 because
+      // realistic HHA baskets like [Home Health Assistance, Driving,
+      // Cleaning, Customer Service] classify at ~50-60% confidence and
+      // shouldn't have Healthcare jobs suppressed by a slim Hospitality
+      // plurality). jobFitsCluster already looks at top-3 affinities as
+      // a secondary check.
+      if (cluster.confidence >= 0.7 && !jobFitsCluster(j.vertical, cluster)) {
         return false;
       }
       return true;
