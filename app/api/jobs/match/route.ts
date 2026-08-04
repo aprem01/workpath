@@ -313,7 +313,10 @@ export async function POST(req: Request) {
     const PAY_CAP_BY_VERTICAL: Record<string, number> = {
       healthcare: 9000, // $90/hr
       food_service: 6000, // $60/hr
-      retail: 6000,
+      // Round 7: retail was $60/hr but Adzuna surfaces legit sales-team
+      // roles at $80-140/hr (luxury, B2B, medical device). Cap too low
+      // was silently dropping every real result for Sales baskets.
+      retail: 15000, // $150/hr
       transport: 7000,
       admin: 9000,
       trades: 11000, // $110/hr
