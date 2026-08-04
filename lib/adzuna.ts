@@ -164,7 +164,21 @@ function extractKeywords(skills: string[]): string[] {
   for (const skill of skills) {
     for (const w of skill.toLowerCase().split(/[\s\-/,]+/)) {
       const clean = w.trim();
-      if (clean.length >= 3 && !STOP_WORDS.has(clean)) words.push(clean);
+      if (clean.length < 3 || STOP_WORDS.has(clean)) continue;
+      words.push(clean);
+      // Round 7: naive stemming so "Caregiving" also matches Adzuna's
+      // "Caregiver" listings. Without this, single-word user skills like
+      // "Caregiving" and "Cleaning" scored 0 against every job because
+      // Adzuna's job titles use the noun form. Strip common English
+      // suffixes and add the root as a secondary keyword.
+      const stems: string[] = [];
+      if (clean.endsWith("ing") && clean.length > 5) stems.push(clean.slice(0, -3));
+      if (clean.endsWith("ers") && clean.length > 5) stems.push(clean.slice(0, -1));
+      if (clean.endsWith("er") && clean.length > 4) stems.push(clean.slice(0, -2));
+      if (clean.endsWith("s") && clean.length > 4 && !clean.endsWith("ss")) stems.push(clean.slice(0, -1));
+      for (const s of stems) {
+        if (s.length >= 3 && !STOP_WORDS.has(s)) words.push(s);
+      }
     }
   }
   return Array.from(new Set(words));
