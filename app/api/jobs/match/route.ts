@@ -515,7 +515,7 @@ function detectUserVertical(skills: string[]): string {
     return "food_service";
   if (/driv|deliver|truck|warehouse|logistics|forklift/i.test(all))
     return "transport";
-  if (/cashier|retail|store|merchandis/i.test(all)) return "retail";
+  if (/cashier|retail|store|merchandis|sales\b|clientel|luxury|vip experience|visual merchand/i.test(all)) return "retail";
   if (/python|javascript|react|sql|engineer|develop|cyber|devops|software/i.test(all))
     return "tech";
   if (/electric|plumb|hvac|weld|carpenter|solar|construct/i.test(all))

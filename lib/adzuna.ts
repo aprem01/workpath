@@ -85,6 +85,7 @@ const VERTICAL_KEYWORDS: Record<string, string[]> = {
   healthcare: [
     "home health",
     "caregiver",
+    "caregiving",
     "elder care",
     "companion care",
     "personal care",
@@ -98,6 +99,8 @@ const VERTICAL_KEYWORDS: Record<string, string[]> = {
     "dialysis",
     "physical therapy",
     "infection control",
+    "medication",
+    "care plan",
   ],
   trades: [
     "electrician",
@@ -122,7 +125,18 @@ const VERTICAL_KEYWORDS: Record<string, string[]> = {
   ],
   food: ["cook", "chef", "kitchen", "food", "restaurant", "bar", "cater"],
   transport: ["driver", "truck", "warehouse", "deliver", "logistics"],
-  retail: ["retail", "sales associate", "cashier", "store"],
+  retail: [
+    "retail",
+    "sales associate",
+    "sales",
+    "cashier",
+    "store",
+    "clienteling",
+    "luxury",
+    "vip experience",
+    "visual merchandising",
+    "merchandiser",
+  ],
 };
 
 function detectVerticalFromSkills(skills: string[]): string | null {
