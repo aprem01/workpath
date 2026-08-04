@@ -135,7 +135,14 @@ export default function MessagesPage() {
       router.push("/skills");
       return;
     }
-    setMessages(MOCK_MESSAGES);
+    // Caroline 7/28 Round 7: seeding MOCK_MESSAGES made the inbox look
+    // pre-populated for every visitor, which was misleading. Inbox stays
+    // empty until real interview / direct-hire requests arrive. MOCK_MESSAGES
+    // remains defined above only for local dev — set NEXT_PUBLIC_MSG_DEMO=1
+    // to opt in.
+    if (process.env.NEXT_PUBLIC_MSG_DEMO === "1") {
+      setMessages(MOCK_MESSAGES);
+    }
     const saved = localStorage.getItem("payranker_responded");
     if (saved) setRespondedIds(new Set(JSON.parse(saved)));
     const types = localStorage.getItem("payranker_response_types");

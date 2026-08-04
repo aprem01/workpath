@@ -170,6 +170,24 @@ function scoreJobRelevance(job: AdzunaJob, keywords: string[]): number {
   return hits;
 }
 
+// Round 7 (Desi's Sales basket surfaced Forklift Technician, BMW
+// Technician, Automotive Technician): title-level negative keywords
+// per vertical, applied in isTitleOffVertical() below.
+const OFF_VERTICAL_TITLE_TERMS: Record<string, RegExp> = {
+  retail: /\b(technician|mechanic|electrician|plumber|hvac|welder|forklift|automotive|bmw|diesel|nurse|physician|therapist|attorney|paralegal)\b/i,
+  healthcare: /\b(diesel|forklift|welder|electrician|carpenter|plumber|bartender|sommelier|automotive|mechanic)\b/i,
+  trades: /\b(nurse|physician|attorney|paralegal|accountant|cashier|bartender)\b/i,
+  food: /\b(nurse|physician|attorney|electrician|plumber|technician|forklift|automotive)\b/i,
+  transport: /\b(nurse|physician|attorney|cashier|bartender|chef)\b/i,
+  tech: /\b(nurse|physician|therapist|cashier|forklift|welder|plumber|electrician|hvac|automotive)\b/i,
+};
+
+function isTitleOffVertical(title: string, vertical: string | null): boolean {
+  if (!vertical) return false;
+  const rx = OFF_VERTICAL_TITLE_TERMS[vertical];
+  return rx ? rx.test(title) : false;
+}
+
 /**
  * Search Adzuna with user skills, returning qualified + broader (gap) results.
  *
@@ -254,25 +272,123 @@ export async function searchJobsForSkills(
   const QUALIFIED_THRESHOLD = 2;
   const GAP_THRESHOLD = 1;
 
-  let relevantQualified = exactJobs.filter(
+  // Drop obviously off-vertical noise up-front (Desi's Forklift/BMW/
+  // Automotive Technician surfacing for a Sales basket). Cheap title-
+  // regex is enough — if the title says "Technician" and the user is
+  // in retail, no scoreJobRelevance boost saves it.
+  const onVertical = (j: AdzunaJob) => !isTitleOffVertical(j.title, vertical);
+  const exactOnVertical = exactJobs.filter(onVertical);
+  const broaderOnVertical = broaderJobs.filter(onVertical);
+
+  let relevantQualified = exactOnVertical.filter(
     (j) => scoreJobRelevance(j, keywords) >= QUALIFIED_THRESHOLD
   );
   // If the strict threshold killed everything, fall back to ≥1 so the
   // user still sees results (better than empty)
-  if (relevantQualified.length === 0 && exactJobs.length > 0) {
-    relevantQualified = exactJobs.filter(
+  if (relevantQualified.length === 0 && exactOnVertical.length > 0) {
+    relevantQualified = exactOnVertical.filter(
       (j) => scoreJobRelevance(j, keywords) >= GAP_THRESHOLD
     );
   }
 
   // Dedupe broader against (filtered) qualified
   const qualifiedIds = new Set(relevantQualified.map((j) => j.id));
-  const candidateBroader = broaderJobs.filter((j) => !qualifiedIds.has(j.id));
+  const candidateBroader = broaderOnVertical.filter((j) => !qualifiedIds.has(j.id));
   const relevantBroader = candidateBroader.filter(
     (j) => scoreJobRelevance(j, keywords) >= GAP_THRESHOLD
   );
 
   return { qualified: relevantQualified, broader: relevantBroader };
+}
+
+// Caroline 7/28 Round 7: "With 1–2 More Skills: +0 Additional Jobs" was
+// the biggest miss. When a user's basket qualifies them for the entry
+// tier of their vertical, Adzuna's broad-query results were often
+// deduped/filtered to zero because they overlapped with the qualified
+// tier. We now maintain an explicit UPSKILL TIER — the next rung of
+// jobs whose keywords are DIFFERENT from the qualified tier — and
+// what cert/skill unlocks them. Use fetchUpskillTier() when Tab B
+// comes back empty.
+export const UPSKILL_TIERS: Record<
+  string,
+  Array<{ query: string; missingSkill: string }>
+> = {
+  healthcare: [
+    { query: "certified nursing assistant CNA", missingSkill: "CNA Certification" },
+    { query: "home health aide certified", missingSkill: "HHA Certification" },
+    { query: "medical assistant certified", missingSkill: "Medical Assistant Certification" },
+    { query: "phlebotomist certified", missingSkill: "Phlebotomy Certification" },
+    { query: "dialysis technician", missingSkill: "Dialysis Technician Training" },
+    { query: "hospice aide certified", missingSkill: "Hospice Care Training" },
+    { query: "CPR first aid instructor", missingSkill: "CPR / First Aid Certification" },
+  ],
+  retail: [
+    { query: "store manager retail", missingSkill: "Retail Management Training" },
+    { query: "assistant store manager", missingSkill: "Assistant Manager Training" },
+    { query: "visual merchandiser", missingSkill: "Visual Merchandising Training" },
+    { query: "retail sales supervisor", missingSkill: "Team Leadership Certification" },
+    { query: "sales training coordinator", missingSkill: "Sales Training Certification" },
+    { query: "retail operations coordinator", missingSkill: "Retail Operations Training" },
+  ],
+  trades: [
+    { query: "electrician journeyman", missingSkill: "Journeyman Electrician License" },
+    { query: "plumber licensed", missingSkill: "Plumbing License" },
+    { query: "HVAC technician certified", missingSkill: "EPA 608 Certification" },
+    { query: "OSHA certified construction", missingSkill: "OSHA-10 or OSHA-30" },
+    { query: "solar installer NABCEP", missingSkill: "NABCEP Certification" },
+  ],
+  tech: [
+    { query: "junior developer", missingSkill: "Portfolio + Git basics" },
+    { query: "IT support specialist", missingSkill: "CompTIA A+ Certification" },
+    { query: "data analyst SQL", missingSkill: "SQL + Excel fluency" },
+    { query: "cybersecurity analyst entry", missingSkill: "Security+ Certification" },
+  ],
+  food: [
+    { query: "kitchen manager", missingSkill: "ServSafe Manager Certification" },
+    { query: "sous chef", missingSkill: "Culinary Certification" },
+    { query: "restaurant manager", missingSkill: "Restaurant Management Training" },
+    { query: "bartender certified", missingSkill: "Bartending License / TIPS" },
+  ],
+  transport: [
+    { query: "CDL truck driver class A", missingSkill: "CDL Class A License" },
+    { query: "warehouse supervisor", missingSkill: "Warehouse Management Training" },
+    { query: "forklift certified operator", missingSkill: "Forklift Certification" },
+    { query: "dispatch coordinator", missingSkill: "Logistics Coordinator Training" },
+  ],
+};
+
+/**
+ * Fetch the "upskill tier" jobs for a vertical — one Adzuna call per
+ * tier query, capped at maxTiers. Each returned job comes tagged with
+ * the missingSkill that would unlock it (drives the Explore Skills
+ * training-resource lookups downstream).
+ */
+export async function fetchUpskillTier(
+  vertical: string | null,
+  location: string,
+  maxTiers: number = 4
+): Promise<Array<AdzunaJob & { _missingSkill: string }>> {
+  if (!vertical) return [];
+  const tiers = UPSKILL_TIERS[vertical];
+  if (!tiers || tiers.length === 0) return [];
+  const chosen = tiers.slice(0, maxTiers);
+  const results = await Promise.all(
+    chosen.map(async (t) => {
+      try {
+        const jobs = await searchAdzunaJobs({
+          what: t.query,
+          where: location,
+          results_per_page: 3,
+          sort_by: "salary",
+        });
+        // Tag each with the missing skill that unlocks it
+        return jobs.map((j) => ({ ...j, _missingSkill: t.missingSkill }));
+      } catch {
+        return [];
+      }
+    })
+  );
+  return results.flat();
 }
 
 /**

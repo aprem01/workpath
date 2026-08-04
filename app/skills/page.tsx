@@ -446,12 +446,24 @@ function SkillsPageInner() {
               onSubmit={(v) => normalizeAndAdd(v)}
             />
           </div>
-          {/* Status line — guides the user */}
+          {/* Status line — Caroline 7/28 Round 7: the interruptor was too
+              small to see; the user's eye jumps to the new pink pill in the
+              basket. Big, high-contrast callout above the basket makes the
+              "select any that apply, then add your next skill" loop
+              obvious. */}
           {isLoading ? (
-            <p className="text-xs text-magenta text-center mt-2 font-semibold flex items-center justify-center gap-1.5">
-              <Loader2 size={12} className="animate-spin" />
-              Finding related skills&hellip; add the next one in a moment.
-            </p>
+            <div
+              role="status"
+              className="mt-4 mx-auto max-w-2xl rounded-2xl border-2 border-magenta/40 bg-magenta/[0.06] px-5 py-4"
+            >
+              <p className="text-base sm:text-lg font-bold text-magenta flex items-start justify-center gap-2 leading-snug text-center">
+                <Loader2 size={20} className="animate-spin shrink-0 mt-0.5" />
+                <span>
+                  Finding related skills below&hellip; Select any that apply,
+                  then add your next skill.
+                </span>
+              </p>
+            </div>
           ) : (
             <p className="text-xs text-graytext text-center mt-2 italic font-medium">
               Press Enter to add

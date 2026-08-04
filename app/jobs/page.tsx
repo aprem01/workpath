@@ -862,16 +862,20 @@ function JobsPageInner() {
         <div>
           {gapJobs.length === 0 ? (
             <div className="p-6 text-center">
-              <p className="text-sm text-gray-500 font-medium mb-2">
-                {qualifiedJobs.length > 0
-                  ? "You qualify for all nearby jobs!"
-                  : "Add more skills to find jobs within reach"}
+              <p className="text-sm text-gray-700 font-semibold mb-1">
+                Higher-paying jobs are just one or two skills away.
+              </p>
+              <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                We&apos;re expanding coverage of career-progression roles in
+                your area. In the meantime, add a certification like
+                CPR/First Aid, a state license, or a specialty skill to
+                unlock adjacent higher-paying jobs.
               </p>
               <a
                 href="/skills"
-                className="text-sm text-magenta font-semibold hover:underline"
+                className="inline-block text-sm text-magenta font-semibold hover:underline"
               >
-                + Add more skills
+                + Add a certification or specialty skill
               </a>
             </div>
           ) : (

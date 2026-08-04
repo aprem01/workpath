@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { searchJobsForSkills, adzunaToInternal } from "@/lib/adzuna";
+import { searchJobsForSkills, adzunaToInternal, fetchUpskillTier } from "@/lib/adzuna";
 import { getDomainQueries, getDomainById } from "@/lib/domains";
 import {
   classifySkillCluster,
@@ -327,11 +327,17 @@ export async function POST(req: Request) {
         title?: string;
         description?: string;
         payMax?: number;
+        payMin?: number;
         vertical?: string;
       },
     >(
       j: T
     ) => {
+      // Round 7 fix (Desi's "Cashier — Full Time — $0/hour"): Adzuna
+      // sometimes returns rows with no salary at all, which our
+      // hourly-cents converter defaulted to zero. A $0/hr listing is
+      // never a real opportunity — drop it before anything else.
+      if ((j.payMax || 0) < 800) return false; // < $8/hr = missing data
       if (!shouldFilter) return true;
       if (seniorTitle.test(j.title || "")) return false;
       if ((j.payMax || 0) > payCap) return false;
@@ -370,6 +376,57 @@ export async function POST(req: Request) {
     // Sort both by pay descending
     qualifiedJobs.sort((a, b) => b.payMax - a.payMax);
     gapJobs.sort((a, b) => b.payMax - a.payMax);
+
+    // Round 7 Phase 3: if Tab B ended up empty but the user IS
+    // qualifying for jobs, fetch the "upskill tier" — the next rung
+    // of jobs for their vertical, each tagged with the specific
+    // cert/skill that would unlock it. Anna (caregiving) now sees
+    // CNA/HHA/CPR unlocks; Desi (retail sales) sees Store Manager /
+    // Visual Merchandiser / Sales Supervisor.
+    if (gapJobs.length === 0 && qualifiedJobs.length > 0 && userVertical) {
+      try {
+        const highestQualifiedPay = qualifiedJobs[0]?.payMax || 0;
+        const upskillRaw = await fetchUpskillTier(userVertical, metro.adzunaWhere, 4);
+        const seenTitles = new Set(qualifiedJobs.map((j) => j.title.toLowerCase()));
+        for (const aj of upskillRaw) {
+          const converted = adzunaToInternal(aj, userVertical);
+          // Only keep meaningfully higher-paying jobs and drop dupes.
+          if (converted.payMax < 800) continue;
+          if (converted.payMax <= highestQualifiedPay) continue;
+          if (seenTitles.has(converted.title.toLowerCase())) continue;
+          seenTitles.add(converted.title.toLowerCase());
+          gapJobs.push({
+            id: `adzuna_upskill_${aj.id || gapJobs.length}`,
+            title: converted.title,
+            employer: converted.employer,
+            location: converted.location,
+            description: converted.description,
+            payMin: converted.payMin,
+            payMax: converted.payMax,
+            payType: converted.payType,
+            shiftType: converted.shiftType,
+            vertical: converted.vertical,
+            postedAt: new Date(aj.created || Date.now()),
+            optionalScore: 0,
+            matchedRequired: 0,
+            totalRequired: 1,
+            matchedOptional: 0,
+            totalOptional: 0,
+            missingSkills: [aj._missingSkill],
+            requiredSkills: [],
+            isReal: true,
+            applyUrl: aj.redirect_url,
+            transferability: null,
+            wage: null,
+            projection: null,
+            workplace: null,
+          });
+        }
+        gapJobs.sort((a, b) => b.payMax - a.payMax);
+      } catch (e) {
+        console.warn("upskill-tier fetch failed:", e instanceof Error ? e.message : e);
+      }
+    }
 
     // Analytics: capture every match request for production debugging.
     // This is what catches future "Marielee got 0 results" bugs automatically.
