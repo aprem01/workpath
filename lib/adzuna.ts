@@ -423,9 +423,15 @@ export async function fetchUpskillTier(
  * Convert Adzuna job to our internal format and save to DB
  */
 export function adzunaToInternal(job: AdzunaJob, vertical: string) {
-  // Convert annual salary to hourly cents (assume 2080 hours/year)
-  const hourlyMin = job.salary_min ? Math.round((job.salary_min / 2080) * 100) : 1500;
-  const hourlyMax = job.salary_max ? Math.round((job.salary_max / 2080) * 100) : 2500;
+  // Convert annual salary to hourly cents (assume 2080 hours/year).
+  // Round 7: Adzuna sometimes returns explicit salary_max=0 (Cashier /
+  // Sales Associate postings without disclosed pay). Treat 0/null/undefined
+  // uniformly as "missing" so the downstream $0/hr filter doesn't nuke
+  // otherwise-valid listings that just lack a stated wage.
+  const minAnnual = job.salary_min && job.salary_min > 0 ? job.salary_min : null;
+  const maxAnnual = job.salary_max && job.salary_max > 0 ? job.salary_max : null;
+  const hourlyMin = minAnnual ? Math.round((minAnnual / 2080) * 100) : 1500;
+  const hourlyMax = maxAnnual ? Math.round((maxAnnual / 2080) * 100) : 2500;
 
   return {
     title: job.title,
