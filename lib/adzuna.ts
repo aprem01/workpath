@@ -253,7 +253,9 @@ export async function searchJobsForSkills(
     tech: { primary: "software engineer developer", broad: "developer" },
     food: { primary: "cook restaurant kitchen", broad: "food service" },
     transport: { primary: "driver delivery warehouse", broad: "driver" },
-    retail: { primary: "sales associate cashier", broad: "retail" },
+    // Round 7: "sales associate cashier" was AND'd by Adzuna and returned
+    // no Chicago results. Use the highest-signal single term instead.
+    retail: { primary: "sales associate", broad: "retail sales" },
   };
   const effectiveQueries =
     domainQueries ||
