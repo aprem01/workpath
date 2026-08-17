@@ -16,6 +16,11 @@ interface JobMatch {
   payMin: number;
   payMax: number;
   payType: string;
+  // Round 7 (Rosalyn 8/10): Adzuna's salary_is_predicted or a missing
+  // salary_max defaults now flag the pay as "estimated" so the UI can
+  // show ≈ instead of promising the exact number. Rosalyn hit this on
+  // Raising Cane's (posted $17.25, Adzuna returned $19-22).
+  payEstimated?: boolean;
   shiftType: string;
   description: string;
   schedule?: string;
@@ -430,10 +435,19 @@ function JobsPageInner() {
           </span>
 
           {/* Pay — always visible. Phase 4: tag "above/below market"
-              when we have a BLS wage benchmark for this role. */}
+              when we have a BLS wage benchmark for this role.
+              Round 7 (Rosalyn 8/10 Cane's): prefix with ≈ when Adzuna
+              flagged the pay as predicted or defaulted. */}
           <div className="text-right whitespace-nowrap">
-            <span className="text-sm font-bold text-gray-900">
-              {formatPay(job.payMax)}/hr
+            <span
+              className="text-sm font-bold text-gray-900"
+              title={
+                job.payEstimated
+                  ? "Pay estimated from listing data — the employer may pay a different rate. Confirm on their site."
+                  : undefined
+              }
+            >
+              {job.payEstimated ? "≈" : ""}{formatPay(job.payMax)}/hr
             </span>
             {job.wage && typeof job.wage.payDiffPct === "number" && job.wage.payDiffPct !== 0 && (
               <span

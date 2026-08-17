@@ -144,6 +144,11 @@ export async function POST(req: Request) {
       workplace: null;
     }> = [];
     try {
+      // Only fetch jobs whose required-skill list overlaps the user's
+      // basket — the DB has ~1400 active Chicago jobs, and `take: N`
+      // without a filter was missing recently-posted rows (Caroline's
+      // Round 7 "(test)" seed). `requiredSkills.some.normalizedTerm.in`
+      // is index-friendly and keeps the fetch under a hundred rows.
       const dbJobs = await prisma.job.findMany({
         where: {
           isActive: true,
@@ -151,9 +156,15 @@ export async function POST(req: Request) {
             contains: metro.adzunaWhere.split(",")[0]?.trim() || "Chicago",
             mode: "insensitive",
           },
+          requiredSkills: {
+            some: {
+              normalizedTerm: { in: skillTerms, mode: "insensitive" },
+            },
+          },
         },
         include: { requiredSkills: { select: { normalizedTerm: true } } },
-        take: 60,
+        orderBy: { postedAt: "desc" },
+        take: 100,
       });
       for (const j of dbJobs) {
         const req = j.requiredSkills.map((r) => r.normalizedTerm);
@@ -222,6 +233,7 @@ export async function POST(req: Request) {
         payMin: converted.payMin,
         payMax: converted.payMax,
         payType: converted.payType,
+        payEstimated: converted.payEstimated,
         shiftType: converted.shiftType,
         vertical: converted.vertical,
         postedAt: new Date(aj.created || Date.now()),
@@ -303,7 +315,26 @@ export async function POST(req: Request) {
         }
       }
 
-      return missing.length > 0 ? missing : ["1-2 more skills needed"];
+      // Round 7 (Rosalyn 8/10): the "1-2 more skills needed" placeholder
+      // gave users nothing actionable — she said she wanted the job but
+      // couldn't find any option showing what would unlock it. Fall back
+      // to a vertical-appropriate default certification instead of a
+      // dead placeholder. UPSKILL_TIERS in lib/adzuna.ts is our canonical
+      // list; mirror the top entries here without importing (avoid
+      // pulling the whole helper into an already-heavy file).
+      if (missing.length === 0) {
+        const VERTICAL_DEFAULTS: Record<string, string[]> = {
+          healthcare: ["CPR / First Aid Certification", "HHA Certification"],
+          retail: ["Retail Management Training", "Visual Merchandising Training"],
+          trades: ["OSHA-10 or OSHA-30", "Journeyman License"],
+          food_service: ["ServSafe Manager Certification", "Culinary Certification"],
+          transport: ["CDL Class A License", "Forklift Certification"],
+          tech: ["Portfolio + Git basics", "CompTIA A+ Certification"],
+        };
+        const defaults = VERTICAL_DEFAULTS[userVertical] || ["Industry Certification"];
+        return [defaults[0]];
+      }
+      return missing;
     };
 
     // Broader jobs = "1-2 skills away" (related but not exact match)
@@ -358,6 +389,7 @@ export async function POST(req: Request) {
         payMin: converted.payMin,
         payMax: converted.payMax,
         payType: converted.payType,
+        payEstimated: converted.payEstimated,
         shiftType: converted.shiftType,
         vertical: converted.vertical,
         postedAt: new Date(aj.created || Date.now()),
@@ -511,6 +543,7 @@ export async function POST(req: Request) {
             payMin: converted.payMin,
             payMax: converted.payMax,
             payType: converted.payType,
+            payEstimated: converted.payEstimated,
             shiftType: converted.shiftType,
             vertical: converted.vertical,
             postedAt: new Date(aj.created || Date.now()),

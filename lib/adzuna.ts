@@ -17,6 +17,12 @@ export interface AdzunaJob {
   description: string;
   salary_min: number;
   salary_max: number;
+  // Adzuna flags "salary_is_predicted: '1'" when the pay wasn't in the
+  // posting and their ML guessed it. Rosalyn 8/10 saw Raising Cane's
+  // shown as $19-22 while the company's careers page had it at $17.25 —
+  // that's a predicted salary. We keep it but flag it so the UI can
+  // caveat "estimated" instead of promising a rate.
+  salary_is_predicted?: string;
   contract_time: string; // "full_time" | "part_time"
   created: string;
   redirect_url: string;
@@ -446,5 +452,9 @@ export function adzunaToInternal(job: AdzunaJob, vertical: string) {
     shiftType: job.contract_time === "part_time" ? "part_time" : "full_time",
     vertical,
     isActive: true,
+    // True when either bound was Adzuna-predicted OR when we had to
+    // default (missing/zero from source). The UI shows "≈" and a tooltip.
+    payEstimated:
+      job.salary_is_predicted === "1" || !maxAnnual || !minAnnual,
   };
 }
