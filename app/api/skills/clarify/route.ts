@@ -28,6 +28,15 @@ const FORCE_AMBIGUOUS: Record<string, string[]> = {
   training: ["Healthcare", "Trades", "Retail", "Administrative"],
 };
 
+// Caroline 7/28 Round 7: "Bilingual" and "Trilingual" describe the
+// worker but aren't skills employers search on — the actual LANGUAGE
+// is what matches jobs. Force a language picker for these labels.
+const FORCE_LANGUAGE_PICKER: Record<string, string[]> = {
+  bilingual: ["Spanish", "Chinese (Mandarin)", "French", "Vietnamese", "Arabic", "Polish", "Russian", "Tagalog"],
+  trilingual: ["Spanish", "Chinese (Mandarin)", "French", "Vietnamese", "Arabic", "Polish", "Russian", "Tagalog"],
+  multilingual: ["Spanish", "Chinese (Mandarin)", "French", "Vietnamese", "Arabic", "Polish", "Russian", "Tagalog"],
+};
+
 /**
  * POST /api/skills/clarify
  *
@@ -51,7 +60,16 @@ export async function POST(req: Request) {
       getDomainById(domainId)?.vertical || null
     );
     const trimmed = skill.trim();
-    const forced = FORCE_AMBIGUOUS[trimmed.toLowerCase()];
+    const lower = trimmed.toLowerCase();
+    // Language picker takes precedence — Bilingual/Trilingual/Multilingual
+    // aren't industries, they're a language-question funnel. Front-end
+    // treats `kind: "language"` the same as industry chips today but
+    // stores the picked LANGUAGE as the skill, not the umbrella term.
+    const langOpts = FORCE_LANGUAGE_PICKER[lower];
+    if (langOpts) {
+      return NextResponse.json({ candidates: langOpts, kind: "language" });
+    }
+    const forced = FORCE_AMBIGUOUS[lower];
     if (forced && !(anchor && forced.includes(anchor))) {
       return NextResponse.json({ candidates: forced });
     }

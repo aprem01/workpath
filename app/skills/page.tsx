@@ -105,6 +105,7 @@ function SkillsPageInner() {
   const [pendingClarification, setPendingClarification] = useState<{
     rawSkill: string;
     industries: string[];
+    kind?: "industry" | "language";
   } | null>(null);
 
   // Caroline 7/18 Round 5: legacy payranker_domain from Round 3 was still
@@ -225,6 +226,7 @@ function SkillsPageInner() {
             setPendingClarification({
               rawSkill: trimmed,
               industries: data.candidates,
+              kind: data.kind === "language" ? "language" : "industry",
             });
             setInput("");
             return;
@@ -476,24 +478,37 @@ function SkillsPageInner() {
           {pendingClarification && (
             <div className="mt-3 p-4 rounded-xl border-2 border-magenta/30 bg-magenta/5">
               <p className="text-sm font-semibold text-gray-800 mb-2">
-                &ldquo;{pendingClarification.rawSkill}&rdquo; — which industry did you mean?
+                {pendingClarification.kind === "language"
+                  ? `“${pendingClarification.rawSkill}” isn’t a skill by itself — which language(s) do you speak?`
+                  : `“${pendingClarification.rawSkill}” — which industry did you mean?`}
               </p>
               <div className="flex flex-wrap gap-2 mb-2">
-                {pendingClarification.industries.map((ind) => (
+                {pendingClarification.industries.map((option) => (
                   <button
-                    key={ind}
+                    key={option}
                     onClick={() => {
-                      const raw = pendingClarification.rawSkill;
+                      const rawInput = pendingClarification.rawSkill;
+                      const kind = pendingClarification.kind;
+                      if (kind === "language") {
+                        // Store the LANGUAGE as the skill; don't add
+                        // "Bilingual" itself. Tap multiple chips to add
+                        // multiple languages (each tap normalizes one
+                        // language then re-opens the picker until Cancel).
+                        void normalizeAndAdd(option, true);
+                        // Keep the picker open so the user can add more
+                        // languages — Caroline's "Spanish + Chinese" case.
+                        return;
+                      }
                       setPendingClarification(null);
                       // Attach the picked industry as `context` on the
                       // skill itself — not on the person. Pill renders as
                       // "Management (Logistics)" so the worker can see
                       // and edit the resolution.
-                      void normalizeAndAdd(raw, true, ind);
+                      void normalizeAndAdd(rawInput, true, option);
                     }}
                     className="px-3 py-1.5 rounded-full text-sm font-semibold bg-white border-2 border-magenta/40 text-magenta hover:bg-magenta hover:text-white transition-colors"
                   >
-                    {ind}
+                    {option}
                   </button>
                 ))}
               </div>
@@ -501,7 +516,7 @@ function SkillsPageInner() {
                 onClick={() => setPendingClarification(null)}
                 className="text-xs text-graytext hover:text-magenta underline"
               >
-                Cancel
+                {pendingClarification.kind === "language" ? "Done" : "Cancel"}
               </button>
             </div>
           )}

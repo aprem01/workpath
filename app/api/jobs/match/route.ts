@@ -106,6 +106,102 @@ export async function POST(req: Request) {
     const { qualified: exactJobs, broader: broaderJobs } =
       await searchJobsForSkills(skillTerms, metro.adzunaWhere, 15, adzunaQueries);
 
+    // Caroline 7/28 Round 7 cross-platform test: Skilmatch's Certified
+    // Nursing Assistant and Home Health Aide postings weren't appearing
+    // in PayRanker's match results even though the user's basket had
+    // the required skills. Root cause: PayRanker only searched Adzuna
+    // and never queried the shared Job table where Skilmatch writes.
+    // Now we fetch every active Job whose requiredSkills overlap the
+    // user's basket (case-insensitive), score them, and merge into
+    // qualifiedJobs (100% match) or gapJobs (partial match) — same
+    // shape as the Adzuna rows so the rest of the pipeline is unchanged.
+    const skillTermsLower = skillTerms.map((s: string) => s.toLowerCase());
+    const dbJobsQualified: typeof qualifiedJobs = [];
+    const dbJobsGap: Array<{
+      id: string;
+      title: string;
+      employer: string;
+      location: string;
+      description: string;
+      payMin: number;
+      payMax: number;
+      payType: string;
+      shiftType: string;
+      vertical: string;
+      postedAt: Date;
+      optionalScore: number;
+      matchedRequired: number;
+      totalRequired: number;
+      matchedOptional: number;
+      totalOptional: number;
+      missingSkills: string[];
+      requiredSkills: string[];
+      isReal: boolean;
+      applyUrl?: string;
+      transferability: null;
+      wage: null;
+      projection: null;
+      workplace: null;
+    }> = [];
+    try {
+      const dbJobs = await prisma.job.findMany({
+        where: {
+          isActive: true,
+          location: {
+            contains: metro.adzunaWhere.split(",")[0]?.trim() || "Chicago",
+            mode: "insensitive",
+          },
+        },
+        include: { requiredSkills: { select: { normalizedTerm: true } } },
+        take: 60,
+      });
+      for (const j of dbJobs) {
+        const req = j.requiredSkills.map((r) => r.normalizedTerm);
+        const reqLower = req.map((r) => r.toLowerCase());
+        const missing = req.filter((r, i) => !skillTermsLower.includes(reqLower[i]));
+        const matchedCount = req.length - missing.length;
+        // Need at least one requiredSkill overlap to consider surfacing
+        if (req.length > 0 && matchedCount === 0) continue;
+        // Prevent double-count: if we already have an Adzuna row with
+        // this title+employer, prefer the DB row (fresher, has apply URL
+        // internal to the platform).
+        const key = `db_${j.id}`;
+        const base = {
+          id: key,
+          title: j.title,
+          employer: j.employer,
+          location: j.location,
+          description: j.description || "",
+          payMin: j.payMin,
+          payMax: j.payMax,
+          payType: j.payType,
+          shiftType: j.shiftType,
+          vertical: j.vertical || userVertical || "other",
+          postedAt: j.postedAt,
+          optionalScore: 0,
+          matchedRequired: matchedCount,
+          totalRequired: req.length,
+          matchedOptional: 0,
+          totalOptional: 0,
+          missingSkills: missing,
+          requiredSkills: req,
+          isReal: true,
+          applyUrl: undefined,
+          transferability: null,
+          wage: null,
+          projection: null,
+          workplace: null,
+        };
+        if (req.length === 0 || missing.length === 0) {
+          dbJobsQualified.push(base as unknown as typeof qualifiedJobs[number]);
+        } else if (missing.length <= 2) {
+          dbJobsGap.push(base);
+        }
+      }
+    } catch (e) {
+      console.warn("DB job merge failed (non-blocking):", e instanceof Error ? e.message : e);
+    }
+
     // Convert to our format
     const qualifiedJobs = exactJobs.map((aj, i) => {
       const converted = adzunaToInternal(aj, detectVertical(aj));
@@ -367,6 +463,14 @@ export async function POST(req: Request) {
       }
       return true;
     };
+
+    // Merge Skilmatch DB jobs BEFORE the filter so they get the same
+    // pay-cap / seniority / cluster-fit treatment as Adzuna rows.
+    // DB jobs from Skilmatch already have curated required-skill lists,
+    // so their qualification signal is more trustworthy than Adzuna's
+    // keyword-scoring approach.
+    for (const j of dbJobsQualified) qualifiedJobs.push(j as (typeof qualifiedJobs)[number]);
+    for (const j of dbJobsGap) gapJobs.push(j as (typeof gapJobs)[number]);
 
     // Sort then filter — splice() to keep TypeScript happy with inferred types
     for (let i = qualifiedJobs.length - 1; i >= 0; i--) {
