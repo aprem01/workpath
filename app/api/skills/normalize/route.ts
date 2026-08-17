@@ -468,6 +468,7 @@ export async function POST(req: Request) {
     const errMsg = error instanceof Error ? error.message : String(error);
     console.error("Skill normalization error:", errMsg);
     return NextResponse.json({
+      _debugError: errMsg, // TEMP diagnostic — safe to remove once P1 regression root cause is confirmed
       normalizedTerm: rawSkill || "unknown skill",
       category: "other",
       layer: "canonical",
