@@ -159,11 +159,10 @@ function ProfilePageInner() {
           <h2 className="text-3xl sm:text-4xl font-semibold text-magenta-headline mb-3">
             Create your anonymous profile
           </h2>
-          <p className="text-base text-graytext mb-1 font-medium">
-            Employers can&apos;t see your personal details.
-          </p>
           <p className="text-base text-graytext mb-6 font-medium">
-            They only see your anonymous handle when you apply to jobs.
+            Employers can&apos;t see your personal details until you
+            accept a request for interview. Until then they only see
+            your anonymous handle when you apply to jobs.
           </p>
           <p className="text-sm text-graytext mb-8">
             Your anonymous handle is{" "}

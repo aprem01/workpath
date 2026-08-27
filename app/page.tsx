@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import Footer from "@/components/Footer";
-import BetaBanner from "@/components/BetaBanner";
+import AppHeader from "@/components/AppHeader";
 
 /**
  * Landing page — Caroline 6/27 Round 4.
@@ -54,19 +53,10 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-warmwhite flex flex-col">
-      <BetaBanner />
-      {/* White top bar */}
-      <header className="bg-white border-b border-gray-100 py-5 px-6">
-        <div className="max-w-5xl mx-auto">
-          <Image
-            src="/payranker-logo.png"
-            alt="PayRanker"
-            width={220}
-            height={46}
-            priority
-          />
-        </div>
-      </header>
+      {/* Caroline 8/26 Round 8: landing gets the full AppHeader (with
+          BetaBanner + hamburger dropdown) so first-time visitors can
+          find Mission / Profile / Skills / Matches / Messages / Log in. */}
+      <AppHeader />
 
       <main>
         {/* Headline + subtext flush-left with logo */}

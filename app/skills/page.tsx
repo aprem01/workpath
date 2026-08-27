@@ -90,6 +90,11 @@ function SkillsPageInner() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // Caroline 8/23 global rule: when the AI classifier is unreachable we
+  // must show a clear banner rather than silently accept a raw string.
+  const [aiUnavailable, setAiUnavailable] = useState(false);
+  // Caroline 8/26 global rule: prohibited-activity screening.
+  const [prohibitedInput, setProhibitedInput] = useState<string | null>(null);
   // Caroline 5/22 Phase-1 UX: block adding the NEXT skill while the
   // previous one's suggestions are still loading. Ref lets us gate the
   // submit handler without adding isLoading to normalizeAndAdd's deps
@@ -264,6 +269,33 @@ function SkillsPageInner() {
           }),
         });
         const data = await res.json();
+
+        // Caroline 8/23 global rule: when the AI classifier is unavailable
+        // (503 / source:"ai_unavailable"), we must NOT keep the optimistic
+        // skill in the basket — it would be a fabricated match. Roll back
+        // and surface a clear banner instead.
+        if (res.status === 503 || data?.source === "ai_unavailable") {
+          setSkills((prev) =>
+            prev.filter((s) => s.normalizedTerm.toLowerCase() !== trimmed.toLowerCase())
+          );
+          setAiUnavailable(true);
+          isLoadingRef.current = false;
+          setIsLoading(false);
+          return;
+        }
+
+        // Caroline 8/26 global rule: prohibited-activity screening. When
+        // the classifier flags the input as illegal / non-occupational,
+        // roll back the optimistic pill and show a neutral message.
+        if (data?.isProhibited) {
+          setSkills((prev) =>
+            prev.filter((s) => s.normalizedTerm.toLowerCase() !== trimmed.toLowerCase())
+          );
+          setProhibitedInput(trimmed);
+          isLoadingRef.current = false;
+          setIsLoading(false);
+          return;
+        }
 
         // Update the optimistic skill with the normalized term from AI
         if (data.normalizedTerm && data.normalizedTerm.toLowerCase() !== trimmed.toLowerCase()) {
@@ -448,6 +480,47 @@ function SkillsPageInner() {
               onSubmit={(v) => normalizeAndAdd(v)}
             />
           </div>
+          {/* Caroline 8/23: AI-unavailable banner — never silently
+              accept a raw skill when the classifier can't reach us. */}
+          {aiUnavailable && (
+            <div
+              role="alert"
+              className="mt-4 mx-auto max-w-2xl rounded-2xl border-2 border-red-300 bg-red-50 px-5 py-4 text-center"
+            >
+              <p className="text-sm sm:text-base font-bold text-red-700 mb-1">
+                Skill classifier is temporarily unavailable.
+              </p>
+              <p className="text-xs sm:text-sm text-red-600">
+                We couldn&apos;t reach the AI right now, so we didn&apos;t add your last skill. Please try again in a moment.
+              </p>
+              <button
+                onClick={() => setAiUnavailable(false)}
+                className="mt-2 text-xs font-semibold text-red-700 underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+          {/* Caroline 8/26: prohibited-activity screening banner. */}
+          {prohibitedInput && (
+            <div
+              role="alert"
+              className="mt-4 mx-auto max-w-2xl rounded-2xl border-2 border-amber-300 bg-amber-50 px-5 py-4 text-center"
+            >
+              <p className="text-sm sm:text-base font-bold text-amber-800 mb-1">
+                &ldquo;{prohibitedInput}&rdquo; isn&apos;t supported on PayRanker.
+              </p>
+              <p className="text-xs sm:text-sm text-amber-700">
+                PayRanker only matches legitimate occupational skills. Enter a different skill to continue.
+              </p>
+              <button
+                onClick={() => setProhibitedInput(null)}
+                className="mt-2 text-xs font-semibold text-amber-800 underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           {/* Status line — Caroline 7/28 Round 7: the interruptor was too
               small to see; the user's eye jumps to the new pink pill in the
               basket. Big, high-contrast callout above the basket makes the

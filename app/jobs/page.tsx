@@ -785,13 +785,18 @@ function JobsPageInner() {
                 Apply on company site <ArrowRight size={14} />
               </a>
             ) : (
+              /* Caroline 8/23: Skilmatch DB jobs (no external applyUrl)
+                 use "Apply now →" because the application flow stays
+                 inside PayRanker → Skilmatch (anonymous form). Adzuna
+                 jobs above kept "Apply on company site" since they
+                 external-link to the employer's own listing. */
               <button
                 onClick={() => markVisited(job)}
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full
                            font-bold text-white bg-magenta hover:bg-magenta-dark
                            transition-colors text-sm"
               >
-                Apply <ArrowRight size={14} />
+                Apply now <ArrowRight size={14} />
               </button>
             )}
           </div>
@@ -981,6 +986,16 @@ function JobsPageInner() {
 
         <p className="text-xs text-gray-500 mb-4">
           Click a position to view more details.
+        </p>
+
+        {/* Caroline 8/23 Priority note — set expectation for matching
+            quality over quantity. Reads on both mobile + desktop before
+            the tabs. */}
+        <p className="mb-3 text-xs sm:text-sm text-graytext leading-relaxed">
+          <span className="font-bold text-gray-700">Priority:</span>{" "}
+          Matching quality over quantity. PayRanker returns fewer, more
+          believable matches instead of surfacing jobs that share one or
+          two skills but aren&apos;t realistic for your background.
         </p>
 
         {/* ============================================================ */}

@@ -437,7 +437,16 @@ export function adzunaToInternal(job: AdzunaJob, vertical: string) {
   // uniformly as "missing" so the downstream $0/hr filter doesn't nuke
   // otherwise-valid listings that just lack a stated wage.
   const minAnnual = job.salary_min && job.salary_min > 0 ? job.salary_min : null;
-  const maxAnnual = job.salary_max && job.salary_max > 0 ? job.salary_max : null;
+  let maxAnnual = job.salary_max && job.salary_max > 0 ? job.salary_max : null;
+  // Caroline 8/23 compensation-accuracy rule: Adzuna occasionally returns
+  // wildly inflated salary_max (e.g. $242/hr while the listing text says
+  // $23/hr) — usually because the "max" field is a data-quality outlier
+  // rather than a real number. Clamp to 3x the min when both exist;
+  // otherwise drop the max entirely and let it default to the $25/hr
+  // placeholder so we don't advertise a fictional wage.
+  if (minAnnual && maxAnnual && maxAnnual > minAnnual * 3) {
+    maxAnnual = Math.min(maxAnnual, minAnnual * 3);
+  }
   const hourlyMin = minAnnual ? Math.round((minAnnual / 2080) * 100) : 1500;
   const hourlyMax = maxAnnual ? Math.round((maxAnnual / 2080) * 100) : 2500;
 

@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BetaBanner from "./BetaBanner";
 
-const MENU_ITEMS: { label: string; href: string; key: string }[] = [
+// Caroline 8/26 Round 8 nav spec — first item is Log in / Log out
+// (label toggles based on presence of payranker_handle).
+const BASE_MENU: { label: string; href: string; key: string }[] = [
   { label: "Our Mission", href: "/mission", key: "mission" },
   { label: "Your Profile", href: "/profile", key: "profile" },
   { label: "Your Skills", href: "/skills", key: "skills" },
@@ -15,7 +17,13 @@ const MENU_ITEMS: { label: string; href: string; key: string }[] = [
 export default function AppHeader() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setLoggedIn(!!localStorage.getItem("payranker_handle"));
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -38,8 +46,30 @@ export default function AppHeader() {
       router.push(hasProfile ? "/jobs" : "/matches");
       return;
     }
+    if (key === "auth") {
+      if (loggedIn) {
+        // Log out: clear the anonymous handle + profile flag; leave saved
+        // skills in place so the user can log back in later.
+        localStorage.removeItem("payranker_handle");
+        localStorage.removeItem("payranker_profile_complete");
+        setLoggedIn(false);
+        router.push("/");
+      } else {
+        router.push("/profile");
+      }
+      return;
+    }
     router.push(href);
   };
+
+  const menuItems = [
+    {
+      label: loggedIn ? "Log out" : "Log in",
+      href: loggedIn ? "/" : "/profile",
+      key: "auth",
+    },
+    ...BASE_MENU,
+  ];
 
   return (
     <>
@@ -63,7 +93,7 @@ export default function AppHeader() {
           </button>
           {open && (
             <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-lg border border-gray-100 py-2 z-50">
-              {MENU_ITEMS.map((item) => (
+              {menuItems.map((item) => (
                 <button
                   key={item.key}
                   onClick={() => navigate(item.key, item.href)}

@@ -17,6 +17,32 @@ export const dynamic = "force-dynamic";
 
 const client = new Anthropic();
 
+// ─── Caroline 8/26 Global Rule: Prohibited-activity screening ─────
+//
+// Fast-path keyword blacklist for obvious cases; borderline / novel
+// phrasings fall through to the AI check inside aiTaxonomyExpansion,
+// which is instructed to set `isProhibited:true` on illegal activities.
+// Keep the list narrow — many single words have legitimate meanings
+// ("dealer" as in card dealer or auto dealer, "escort" as a courier
+// role) so we only fast-fail on multi-word phrases whose meaning is
+// unambiguous.
+const PROHIBITED_PATTERNS: RegExp[] = [
+  /\b(drug|narcotics?|cocaine|meth|heroin|fentanyl|opioid)\s+(dealing|dealer|trafficking|selling|distribution)\b/i,
+  /\bdrug\s+trafficker\b/i,
+  /\bhuman\s+trafficking\b/i,
+  /\bsex\s+trafficking\b/i,
+  /\bchild\s+(exploitation|pornography|trafficking)\b/i,
+  /\b(pimp(ing)?|prostitut(ion|e)|brothel|escort\s+(service|agency))\b/i,
+  /\b(hit\s*man|contract\s+killing|murder\s+for\s+hire)\b/i,
+  /\b(money\s+laundering|racket(eering)?)\b/i,
+  /\b(illegal\s+(arms?|weapons?|firearms?)\s+(dealing|trafficking|sales?))\b/i,
+  /\b(fraud|scam|ponzi|pyramid)\s+scheme\b/i,
+];
+
+function isFastPathProhibited(input: string): boolean {
+  return PROHIBITED_PATTERNS.some((rx) => rx.test(input));
+}
+
 // ─── Stage 1: Neo4j Graph Lookup (instant) ─────────────────────────
 // Graph DB gives us: aliases, parent→child, siblings, 2-hop related
 async function graphLookup(rawSkill: string, existingSkills: string[]) {
@@ -206,8 +232,19 @@ Correct: basket=[caregiving], new="creative direction"
 Wrong: basket=[caregiving], new="creative direction"
   → force it into caregiving-adjacent suggestions.
 
+PROHIBITED-ACTIVITY CHECK (Caroline 8/26 global rule): before doing anything
+else, decide whether "${rawSkill}" describes a legitimate occupation or skill
+vs. an illegal activity like drug dealing/trafficking, human trafficking,
+prostitution/commercial sex work, contract violence, illegal weapons trade,
+money laundering, or a fraud scheme. Judge meaning in context, not keywords
+in isolation — "dealer" alone can be a card dealer or auto dealer, "escort"
+alone can be a courier role. If the input CLEARLY describes an illegal
+occupation, set isProhibited:true and leave the other fields empty. Otherwise
+leave isProhibited:false and continue.
+
 Return ONLY valid JSON:
 {
+  "isProhibited": false,
   "normalizedTerm": "term that PRESERVES the user's register",
   "category": "healthcare | trades | tech | admin | food_service | transport | education | retail | finance | legal | creative | engineering | management | other",
   "layer": "canonical | parent | micro",
@@ -215,7 +252,7 @@ Return ONLY valid JSON:
   "aiResistanceScore": 0-100,
   "childSkills": ["if PARENT/BROAD: 4-6 specific sub-skills"],
   "microSkills": ["if SPECIFIC: 3-5 proficiency variants (e.g. 'Python: Data Analysis')"],
-  "aiSuggestions": ["10-15 related skills — prioritize: (1) AI-proof skills first, (2) skills that bridge to higher-paying roles, (3) complementary skills based on full basket"],
+  "aiSuggestions": ["10-15 related skills — prioritize: (1) AI-proof skills first, (2) skills that bridge to higher-paying roles, (3) complementary skills based on full basket. ALL suggestions must themselves be legitimate legal occupational skills."],
   "payImpact": "one sentence: how this skill affects pay (use BLS data patterns)",
   "aiRiskNote": "one sentence: AI automation risk level and what to do about it",
   "blsOccupations": ["1-3 BLS occupation titles this skill maps to"],
@@ -306,6 +343,20 @@ export async function POST(req: Request) {
       );
     }
 
+    // Caroline 8/26 global rule: prohibited-activity fast-path check.
+    // Obvious multi-word illegal-activity phrases are rejected before
+    // burning an AI call; borderline / novel phrasings still get to the
+    // AI check which sets isProhibited on the response.
+    if (isFastPathProhibited(rawSkill)) {
+      return NextResponse.json({
+        isProhibited: true,
+        message:
+          "This activity isn't supported on PayRanker. Please enter a legitimate occupational skill instead.",
+        normalizedTerm: rawSkill,
+        source: "prohibited",
+      });
+    }
+
     // ── Natural language detection ──────────────────────────────────
     // If user types a sentence like "I worked in a restaurant for 5 years"
     // extract multiple skills instead of normalizing as one skill
@@ -369,6 +420,18 @@ export async function POST(req: Request) {
     // Stage 2: AI taxonomy expansion (domain-aware)
     const aiResult = await aiTaxonomyExpansion(rawSkill, existingSkills, domainLabel);
     aiResult.source = "ai";
+
+    // Caroline 8/26: if the AI flagged this as a prohibited activity,
+    // short-circuit with the same shape as the fast-path check above.
+    if (aiResult.isProhibited === true) {
+      return NextResponse.json({
+        isProhibited: true,
+        message:
+          "This activity isn't supported on PayRanker. Please enter a legitimate occupational skill instead.",
+        normalizedTerm: rawSkill,
+        source: "prohibited_ai",
+      });
+    }
 
     // Stage 3: Enrich with graph data
     const graphExtra = await enrichFromGraph(
@@ -467,17 +530,19 @@ export async function POST(req: Request) {
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
     console.error("Skill normalization error:", errMsg);
-    return NextResponse.json({
-      normalizedTerm: rawSkill || "unknown skill",
-      category: "other",
-      layer: "canonical",
-      isRecognized: false,
-      aiResistanceScore: 50,
-      childSkills: [],
-      microSkills: [],
-      aiSuggestions: [],
-      note: "",
-      source: "fallback",
-    });
+    // Caroline 8/23 global rule: "The system must not silently substitute
+    // generic behavior when an AI-dependent function is unavailable."
+    // Return a 503 with source="ai_unavailable" so the client can render
+    // a "AI temporarily unavailable, please try again" banner instead of
+    // adding the raw input as a fake normalized skill.
+    return NextResponse.json(
+      {
+        error: "ai_unavailable",
+        message:
+          "We couldn't reach the skill classifier right now. Please try again in a moment.",
+        source: "ai_unavailable",
+      },
+      { status: 503 }
+    );
   }
 }
