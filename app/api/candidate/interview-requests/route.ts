@@ -76,6 +76,7 @@ export async function GET(req: Request) {
     });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : "unknown";
-    return NextResponse.json({ error: errMsg }, { status: 500 });
+    console.error("interview-requests list error:", errMsg);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

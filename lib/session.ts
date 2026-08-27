@@ -5,12 +5,24 @@ import crypto from "crypto";
  * because Next.js API route files can only export the HTTP method
  * handlers — any extra exports fail the build.
  */
-const SESSION_SECRET =
-  process.env.SESSION_SECRET ||
-  crypto
+// SESSION_SECRET must be set explicitly. In production we refuse to
+// boot without it — anyone who learns the fallback derivation could
+// forge sessions. In development we accept a fallback so `npm run dev`
+// still works out of the box.
+const SESSION_SECRET = (() => {
+  const envSecret = process.env.SESSION_SECRET;
+  if (envSecret && envSecret.length >= 32) return envSecret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "SESSION_SECRET env var is required in production (min 32 chars)."
+    );
+  }
+  // Dev-only fallback — never used in a deployed environment.
+  return crypto
     .createHash("sha256")
-    .update(process.env.ANTHROPIC_API_KEY || "payranker-dev-secret")
+    .update("payranker-dev-only-secret")
     .digest("hex");
+})();
 
 const SESSION_MAX_AGE_S = 60 * 60 * 24 * 30; // 30 days
 

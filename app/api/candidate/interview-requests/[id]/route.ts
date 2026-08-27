@@ -124,6 +124,6 @@ export async function PATCH(
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : "unknown";
     console.error("interview-accept error:", errMsg);
-    return NextResponse.json({ error: errMsg }, { status: 500 });
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
