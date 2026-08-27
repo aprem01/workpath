@@ -26,6 +26,19 @@ const FORCE_AMBIGUOUS: Record<string, string[]> = {
   scheduling: ["Healthcare", "Administrative", "Logistics"],
   inventory: ["Retail", "Warehouse", "Food Service"],
   training: ["Healthcare", "Trades", "Retail", "Administrative"],
+  // Caroline 8/23 Round 8 landing spec: colloquial single-word skills
+  // must funnel into industry-specific structured variants rather than
+  // silently locking into a single vertical.
+  cooking: ["Food Service", "Healthcare Support", "Food Manufacturing"],
+  sales: ["Retail", "Luxury Sales", "Administrative Sales", "B2B Sales", "Technical Sales"],
+  cleaning: ["Healthcare Support", "Hospitality", "Facilities"],
+  driving: ["Delivery", "Rideshare", "Logistics", "Healthcare Transport"],
+  teaching: ["K-12", "Higher Education", "Corporate Training", "Early Childhood"],
+  writing: ["Marketing", "Journalism", "Technical Writing", "Copywriting"],
+  design: ["Graphic Design", "Interior Design", "UX/UI", "Industrial Design"],
+  security: ["Physical Security", "Cybersecurity", "Loss Prevention"],
+  administration: ["Healthcare", "Legal", "Corporate", "Education"],
+  marketing: ["Digital", "Retail", "B2B", "Content"],
 };
 
 // Caroline 7/28 Round 7: "Bilingual" and "Trilingual" describe the

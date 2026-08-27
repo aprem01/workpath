@@ -124,6 +124,13 @@ function JobsPageInner() {
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [appliedJobs, setAppliedJobs] = useState<Set<string>>(new Set());
   const [profileLevel, setProfileLevel] = useState<string | null>(null);
+  // Caroline 8/23 Round 8: anonymous application modal for Skilmatch
+  // DB jobs. Adzuna jobs external-link off-site so they never open
+  // this modal.
+  const [applyJob, setApplyJob] = useState<JobMatch | null>(null);
+  const [applyNote, setApplyNote] = useState("");
+  const [applyState, setApplyState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [applyError, setApplyError] = useState("");
   const [zipCode, setZipCode] = useState<string>("");
   // Caroline 6/27 Round 4: metro picker lives here now (was on landing).
   // Refines results AFTER the worker has seen them — the "where" question
@@ -341,6 +348,57 @@ function JobsPageInner() {
       JSON.stringify(Array.from(updated))
     );
     trackApplication(job, "viewed");
+  }
+
+  // Caroline 8/23 Round 8: Skilmatch DB job Apply flow. If the user
+  // doesn't have a complete profile yet, route them to /profile with a
+  // return URL so they land back on /jobs afterward. Otherwise open the
+  // anonymous application modal.
+  function onApplyNow(job: JobMatch) {
+    const complete =
+      typeof window !== "undefined" &&
+      !!localStorage.getItem("payranker_profile_complete");
+    if (!complete) {
+      const returnTo = encodeURIComponent(`/jobs?apply=${encodeURIComponent(job.id)}`);
+      router.push(`/profile?returnTo=${returnTo}`);
+      return;
+    }
+    setApplyJob(job);
+    setApplyNote("");
+    setApplyState("idle");
+    setApplyError("");
+  }
+
+  async function submitAnonymousApplication() {
+    if (!applyJob) return;
+    setApplyState("sending");
+    setApplyError("");
+    try {
+      const handle =
+        typeof window !== "undefined"
+          ? localStorage.getItem("payranker_handle") || ""
+          : "";
+      if (!handle) throw new Error("No profile handle. Please create a profile first.");
+      const res = await fetch("/api/jobs/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          handle,
+          jobId: applyJob.id,
+          coverNote: applyNote.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Failed (${res.status})`);
+      }
+      markVisited(applyJob);
+      confirmApplied(applyJob);
+      setApplyState("sent");
+    } catch (e) {
+      setApplyError(e instanceof Error ? e.message : "Unknown error");
+      setApplyState("error");
+    }
   }
 
   function confirmApplied(job: JobMatch) {
@@ -791,7 +849,7 @@ function JobsPageInner() {
                  jobs above kept "Apply on company site" since they
                  external-link to the employer's own listing. */
               <button
-                onClick={() => markVisited(job)}
+                onClick={() => onApplyNow(job)}
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full
                            font-bold text-white bg-magenta hover:bg-magenta-dark
                            transition-colors text-sm"
@@ -1055,6 +1113,91 @@ function JobsPageInner() {
 
         {/* All jobs are now real Adzuna listings shown in qualified/gap tabs above */}
       </main>
+
+      {/* Caroline 8/23 Round 8: anonymous application modal for Skilmatch
+          DB jobs. Adzuna jobs external-link off-site and never open this. */}
+      {applyJob && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4"
+          onClick={() => applyState !== "sending" && setApplyJob(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-800">
+                Apply anonymously
+              </h3>
+              <p className="text-sm text-graytext mt-0.5">
+                {applyJob.title} · {applyJob.employer}
+              </p>
+            </div>
+            {applyState === "sent" ? (
+              <div className="px-6 py-8 text-center">
+                <p className="text-base font-bold text-green-700 mb-1">
+                  Application sent.
+                </p>
+                <p className="text-sm text-graytext mb-5">
+                  The employer sees your anonymous handle and your skill basket. They can send an interview request; you decide whether to accept and reveal your identity.
+                </p>
+                <button
+                  onClick={() => setApplyJob(null)}
+                  className="px-6 py-2.5 rounded-full bg-magenta text-white font-bold hover:bg-magenta-dark transition-colors"
+                >
+                  Back to jobs
+                </button>
+              </div>
+            ) : (
+              <div className="px-6 py-5">
+                <p className="text-sm text-gray-700 mb-3">
+                  You&apos;re applying as{" "}
+                  <span className="font-bold text-magenta">
+                    {typeof window !== "undefined"
+                      ? localStorage.getItem("payranker_handle") || "your anonymous handle"
+                      : "your anonymous handle"}
+                  </span>
+                  . The employer sees only your handle and your skills — no name, email, or phone number — until you accept an interview request.
+                </p>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Optional note to the recruiter
+                </label>
+                <textarea
+                  value={applyNote}
+                  onChange={(e) => setApplyNote(e.target.value)}
+                  rows={4}
+                  maxLength={500}
+                  placeholder="Anything you'd like the employer to know?"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-magenta focus:ring-1 focus:ring-magenta outline-none resize-y text-sm"
+                />
+                {applyState === "error" && (
+                  <p className="text-sm text-red-600 mt-2">{applyError}</p>
+                )}
+                <div className="flex items-center justify-end gap-3 mt-4">
+                  <button
+                    onClick={() => setApplyJob(null)}
+                    disabled={applyState === "sending"}
+                    className="text-sm font-semibold text-graytext hover:text-magenta disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitAnonymousApplication}
+                    disabled={applyState === "sending"}
+                    className="px-6 py-2.5 rounded-full bg-magenta text-white font-bold hover:bg-magenta-dark transition-colors disabled:opacity-60 inline-flex items-center gap-2"
+                  >
+                    {applyState === "sending" && (
+                      <Loader2 size={14} className="animate-spin" />
+                    )}
+                    Submit application
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

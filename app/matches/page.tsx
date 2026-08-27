@@ -44,7 +44,7 @@ interface NearestRole {
 
 export default function MatchRevealPage() {
   const router = useRouter();
-  const [, setSkills] = useState<Skill[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
   const [results, setResults] = useState<MatchResults | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [topGapSkills, setTopGapSkills] = useState<
@@ -52,6 +52,10 @@ export default function MatchRevealPage() {
   >([]);
   const [nearestRole, setNearestRole] = useState<NearestRole | null>(null);
   const [adjacent, setAdjacent] = useState<AdjacentRole[]>([]);
+  // Caroline 8/23 Round 8: yellow "+" skill pills must be actionable —
+  // tapping one adds it to the Skills Basket and recalculates matches
+  // without leaving the page.
+  const [addingSkill, setAddingSkill] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("payranker_skills");
@@ -71,13 +75,13 @@ export default function MatchRevealPage() {
       localStorage.setItem("payranker_handle", `${s1}${s2}${num}`);
     }
 
-    async function fetchMatches() {
+    async function fetchMatches(skillsToUse: Skill[] = parsed) {
       try {
         const res = await fetch("/api/jobs/match", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userSkills: parsed.map((s) => ({
+            userSkills: skillsToUse.map((s) => ({
               normalizedTerm: s.normalizedTerm,
               proficiencyLevel: "intermediate",
               context: s.context,
@@ -117,6 +121,47 @@ export default function MatchRevealPage() {
     }
     fetchMatches();
   }, [router]);
+
+  // Caroline 8/23 Round 8: add a suggested skill (yellow "+") to the
+  // basket and recalculate matches without leaving the page.
+  async function addSkillAndRecalc(skillLabel: string) {
+    setAddingSkill(skillLabel);
+    try {
+      const nextSkills: Skill[] = [
+        ...skills,
+        {
+          rawInput: skillLabel,
+          normalizedTerm: skillLabel,
+          category: "other",
+          isAISuggested: true,
+          aiResistanceScore: 60,
+        },
+      ];
+      setSkills(nextSkills);
+      localStorage.setItem("payranker_skills", JSON.stringify(nextSkills));
+
+      const res = await fetch("/api/jobs/match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userSkills: nextSkills.map((s) => ({
+            normalizedTerm: s.normalizedTerm,
+            proficiencyLevel: "intermediate",
+            context: s.context,
+          })),
+          domainId: localStorage.getItem("payranker_domain") || undefined,
+          metroId: localStorage.getItem("payranker_metro") || undefined,
+        }),
+      });
+      const data = await res.json();
+      setResults(data);
+      setTopGapSkills((data.topGapSkills || []).slice(0, 3));
+    } catch {
+      // best-effort — the skill is already saved to localStorage
+    } finally {
+      setAddingSkill(null);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -196,16 +241,24 @@ export default function MatchRevealPage() {
               Most people like you add these skills:
             </p>
 
-            {/* Amber pill chips with gradient */}
+            {/* Amber pill chips with gradient — Caroline 8/23 Round 8:
+                tap to add the skill and recalculate matches inline. */}
             <div className="flex flex-wrap gap-2 mb-3">
               {topGapSkills.map((gs) => (
-                <span
+                <button
                   key={gs.skill}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold text-white shadow-sm"
+                  type="button"
+                  onClick={() => addSkillAndRecalc(gs.skill)}
+                  disabled={addingSkill !== null}
+                  aria-label={`Add ${gs.skill} to your skills basket and recalculate matches`}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold text-white shadow-sm hover:brightness-110 transition disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                   style={{
                     background: "linear-gradient(to top, #F7A31C, #F7D323)",
                   }}
                 >
+                  {addingSkill === gs.skill ? (
+                    <Loader2 size={12} className="animate-spin shrink-0" />
+                  ) : null}
                   {gs.skill}
                   {gs.isAIProof && (
                     <span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded-full">
@@ -226,7 +279,7 @@ export default function MatchRevealPage() {
                       strokeLinecap="round"
                     />
                   </svg>
-                </span>
+                </button>
               ))}
             </div>
 

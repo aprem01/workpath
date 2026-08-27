@@ -190,18 +190,55 @@ function extractKeywords(skills: string[]): string[] {
   return Array.from(new Set(words));
 }
 
+// Caroline 8/26 Round 8 generic-skill rule: keywords like "customer",
+// "service", "communication", "management" appear in almost every job
+// posting; a candidate matching only these should not be counted as
+// qualifying. scoreJobRelevance now tracks specific vs generic hits
+// separately so downstream can require ≥1 specific hit.
+const GENERIC_KEYWORDS = new Set(
+  [
+    "customer",
+    "service",
+    "communication",
+    "management",
+    "manager",
+    "training",
+    "leadership",
+    "teamwork",
+    "team",
+    "problem",
+    "solving",
+    "solve",
+    "time",
+    "organization",
+    "organized",
+  ].map((s) => s.toLowerCase())
+);
+
+function classifyKeyword(kw: string): "specific" | "generic" {
+  return GENERIC_KEYWORDS.has(kw.toLowerCase()) ? "generic" : "specific";
+}
+
 /**
  * Score a job's relevance to the user's skills based on title + description
- * keyword overlap. Higher score = more relevant.
+ * keyword overlap. Higher score = more relevant. Returns both total hits
+ * AND specific-skill hits so callers can apply Caroline 8/26's rule that
+ * a Top match must contain at least one specific-skill overlap.
  */
-function scoreJobRelevance(job: AdzunaJob, keywords: string[]): number {
-  if (keywords.length === 0) return 0;
+function scoreJobRelevance(
+  job: AdzunaJob,
+  keywords: string[]
+): { total: number; specific: number } {
+  if (keywords.length === 0) return { total: 0, specific: 0 };
   const haystack = `${job.title} ${job.description || ""}`.toLowerCase();
-  let hits = 0;
+  let total = 0;
+  let specific = 0;
   for (const kw of keywords) {
-    if (haystack.includes(kw)) hits++;
+    if (!haystack.includes(kw)) continue;
+    total++;
+    if (classifyKeyword(kw) === "specific") specific++;
   }
-  return hits;
+  return { total, specific };
 }
 
 // Round 7 (Desi's Sales basket surfaced Forklift Technician, BMW
@@ -316,23 +353,28 @@ export async function searchJobsForSkills(
   const exactOnVertical = exactJobs.filter(onVertical);
   const broaderOnVertical = broaderJobs.filter(onVertical);
 
-  let relevantQualified = exactOnVertical.filter(
-    (j) => scoreJobRelevance(j, keywords) >= QUALIFIED_THRESHOLD
-  );
-  // If the strict threshold killed everything, fall back to ≥1 so the
-  // user still sees results (better than empty)
+  // Caroline 8/26 Round 8: A qualified match requires BOTH total-hit
+  // threshold AND at least one specific-skill hit. A basket dominated
+  // by generic skills like "Customer Service" + "Communication" should
+  // not lock the user into every service-industry job in Chicago.
+  const meetsQualified = (j: AdzunaJob) => {
+    const s = scoreJobRelevance(j, keywords);
+    return s.total >= QUALIFIED_THRESHOLD && s.specific >= 1;
+  };
+  const meetsGap = (j: AdzunaJob) => {
+    const s = scoreJobRelevance(j, keywords);
+    return s.total >= GAP_THRESHOLD && s.specific >= 1;
+  };
+  let relevantQualified = exactOnVertical.filter(meetsQualified);
+  // If the strict threshold killed everything, fall back to gap-level.
   if (relevantQualified.length === 0 && exactOnVertical.length > 0) {
-    relevantQualified = exactOnVertical.filter(
-      (j) => scoreJobRelevance(j, keywords) >= GAP_THRESHOLD
-    );
+    relevantQualified = exactOnVertical.filter(meetsGap);
   }
 
   // Dedupe broader against (filtered) qualified
   const qualifiedIds = new Set(relevantQualified.map((j) => j.id));
   const candidateBroader = broaderOnVertical.filter((j) => !qualifiedIds.has(j.id));
-  const relevantBroader = candidateBroader.filter(
-    (j) => scoreJobRelevance(j, keywords) >= GAP_THRESHOLD
-  );
+  const relevantBroader = candidateBroader.filter(meetsGap);
 
   return { qualified: relevantQualified, broader: relevantBroader };
 }

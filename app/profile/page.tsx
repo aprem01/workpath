@@ -114,8 +114,37 @@ function ProfilePageInner() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!tosAccepted) return; // native `required` on the checkbox also guards this
+    // Caroline 8/23 Round 8: passwords are hashed server-side and never
+    // stored plaintext. We POST to /api/auth/register which uses scrypt
+    // to derive the hash before writing to the DB.
+    if (password) {
+      try {
+        const regRes = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ handle, email, password, zipCode }),
+        });
+        if (!regRes.ok) {
+          const j = await regRes.json().catch(() => ({}));
+          alert(
+            "Couldn't create your profile: " +
+              (j.error || `HTTP ${regRes.status}`)
+          );
+          return;
+        }
+      } catch (err) {
+        alert(
+          "Couldn't create your profile right now. " +
+            (err instanceof Error ? err.message : "")
+        );
+        return;
+      }
+    }
+    // Never persist the plaintext password on the client either — the
+    // form-state value is scoped to this handler and is dropped when the
+    // component unmounts.
     const profile = {
-      email, password: "***", zipCode, firstName, lastName, phone,
+      email, zipCode, firstName, lastName, phone,
       workAuth, veteranStatus, disabilityStatus, handle,
       tosAcceptedAt: new Date().toISOString(),
     };
@@ -145,7 +174,15 @@ function ProfilePageInner() {
       }
     }
 
-    router.push("/jobs");
+    // Caroline 8/23 Round 8: honor an intended destination — e.g. an
+    // interrupted Apply Now flow from /jobs — over the default /jobs
+    // landing.
+    const returnTo = searchParams.get("returnTo");
+    if (returnTo && returnTo.startsWith("/")) {
+      router.push(returnTo);
+    } else {
+      router.push("/jobs");
+    }
   }
 
   // ═══ BASIC PROFILE ═══
