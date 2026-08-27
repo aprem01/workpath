@@ -25,6 +25,27 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   try {
+    // Basic CSRF guard: require the request to come from a known origin
+    // (the deployed workpath UI). This isn't a full auth flow — a real
+    // login system with session tokens is the next step — but it blocks
+    // an attacker sending cross-site POSTs impersonating an arbitrary
+    // handle from a phishing page. Bypasses when Origin is unset (curl,
+    // some server-to-server callers).
+    const origin = req.headers.get("origin");
+    // Exact-string origin match. Substring/startsWith would let
+    // https://workpath-iota.vercel.app.evil.example bypass the check.
+    const ALLOWED_ORIGINS = new Set([
+      "https://workpath-iota.vercel.app",
+      "http://localhost:3000",
+      "http://localhost:3001",
+    ]);
+    if (origin && !ALLOWED_ORIGINS.has(origin)) {
+      return NextResponse.json(
+        { error: "Origin not allowed" },
+        { status: 403 }
+      );
+    }
+
     const { handle, jobId, coverNote } = await req.json();
     if (!handle || typeof handle !== "string") {
       return NextResponse.json({ error: "handle required" }, { status: 400 });
