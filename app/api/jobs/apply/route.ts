@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifySessionCookie } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,30 @@ export async function POST(req: Request) {
     }
     if (!jobId || typeof jobId !== "string") {
       return NextResponse.json({ error: "jobId required" }, { status: 400 });
+    }
+
+    // Session-token check: the handle in the body must match the handle
+    // bound to the payranker_session cookie. This turns off the earlier
+    // Origin-only guard's blind spot where any caller knowing a handle
+    // could impersonate that user. Missing cookie → 401; mismatch → 403.
+    const cookieRaw = req.headers
+      .get("cookie")
+      ?.split(";")
+      .map((c) => c.trim())
+      .find((c) => c.startsWith("payranker_session="))
+      ?.slice("payranker_session=".length);
+    const session = verifySessionCookie(cookieRaw);
+    if (!session) {
+      return NextResponse.json(
+        { error: "Not logged in. Please log in and try again." },
+        { status: 401 }
+      );
+    }
+    if (session.handle !== handle) {
+      return NextResponse.json(
+        { error: "Session handle mismatch" },
+        { status: 403 }
+      );
     }
     // Strip the "db_" prefix the /jobs UI applies to Skilmatch DB rows.
     const realJobId = jobId.startsWith("db_") ? jobId.slice(3) : jobId;

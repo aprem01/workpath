@@ -151,7 +151,85 @@ export default function MessagesPage() {
         setResponseTypes(JSON.parse(types));
       } catch {}
     }
+    // Caroline 8/23 Round 8: fetch real interview requests for the
+    // logged-in candidate.
+    void loadInterviewRequests();
   }, [router]);
+
+  const [interviewRequests, setInterviewRequests] = useState<
+    Array<{
+      id: string;
+      status: string;
+      appliedAt: string;
+      job: {
+        id: string;
+        title: string;
+        employer: string;
+        location: string;
+        payMin: number;
+        payMax: number;
+      };
+    }>
+  >([]);
+  const [canAccept, setCanAccept] = useState(true);
+  const [acceptTarget, setAcceptTarget] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [workAuth, setWorkAuth] = useState("");
+  const [acceptState, setAcceptState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [acceptError, setAcceptError] = useState("");
+
+  async function loadInterviewRequests() {
+    try {
+      const res = await fetch("/api/candidate/interview-requests", {
+        credentials: "include",
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setInterviewRequests(data.requests || []);
+      setCanAccept(!!data.canAccept);
+    } catch {
+      // network failure — inbox will just show what it has locally
+    }
+  }
+
+  async function submitAccept() {
+    if (!acceptTarget) return;
+    setAcceptState("sending");
+    setAcceptError("");
+    try {
+      const res = await fetch(
+        `/api/candidate/interview-requests/${acceptTarget}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            action: "accept",
+            pii: canAccept
+              ? undefined
+              : {
+                  firstName: firstName.trim() || undefined,
+                  lastName: lastName.trim() || undefined,
+                  phone: phone.trim() || undefined,
+                  workAuthStatus: workAuth.trim() || undefined,
+                },
+          }),
+        }
+      );
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error === "profile_incomplete" ? j.message : (j.error || "Failed"));
+      }
+      setAcceptState("sent");
+      await loadInterviewRequests();
+      setTimeout(() => setAcceptTarget(null), 1200);
+    } catch (err) {
+      setAcceptState("error");
+      setAcceptError(err instanceof Error ? err.message : "Failed");
+    }
+  }
 
   function toggleMessage(id: string) {
     setExpandedId(expandedId === id ? null : id);
@@ -181,6 +259,78 @@ export default function MessagesPage() {
       <AppHeader />
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-8 pb-12">
+        {/* Caroline 8/23 Round 8 P03: Interview requests panel. When the
+            candidate lacks first name / last name / phone / work auth,
+            Accept opens a PII-completion modal — those fields must be on
+            file before employers see anything beyond the anonymous
+            handle. */}
+        {interviewRequests.length > 0 && (
+          <div className="mb-8">
+            <p className="text-xs font-bold text-graytext uppercase tracking-wider mb-3">
+              Interview requests
+            </p>
+            <div className="space-y-3">
+              {interviewRequests.map((r) => (
+                <div
+                  key={r.id}
+                  className="bg-white rounded-2xl border-2 border-magenta/25 p-4 shadow-sm"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">
+                        {r.job.employer} — {r.job.title}
+                      </p>
+                      <p className="text-xs text-graytext mt-0.5">
+                        {r.job.location} · ${(r.job.payMax / 100).toFixed(0)}/hr
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {r.status === "interview_accepted" ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                          ✓ Accepted
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              setAcceptTarget(r.id);
+                              setAcceptState("idle");
+                              setAcceptError("");
+                            }}
+                            className="px-4 py-1.5 rounded-full text-xs font-bold bg-magenta text-white hover:bg-magenta-dark"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await fetch(
+                                  `/api/candidate/interview-requests/${r.id}`,
+                                  {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    credentials: "include",
+                                    body: JSON.stringify({ action: "decline" }),
+                                  }
+                                );
+                                await loadInterviewRequests();
+                              } catch {
+                                // network failure — UI will retry next mount
+                              }
+                            }}
+                            className="px-4 py-1.5 rounded-full text-xs font-bold border border-gray-200 text-graytext hover:bg-gray-50"
+                          >
+                            Decline
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <p className="text-xs font-bold text-graytext uppercase tracking-wider mb-4">
           Your Inbox
         </p>
@@ -427,6 +577,121 @@ export default function MessagesPage() {
           )}
         </div>
       </main>
+
+      {/* Caroline 8/23 Round 8 P03: PII-completion modal — required
+          before accepting an interview request. If canAccept is true
+          already we just confirm; otherwise we ask for first name,
+          last name, phone, work-auth status. Employers see PII only
+          after this modal completes. */}
+      {acceptTarget && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4"
+          onClick={() => acceptState !== "sending" && setAcceptTarget(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-800">
+                {canAccept
+                  ? "Accept interview request"
+                  : "Complete your profile"}
+              </h3>
+              <p className="text-xs text-graytext mt-1">
+                {canAccept
+                  ? "Confirming will reveal your name and phone to this employer."
+                  : "Employers see your details only after you accept an interview. Please add these before we send the accept confirmation."}
+              </p>
+            </div>
+            {acceptState === "sent" ? (
+              <div className="px-6 py-8 text-center">
+                <p className="text-base font-bold text-green-700 mb-1">
+                  Interview accepted.
+                </p>
+                <p className="text-sm text-graytext">
+                  The employer now sees your contact details.
+                </p>
+              </div>
+            ) : (
+              <div className="px-6 py-5 space-y-3">
+                {!canAccept && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block text-sm">
+                        <span className="font-semibold text-gray-700">First name</span>
+                        <input
+                          className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 outline-none focus:border-magenta focus:ring-1 focus:ring-magenta text-sm"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          required
+                          autoComplete="given-name"
+                        />
+                      </label>
+                      <label className="block text-sm">
+                        <span className="font-semibold text-gray-700">Last name</span>
+                        <input
+                          className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 outline-none focus:border-magenta focus:ring-1 focus:ring-magenta text-sm"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          required
+                          autoComplete="family-name"
+                        />
+                      </label>
+                    </div>
+                    <label className="block text-sm">
+                      <span className="font-semibold text-gray-700">Phone</span>
+                      <input
+                        type="tel"
+                        className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 outline-none focus:border-magenta focus:ring-1 focus:ring-magenta text-sm"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        required
+                        autoComplete="tel"
+                      />
+                    </label>
+                    <label className="block text-sm">
+                      <span className="font-semibold text-gray-700">Work authorization</span>
+                      <select
+                        className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 outline-none focus:border-magenta focus:ring-1 focus:ring-magenta text-sm bg-white"
+                        value={workAuth}
+                        onChange={(e) => setWorkAuth(e.target.value)}
+                        required
+                      >
+                        <option value="">Select…</option>
+                        <option value="authorized">Authorized to work in the U.S.</option>
+                        <option value="need_sponsorship">Will need sponsorship</option>
+                        <option value="prefer_not_to_say">Prefer not to say</option>
+                      </select>
+                    </label>
+                  </>
+                )}
+                {acceptState === "error" && (
+                  <p className="text-sm text-red-600" role="alert">
+                    {acceptError}
+                  </p>
+                )}
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    onClick={() => setAcceptTarget(null)}
+                    disabled={acceptState === "sending"}
+                    className="text-sm font-semibold text-graytext hover:text-magenta disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitAccept}
+                    disabled={acceptState === "sending"}
+                    className="px-5 py-2 rounded-full text-white font-bold bg-magenta hover:bg-magenta-dark disabled:opacity-60"
+                  >
+                    {acceptState === "sending" ? "Sending…" : "Accept interview"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

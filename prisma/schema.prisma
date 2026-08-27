@@ -61,6 +61,16 @@ model User {
   veteranStatus   String?       // "veteran" | "not_veteran" | "prefer_not_to_say"
   disabilityAccom String?       // "yes" | "no" | "prefer_not_to_say"
   profileComplete Boolean       @default(false)
+  // Caroline 8/23 Round 8: hashed password, never plaintext. Format:
+  //   "scrypt:<saltHex>:<hashHex>"
+  // Null when the account was created before password hashing landed.
+  passwordHash    String?
+  // Round 8 profile-verification requirement: fully-completed profiles
+  // (first name, last name, phone, work auth) are the gate for
+  // accepting interview requests and revealing PII to employers.
+  firstName       String?
+  lastName        String?
+  phone           String?
   createdAt       DateTime      @default(now())
   skills          UserSkill[]
   applications    Application[]

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
+import { signSessionCookie } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -56,34 +57,38 @@ export async function POST(req: Request) {
       );
     }
 
-    // Hash the password with scrypt. 16-byte random salt, 64-byte hash,
-    // default N/r/p — plenty for MVP. The derived hash is dropped at
-    // the end of this handler because we don't yet have a
-    // User.passwordHash column to persist it; adding that column takes
-    // a Prisma migration and needs to land in its own change set. The
-    // hashing step is kept so the route is future-safe once the column
-    // exists — we just refuse to write hashes into a general-purpose
-    // AnalyticsEvent row, which was a leak vector flagged in review.
-    const salt = crypto.randomBytes(16);
-    const derived = crypto.scryptSync(password, salt, 64);
-    void derived; // intentionally not persisted (see comment above)
-    void salt;
-
-    // Reject if the handle already exists AND has an email set — this
-    // is not a "log in" endpoint. Returning users go through a proper
-    // login flow (still to be built).
+    // Reject if the handle already exists AND has a password set —
+    // returning users go through /api/auth/login, not this endpoint.
     const existing = await prisma.user.findUnique({
       where: { anonymousHandle: handle },
     });
-    if (existing && existing.email) {
+    if (existing && existing.passwordHash) {
       return NextResponse.json(
-        {
-          error:
-            "This handle already has an account. Please log in instead.",
-        },
+        { error: "This account already exists. Please log in instead." },
         { status: 409 }
       );
     }
+    // Also refuse if the email is already used by a DIFFERENT handle.
+    const emailInUse = await prisma.user.findFirst({
+      where: {
+        email: email.toLowerCase().trim(),
+        NOT: { anonymousHandle: handle },
+      },
+    });
+    if (emailInUse) {
+      return NextResponse.json(
+        { error: "That email is already in use." },
+        { status: 409 }
+      );
+    }
+
+    // Hash with scrypt: 16-byte random salt, 64-byte derived hash,
+    // default N/r/p. Serialized as "scrypt:<saltHex>:<hashHex>" so the
+    // login endpoint can split, hex-decode the salt, and re-derive to
+    // constant-time compare.
+    const salt = crypto.randomBytes(16);
+    const derived = crypto.scryptSync(password, salt, 64);
+    const passwordHash = `scrypt:${salt.toString("hex")}:${derived.toString("hex")}`;
 
     const user = existing
       ? await prisma.user.update({
@@ -91,6 +96,7 @@ export async function POST(req: Request) {
           data: {
             email: email.toLowerCase().trim(),
             zipCode,
+            passwordHash,
           },
         })
       : await prisma.user.create({
@@ -98,17 +104,23 @@ export async function POST(req: Request) {
             anonymousHandle: handle,
             email: email.toLowerCase().trim(),
             zipCode,
+            passwordHash,
             profileComplete: false,
           },
         });
 
-    return NextResponse.json({
-      ok: true,
-      userId: user.id,
-      passwordHashPersisted: false,
-      note:
-        "Password was hashed but not persisted — a User.passwordHash column will land in the next migration.",
+    // Auto-login on successful registration so the client doesn't need
+    // to POST /api/auth/login immediately after.
+    const { value: cookieValue, expires } = signSessionCookie(handle);
+    const res = NextResponse.json({ ok: true, userId: user.id, handle });
+    res.cookies.set("payranker_session", cookieValue, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      expires,
     });
+    return res;
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : "unknown";
     console.error("register error:", errMsg);

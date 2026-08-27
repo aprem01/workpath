@@ -48,14 +48,16 @@ export default function AppHeader() {
     }
     if (key === "auth") {
       if (loggedIn) {
-        // Log out: clear the anonymous handle + profile flag; leave saved
-        // skills in place so the user can log back in later.
+        // Log out: hit /api/auth/logout to clear the session cookie,
+        // then clear the client-side handle + profile flag. Saved skills
+        // stay in place so a returning user can log back in later.
+        void fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
         localStorage.removeItem("payranker_handle");
         localStorage.removeItem("payranker_profile_complete");
         setLoggedIn(false);
         router.push("/");
       } else {
-        router.push("/profile");
+        router.push("/login");
       }
       return;
     }

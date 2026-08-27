@@ -177,12 +177,16 @@ function ProfilePageInner() {
     // Caroline 8/23 Round 8: honor an intended destination — e.g. an
     // interrupted Apply Now flow from /jobs — over the default /jobs
     // landing.
+    // Open-redirect guard: only same-origin relative paths.
     const returnTo = searchParams.get("returnTo");
-    if (returnTo && returnTo.startsWith("/")) {
-      router.push(returnTo);
-    } else {
-      router.push("/jobs");
-    }
+    const safeReturnTo =
+      returnTo &&
+      returnTo.startsWith("/") &&
+      !returnTo.startsWith("//") &&
+      !returnTo.startsWith("/\\")
+        ? returnTo
+        : "/jobs";
+    router.push(safeReturnTo);
   }
 
   // ═══ BASIC PROFILE ═══
