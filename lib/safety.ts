@@ -199,6 +199,13 @@ ALLOW legitimate occupations even when they contain sensitive words:
   Driver, Courier.
 Roles whose purpose is to PREVENT, TREAT, INVESTIGATE, PROSECUTE,
 EDUCATE ABOUT, or PROTECT FROM an illicit activity are ALWAYS legitimate.
+BUT a protective or professional word bolted onto an illicit activity
+does NOT launder it. "Pimp counselor", "drug dealer researcher",
+"hitman trainer", "child porn photographer educator", "cocaine
+distribution analyst" → BLOCK. The role must genuinely be ABOUT
+preventing / treating / investigating / educating; the illicit noun must
+not be the job itself with a respectable suffix attached. Ask: is the
+person doing the illegal act, or working against it?
 
 CLARIFY when the input is genuinely ambiguous and the surrounding context
 does not resolve it — OR when the input is individually innocuous but the
@@ -273,9 +280,23 @@ export async function screenInput(opts: {
   const input = (opts.input || "").trim();
   if (!input) return { verdict: "allow", reason: "empty", layer: "fastpath" };
 
-  // L1 — protective / legitimate-sensitive occupations always pass.
+  // L1 — protective / legitimate-sensitive occupations SKIP the fast-path
+  // regex (which would false-positive on "Human Trafficking Prevention
+  // Specialist") but ALWAYS go to the AI classifier. Security review
+  // (allowlist-semantic-escape): returning "allow" here made any protective
+  // marker word a universal bypass — "pimp counselor", "drug dealer
+  // researcher" matched SENSITIVE + PROTECTIVE and skipped every check.
+  // The AI sees the whole phrase and is instructed that a protective word
+  // bolted onto an illicit activity does not launder it. This runs even
+  // when skipAI is set, because these inputs are rare and the escape is
+  // otherwise total.
   if (isProtectiveRole(input)) {
-    return { verdict: "allow", reason: "protective_role", layer: "protective" };
+    const r = await classifySafetyWithAI({
+      input,
+      context: opts.context,
+      surface: opts.surface,
+    });
+    return { ...r, reason: `protective_candidate→ai:${r.reason}` };
   }
   // L2 — unambiguous hard blocks.
   const hit = fastPathBlock(input);
