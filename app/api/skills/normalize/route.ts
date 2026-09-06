@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { screenInput, BLOCK_MESSAGE_JOBSEEKER } from "@/lib/safety";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
@@ -17,31 +18,7 @@ export const dynamic = "force-dynamic";
 
 const client = new Anthropic();
 
-// ─── Caroline 8/26 Global Rule: Prohibited-activity screening ─────
-//
-// Fast-path keyword blacklist for obvious cases; borderline / novel
-// phrasings fall through to the AI check inside aiTaxonomyExpansion,
-// which is instructed to set `isProhibited:true` on illegal activities.
-// Keep the list narrow — many single words have legitimate meanings
-// ("dealer" as in card dealer or auto dealer, "escort" as a courier
-// role) so we only fast-fail on multi-word phrases whose meaning is
-// unambiguous.
-const PROHIBITED_PATTERNS: RegExp[] = [
-  /\b(drug|narcotics?|cocaine|meth|heroin|fentanyl|opioid)\s+(dealing|dealer|trafficking|selling|distribution)\b/i,
-  /\bdrug\s+trafficker\b/i,
-  /\bhuman\s+trafficking\b/i,
-  /\bsex\s+trafficking\b/i,
-  /\bchild\s+(exploitation|pornography|trafficking)\b/i,
-  /\b(pimp(ing)?|prostitut(ion|e)|brothel|escort\s+(service|agency))\b/i,
-  /\b(hit\s*man|contract\s+killing|murder\s+for\s+hire)\b/i,
-  /\b(money\s+laundering|racket(eering)?)\b/i,
-  /\b(illegal\s+(arms?|weapons?|firearms?)\s+(dealing|trafficking|sales?))\b/i,
-  /\b(fraud|scam|ponzi|pyramid)\s+scheme\b/i,
-];
-
-function isFastPathProhibited(input: string): boolean {
-  return PROHIBITED_PATTERNS.some((rx) => rx.test(input));
-}
+// Prohibited-activity screening lives in lib/safety.ts (shared with Skilmatch).
 
 // ─── Stage 1: Neo4j Graph Lookup (instant) ─────────────────────────
 // Graph DB gives us: aliases, parent→child, siblings, 2-hop related
@@ -343,17 +320,52 @@ export async function POST(req: Request) {
       );
     }
 
-    // Caroline 8/26 global rule: prohibited-activity fast-path check.
-    // Obvious multi-word illegal-activity phrases are rejected before
-    // burning an AI call; borderline / novel phrasings still get to the
-    // AI check which sets isProhibited on the response.
-    if (isFastPathProhibited(rawSkill)) {
+    // Caroline 9/4 Round 9: context-aware prohibited-activity screening.
+    //  - Protective / legitimate-sensitive roles ("Human Trafficking
+    //    Prevention Specialist", "Addiction Counselor") always pass.
+    //  - Unambiguous illicit phrases (incl. leetspeak / spaced letters)
+    //    block on the fast path.
+    //  - Everything else goes to the AI classifier WITH the cumulative
+    //    basket as context, so "Discreet Delivery" after Logistics +
+    //    Driving + Cash Handling → clarify, and ordinary skills can't
+    //    wash out an illicit one.
+    const safety = await screenInput({
+      input: rawSkill,
+      context: existingSkills,
+      surface: "jobseeker_skill",
+    });
+    if (safety.verdict === "block") {
+      try {
+        await prisma.analyticsEvent.create({
+          data: {
+            event: "skill_blocked",
+            metadata: JSON.stringify({ rawSkill, layer: safety.layer, basketSize: existingSkills.length }),
+          },
+        });
+      } catch {}
       return NextResponse.json({
         isProhibited: true,
-        message:
-          "This activity isn't supported on PayRanker. Please enter a legitimate occupational skill instead.",
+        message: BLOCK_MESSAGE_JOBSEEKER,
         normalizedTerm: rawSkill,
         source: "prohibited",
+      });
+    }
+    if (safety.verdict === "clarify") {
+      try {
+        await prisma.analyticsEvent.create({
+          data: {
+            event: "skill_needs_clarification",
+            metadata: JSON.stringify({ rawSkill, layer: safety.layer, basketSize: existingSkills.length }),
+          },
+        });
+      } catch {}
+      return NextResponse.json({
+        needsClarification: true,
+        clarifyPrompt:
+          safety.clarifyPrompt ||
+          `Can you describe the legitimate work you mean by "${rawSkill}"?`,
+        normalizedTerm: rawSkill,
+        source: "clarify",
       });
     }
 

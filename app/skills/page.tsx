@@ -95,6 +95,16 @@ function SkillsPageInner() {
   const [aiUnavailable, setAiUnavailable] = useState(false);
   // Caroline 8/26 global rule: prohibited-activity screening.
   const [prohibitedInput, setProhibitedInput] = useState<string | null>(null);
+  // Caroline 9/4 Round 9: ambiguous-in-context skills ("Discreet Delivery"
+  // after Logistics + Driving + Cash Handling) get a clarification prompt
+  // instead of silently landing in the basket.
+  const [clarifyNeeded, setClarifyNeeded] = useState<{
+    rawSkill: string;
+    prompt: string;
+  } | null>(null);
+  const [clarifyText, setClarifyText] = useState("");
+  // Caroline 9/4 Round 9: searchable "Other" language for the Bilingual picker.
+  const [otherLanguage, setOtherLanguage] = useState("");
   // Caroline 5/22 Phase-1 UX: block adding the NEXT skill while the
   // previous one's suggestions are still loading. Ref lets us gate the
   // submit handler without adding isLoading to normalizeAndAdd's deps
@@ -202,9 +212,17 @@ function SkillsPageInner() {
       // skill B's suggestions overwrite skill A's mid-render.
       if (isLoadingRef.current) return;
 
+      // Caroline 9/4 Round 9: dedup on (term, context) — not term alone.
+      // After "Cooking" was contextualised to Food Service, typing
+      // "cooking" again was silently swallowed, so the user couldn't add
+      // a second industry variant (Food Manufacturing). Now: if an
+      // existing entry has the same term but a DIFFERENT context, let it
+      // through so the industry picker can offer the other variants.
       if (
         skills.some(
-          (s) => s.normalizedTerm.toLowerCase() === trimmed.toLowerCase()
+          (s) =>
+            s.normalizedTerm.toLowerCase() === trimmed.toLowerCase() &&
+            (s.context ?? "") === (context ?? "")
         )
       )
         return;
@@ -292,6 +310,25 @@ function SkillsPageInner() {
             prev.filter((s) => s.normalizedTerm.toLowerCase() !== trimmed.toLowerCase())
           );
           setProhibitedInput(trimmed);
+          isLoadingRef.current = false;
+          setIsLoading(false);
+          return;
+        }
+
+        // Caroline 9/4 Round 9: ambiguous in context → roll back the
+        // optimistic pill and ask what they mean. The user retypes a
+        // clearer description and we re-run normalize with it.
+        if (data?.needsClarification) {
+          setSkills((prev) =>
+            prev.filter((s) => s.normalizedTerm.toLowerCase() !== trimmed.toLowerCase())
+          );
+          setClarifyNeeded({
+            rawSkill: trimmed,
+            prompt:
+              data.clarifyPrompt ||
+              `Can you describe the legitimate work you mean by "${trimmed}"?`,
+          });
+          setClarifyText(trimmed);
           isLoadingRef.current = false;
           setIsLoading(false);
           return;
@@ -521,6 +558,57 @@ function SkillsPageInner() {
               </button>
             </div>
           )}
+          {/* Caroline 9/4 Round 9: clarification banner for skills that are
+              ambiguous in the context of the current basket. */}
+          {clarifyNeeded && (
+            <div
+              role="alert"
+              className="mt-4 mx-auto max-w-2xl rounded-2xl border-2 border-amber-300 bg-amber-50 px-5 py-4"
+            >
+              <p className="text-sm sm:text-base font-bold text-amber-800 mb-1">
+                We need a little more detail.
+              </p>
+              <p className="text-xs sm:text-sm text-amber-700 mb-3">
+                {clarifyNeeded.prompt}
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const t = clarifyText.trim();
+                  if (!t) return;
+                  setClarifyNeeded(null);
+                  setClarifyText("");
+                  void normalizeAndAdd(t);
+                }}
+                className="flex flex-col sm:flex-row gap-2"
+              >
+                <input
+                  type="text"
+                  value={clarifyText}
+                  onChange={(e) => setClarifyText(e.target.value)}
+                  placeholder='e.g. "Courier for confidential legal documents"'
+                  className="flex-1 px-3 py-2 rounded-lg border border-amber-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700"
+                >
+                  Add with this description
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClarifyNeeded(null);
+                    setClarifyText("");
+                  }}
+                  className="text-xs font-semibold text-amber-800 underline sm:self-center"
+                >
+                  Cancel
+                </button>
+              </form>
+            </div>
+          )}
           {/* Status line — Caroline 7/28 Round 7: the interruptor was too
               small to see; the user's eye jumps to the new pink pill in the
               basket. Big, high-contrast callout above the basket makes the
@@ -585,6 +673,35 @@ function SkillsPageInner() {
                   </button>
                 ))}
               </div>
+              {pendingClarification.kind === "language" && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const lang = otherLanguage.trim();
+                    if (!lang) return;
+                    // Add the typed language as its own skill; keep the picker
+                    // open so the user can add more (German + English, etc.).
+                    void normalizeAndAdd(lang, true);
+                    setOtherLanguage("");
+                  }}
+                  className="flex gap-2 mb-2"
+                >
+                  <input
+                    type="text"
+                    value={otherLanguage}
+                    onChange={(e) => setOtherLanguage(e.target.value)}
+                    placeholder="Other — search or type a language (German, Korean, Portuguese…)"
+                    className="flex-1 px-3 py-1.5 rounded-full text-sm border-2 border-magenta/40 bg-white focus:outline-none focus:border-magenta"
+                    aria-label="Type another language"
+                  />
+                  <button
+                    type="submit"
+                    className="px-3 py-1.5 rounded-full text-sm font-semibold bg-magenta text-white hover:bg-magenta-dark"
+                  >
+                    Add
+                  </button>
+                </form>
+              )}
               <button
                 onClick={() => setPendingClarification(null)}
                 className="text-xs text-graytext hover:text-magenta underline"

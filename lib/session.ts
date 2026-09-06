@@ -9,20 +9,32 @@ import crypto from "crypto";
 // boot without it — anyone who learns the fallback derivation could
 // forge sessions. In development we accept a fallback so `npm run dev`
 // still works out of the box.
-const SESSION_SECRET = (() => {
+// Resolved LAZILY at first use, not at module load. `next build` collects
+// page data by importing route modules under NODE_ENV=production, and a
+// module-load throw when SESSION_SECRET is absent locally fails the build
+// even though the deployed environment has the var. Deferring the check to
+// call-time keeps the production guarantee (any real request without the
+// secret still throws) while letting the build succeed.
+let _secret: string | null = null;
+function getSessionSecret(): string {
+  if (_secret) return _secret;
   const envSecret = process.env.SESSION_SECRET;
-  if (envSecret && envSecret.length >= 32) return envSecret;
+  if (envSecret && envSecret.length >= 32) {
+    _secret = envSecret;
+    return _secret;
+  }
   if (process.env.NODE_ENV === "production") {
     throw new Error(
       "SESSION_SECRET env var is required in production (min 32 chars)."
     );
   }
   // Dev-only fallback — never used in a deployed environment.
-  return crypto
+  _secret = crypto
     .createHash("sha256")
     .update("payranker-dev-only-secret")
     .digest("hex");
-})();
+  return _secret;
+}
 
 const SESSION_MAX_AGE_S = 60 * 60 * 24 * 30; // 30 days
 
@@ -33,7 +45,7 @@ export function signSessionCookie(handle: string): {
   const expires = new Date(Date.now() + SESSION_MAX_AGE_S * 1000);
   const payload = `${handle}.${expires.getTime()}`;
   const hmac = crypto
-    .createHmac("sha256", SESSION_SECRET)
+    .createHmac("sha256", getSessionSecret())
     .update(payload)
     .digest("hex");
   return { value: `${payload}.${hmac}`, expires };
@@ -49,7 +61,7 @@ export function verifySessionCookie(raw: string | null | undefined): {
   const expiry = Number(expiryStr);
   if (!Number.isFinite(expiry) || expiry < Date.now()) return null;
   const expected = crypto
-    .createHmac("sha256", SESSION_SECRET)
+    .createHmac("sha256", getSessionSecret())
     .update(`${handle}.${expiryStr}`)
     .digest("hex");
   const a = Buffer.from(sig, "hex");
