@@ -207,9 +207,13 @@ surrounding basket points toward illicit intent:
   Logistics + Driving + Cash Handling → clarify (do NOT allow).
 - "Adult Client Services" alone → clarify. With Recruitment + Hospitality
   → clarify.
-- "Companionship Services", "Private Companionship" → clarify
-  (legitimate elder-care reading exists, so do not block outright,
-  but do not assume).
+- "Companionship Services", "Private Companionship" with NO context
+  → clarify (legitimate elder-care reading exists, so do not block
+  outright, but do not assume).
+- "Companionship" / "Companion" / "Companionship Services" when the
+  surrounding basket contains caregiving, elder care, home health, HHA,
+  meal preparation, personal care, or similar → ALLOW immediately. This
+  is a standard Home Health Aide skill and must not be gated.
 - "Independent recreational product distributor" → block (no honest
   reading).
 Ordinary skills must NOT wash out a suspicious one: evaluate the basket
