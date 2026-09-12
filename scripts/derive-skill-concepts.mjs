@@ -200,5 +200,6 @@ export function conceptFor(term: string): string | null {
 const OUT = path.join(process.cwd(), "lib", "skill-concepts.generated.ts");
 fs.writeFileSync(OUT, out);
 console.log(`WROTE ${OUT}`);
+console.log("\nNow run: node scripts/merge-concept-groups.mjs  (unites groups that share a term)");
 console.log("\ntop groups:");
 for (const [c, list] of useful.slice(0, 15)) console.log(`  ${c}: ${list.slice(0, 6).join(" | ")}`);

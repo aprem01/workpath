@@ -20,6 +20,57 @@
 
 export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> = [
   {
+    "concept": "personal care",
+    "terms": [
+      "ADL Assistance",
+      "ADL assistance (Activities of Daily Living)",
+      "Activities of Daily Living (ADL) Support",
+      "Activities of Daily Living (ADL) assistance",
+      "Activities of Daily Living Assistance",
+      "Home Health Aide: Activities of Daily Living Support",
+      "Home Health Aide: Personal Care Assistance",
+      "Home Health Assistance",
+      "Patient Hygiene and Grooming",
+      "Patient hygiene and grooming",
+      "Patient hygiene and personal care assistance",
+      "Patient hygiene assistance",
+      "Personal Care Assistance",
+      "Personal Hygiene Assistance",
+      "activities of daily living",
+      "activities of daily living (ADL) assistance",
+      "activities of daily living (ADLs)",
+      "activities of daily living assistance",
+      "caregiving",
+      "patient hygiene and grooming",
+      "personal care",
+      "personal care assistance",
+      "personal hygiene assistance",
+      "personal_care_assistance"
+    ]
+  },
+  {
+    "concept": "food safety",
+    "terms": [
+      "Food Safety",
+      "Food Safety Certification",
+      "Food Safety Compliance",
+      "Food Safety and Sanitation",
+      "Food safety",
+      "Food safety certification",
+      "food handling & safety",
+      "food safety",
+      "food safety & HACCP compliance",
+      "food safety (HACCP)",
+      "food safety (SERVSAFE)",
+      "food safety (ServSafe)",
+      "food safety / servsafe",
+      "food safety and sanitation (ServSafe)",
+      "food safety certification",
+      "food safety certification (ServSafe)",
+      "food_safety"
+    ]
+  },
+  {
     "concept": "spanish language",
     "terms": [
       "Bilingual Spanish",
@@ -40,20 +91,40 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "personal care",
+    "concept": "meal preparation",
     "terms": [
-      "ADL assistance (Activities of Daily Living)",
-      "Activities of Daily Living (ADL) assistance",
-      "Home Health Aide: Personal Care Assistance",
-      "Home Health Assistance",
-      "Patient hygiene and grooming",
-      "Patient hygiene assistance",
-      "Personal Care Assistance",
-      "activities of daily living assistance",
-      "caregiving",
-      "personal care",
-      "personal care assistance",
-      "personal_care_assistance"
+      "Food Preparation",
+      "Food Preparation and Cooking",
+      "Food preparation",
+      "Meal Preparation",
+      "Meal Preparation (Food Service)",
+      "Meal Preparation (Healthcare Support)",
+      "Meal Preparation: Prep Work",
+      "Plant-Based Cooking",
+      "cooking",
+      "food preparation",
+      "food_prep",
+      "food_preparation",
+      "meal preparation",
+      "meal preparation and nutrition"
+    ]
+  },
+  {
+    "concept": "point of sale",
+    "terms": [
+      "Cash Handling",
+      "Cash handling",
+      "POS Systems",
+      "POS system operation",
+      "POS systems",
+      "Point of Sale Systems",
+      "cash handling",
+      "point of sale systems",
+      "point-of-sale systems",
+      "retail POS systems",
+      "retail point of sale",
+      "retail point of sale systems",
+      "retail pos systems"
     ]
   },
   {
@@ -74,51 +145,20 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "meal preparation",
+    "concept": "wound care",
     "terms": [
-      "Food Preparation and Cooking",
-      "Meal Preparation",
-      "Meal Preparation (Food Service)",
-      "Meal Preparation (Healthcare Support)",
-      "Meal Preparation: Prep Work",
-      "Plant-Based Cooking",
-      "cooking",
-      "food preparation",
-      "food_preparation",
-      "meal preparation",
-      "meal preparation and nutrition"
-    ]
-  },
-  {
-    "concept": "point of sale",
-    "terms": [
-      "Cash Handling",
-      "Cash handling",
-      "POS Systems",
-      "POS system operation",
-      "Point of Sale Systems",
-      "cash handling",
-      "point-of-sale systems",
-      "retail POS systems",
-      "retail point of sale",
-      "retail point of sale systems",
-      "retail pos systems"
-    ]
-  },
-  {
-    "concept": "food safety",
-    "terms": [
-      "Food Safety",
-      "Food Safety Compliance",
-      "Food Safety and Sanitation",
-      "Food safety",
-      "food handling & safety",
-      "food safety",
-      "food safety & HACCP compliance",
-      "food safety (HACCP)",
-      "food safety / servsafe",
-      "food safety and sanitation (ServSafe)",
-      "food_safety"
+      "Wound Care",
+      "Wound Care Assistance",
+      "Wound Care Awareness",
+      "Wound Care Basics",
+      "Wound Care Observation",
+      "Wound Care Support",
+      "Wound care observation",
+      "Wound care observation and reporting",
+      "wound care",
+      "wound care assistance",
+      "wound care observation",
+      "wound care support"
     ]
   },
   {
@@ -134,21 +174,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
       "inventory management",
       "inventory software",
       "inventory_management"
-    ]
-  },
-  {
-    "concept": "wound care",
-    "terms": [
-      "Wound Care",
-      "Wound Care Assistance",
-      "Wound Care Awareness",
-      "Wound Care Basics",
-      "Wound Care Support",
-      "Wound care observation",
-      "wound care",
-      "wound care assistance",
-      "wound care observation",
-      "wound care support"
     ]
   },
   {
@@ -184,11 +209,13 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
   {
     "concept": "dementia care",
     "terms": [
+      "Dementia & Alzheimer's Care",
       "Dementia Care",
       "Dementia Care Awareness",
       "Dementia and Alzheimer's care",
       "Dementia and Alzheimer's care experience",
       "Dementia care",
+      "dementia and Alzheimer's care",
       "dementia and memory care",
       "dementia care",
       "dementia_care"
@@ -208,15 +235,28 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "activities of daily living",
+    "concept": "electronic health records",
     "terms": [
-      "ADL Assistance",
-      "Activities of Daily Living (ADL) Support",
-      "Activities of Daily Living Assistance",
-      "Home Health Aide: Activities of Daily Living Support",
-      "activities of daily living",
-      "activities of daily living (ADL) assistance",
-      "activities of daily living (ADLs)"
+      "Electronic Health Records",
+      "Electronic Health Records (EHR)",
+      "Electronic Health Records (EHR) systems",
+      "Electronic health records (EHR) documentation",
+      "electronic health records",
+      "electronic health records (EHR)",
+      "electronic health records (EHR) documentation",
+      "electronic health records documentation"
+    ]
+  },
+  {
+    "concept": "osha-30 certification",
+    "terms": [
+      "OSHA 30 Construction",
+      "OSHA 30 Construction Safety",
+      "OSHA 30 certification",
+      "OSHA 30 construction",
+      "OSHA 30 construction safety",
+      "OSHA-30",
+      "OSHA-30 Certification"
     ]
   },
   {
@@ -231,17 +271,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "food safety certification",
-    "terms": [
-      "Food Safety Certification",
-      "Food safety certification",
-      "food safety (SERVSAFE)",
-      "food safety (ServSafe)",
-      "food safety certification",
-      "food safety certification (ServSafe)"
-    ]
-  },
-  {
     "concept": "medication management",
     "terms": [
       "Home Health Aide: Medication Management Support",
@@ -250,17 +279,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
       "medication management",
       "medication management and reminders",
       "medication management support"
-    ]
-  },
-  {
-    "concept": "electronic health records",
-    "terms": [
-      "Electronic Health Records",
-      "Electronic Health Records (EHR)",
-      "Electronic Health Records (EHR) systems",
-      "Electronic health records (EHR) documentation",
-      "electronic health records",
-      "electronic health records (EHR)"
     ]
   },
   {
@@ -275,14 +293,25 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "refrigerant handling",
+    "concept": "building automation",
     "terms": [
-      "Refrigerant Handling",
-      "Refrigerant Handling (EPA 608 Certified)",
-      "Refrigerant handling",
-      "refrigerant handling",
-      "refrigerant handling (EPA 608 certified)",
-      "refrigerant handling (EPA 608)"
+      "Building Automation",
+      "Building Automation Controls",
+      "Building Automation Systems",
+      "Building Automation Systems (BAS)",
+      "Building automation systems",
+      "building automation systems"
+    ]
+  },
+  {
+    "concept": "travel coordination",
+    "terms": [
+      "Travel Coordination",
+      "Travel Planning",
+      "Travel coordination",
+      "international travel coordination",
+      "travel coordination",
+      "travel planning"
     ]
   },
   {
@@ -366,26 +395,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "personal hygiene assistance",
-    "terms": [
-      "Patient Hygiene and Grooming",
-      "Patient hygiene and personal care assistance",
-      "Personal Hygiene Assistance",
-      "patient hygiene and grooming",
-      "personal hygiene assistance"
-    ]
-  },
-  {
-    "concept": "stick welding",
-    "terms": [
-      "Stick Welding",
-      "Stick Welding (SMAW)",
-      "Stick welding",
-      "stick welding",
-      "stick welding (SMAW)"
-    ]
-  },
-  {
     "concept": "legal billing software",
     "terms": [
       "Clio or Similar Legal Billing Software",
@@ -411,15 +420,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
       "Python Programming",
       "Python programmer",
       "python"
-    ]
-  },
-  {
-    "concept": "time management",
-    "terms": [
-      "Time Management",
-      "Time management",
-      "time management",
-      "time_management"
     ]
   },
   {
@@ -468,57 +468,12 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "aws",
-    "terms": [
-      "AWS",
-      "AWS (S3, Glue, CloudWatch)",
-      "AWS (S3/Glue/Lambda)",
-      "aws"
-    ]
-  },
-  {
-    "concept": "knife skills",
-    "terms": [
-      "Knife Skills",
-      "Knife skills",
-      "knife skills",
-      "knife_skills"
-    ]
-  },
-  {
-    "concept": "event coordination",
-    "terms": [
-      "Event Coordination",
-      "Event coordination",
-      "event coordination",
-      "event_coordination"
-    ]
-  },
-  {
     "concept": "preventive maintenance",
     "terms": [
       "Preventive Maintenance",
       "preventive maintenance",
       "preventive maintenance protocols",
       "preventive maintenance scheduling"
-    ]
-  },
-  {
-    "concept": "cpr certification",
-    "terms": [
-      "CPR Certification",
-      "CPR certification",
-      "cpr certification",
-      "cpr_certification"
-    ]
-  },
-  {
-    "concept": "legal document preparation",
-    "terms": [
-      "Legal Document Preparation",
-      "Legal document preparation",
-      "legal document preparation",
-      "legal_document_preparation"
     ]
   },
   {
@@ -582,6 +537,24 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
       "patient repositioning",
       "patient transfer and repositioning",
       "transfer and repositioning"
+    ]
+  },
+  {
+    "concept": "welding",
+    "terms": [
+      "MIG/TIG Welding",
+      "welding",
+      "welding (MIG/TIG)",
+      "welding (SMAW/MIG)"
+    ]
+  },
+  {
+    "concept": "scheduling management",
+    "terms": [
+      "Calendar and scheduling management",
+      "Scheduling and Coordination",
+      "calendar and meeting management",
+      "calendar and scheduling management"
     ]
   },
   {
@@ -665,43 +638,11 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "behavioral management",
-    "terms": [
-      "Behavioral Management",
-      "behavioral management",
-      "behavioral_management"
-    ]
-  },
-  {
-    "concept": "medication administration",
-    "terms": [
-      "Medication Administration",
-      "medication administration",
-      "medication_administration"
-    ]
-  },
-  {
-    "concept": "building automation",
-    "terms": [
-      "Building Automation",
-      "Building Automation Controls",
-      "building automation systems"
-    ]
-  },
-  {
     "concept": "retail operations",
     "terms": [
       "Retail Operations",
       "retail operations",
       "retail operations knowledge"
-    ]
-  },
-  {
-    "concept": "pediatric care",
-    "terms": [
-      "Pediatric Care",
-      "pediatric care",
-      "pediatric_care"
     ]
   },
   {
@@ -726,14 +667,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
       "Equipment Operation",
       "Equipment Operation Coordination",
       "equipment operation"
-    ]
-  },
-  {
-    "concept": "microsoft office",
-    "terms": [
-      "Microsoft Office",
-      "microsoft office",
-      "microsoft_office"
     ]
   },
   {
@@ -777,35 +710,11 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "insurance verification",
-    "terms": [
-      "Insurance verification",
-      "insurance verification",
-      "insurance_verification"
-    ]
-  },
-  {
     "concept": "welding certification",
     "terms": [
       "AWS D1.1 certification",
       "Welding Certification",
       "welding certification"
-    ]
-  },
-  {
-    "concept": "epic software",
-    "terms": [
-      "Epic software",
-      "epic software",
-      "epic_software"
-    ]
-  },
-  {
-    "concept": "travel coordination",
-    "terms": [
-      "Travel Coordination",
-      "international travel coordination",
-      "travel coordination"
     ]
   },
   {
@@ -817,43 +726,11 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "home health aide certification",
-    "terms": [
-      "Home Health Aide (HHA) certification",
-      "Home Health Aide Certification",
-      "home health aide certification"
-    ]
-  },
-  {
-    "concept": "operations management",
-    "terms": [
-      "Operations Management",
-      "operations management",
-      "operations_management"
-    ]
-  },
-  {
-    "concept": "patient communication",
-    "terms": [
-      "Patient Communication",
-      "patient communication",
-      "patient_communication"
-    ]
-  },
-  {
     "concept": "overnight care",
     "terms": [
       "overnight care",
       "overnight care experience",
       "overnight_care"
-    ]
-  },
-  {
-    "concept": "travel planning",
-    "terms": [
-      "Travel Planning",
-      "Travel coordination",
-      "travel planning"
     ]
   },
   {
@@ -873,14 +750,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "penetration testing",
-    "terms": [
-      "Penetration Testing",
-      "penetration testing",
-      "penetration_testing"
-    ]
-  },
-  {
     "concept": "commercial refrigeration",
     "terms": [
       "Commercial Refrigeration",
@@ -894,14 +763,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
       "HVAC Repair",
       "HVAC repair",
       "HVAC repair and maintenance"
-    ]
-  },
-  {
-    "concept": "transportation management systems",
-    "terms": [
-      "Transportation Management Systems",
-      "Transportation Management Systems (TMS)",
-      "transportation management systems"
     ]
   },
   {
@@ -961,14 +822,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "food preparation",
-    "terms": [
-      "Food Preparation",
-      "Food preparation",
-      "food_prep"
-    ]
-  },
-  {
     "concept": "care documentation",
     "terms": [
       "care documentation",
@@ -985,14 +838,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "osha 30 construction",
-    "terms": [
-      "OSHA 30 Construction",
-      "OSHA 30 construction",
-      "OSHA 30 construction safety"
-    ]
-  },
-  {
     "concept": "docket management",
     "terms": [
       "Docket Management",
@@ -1006,30 +851,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
       "Inventory and Supply Procurement",
       "Inventory and procurement",
       "Inventory and supply procurement"
-    ]
-  },
-  {
-    "concept": "pipe welding",
-    "terms": [
-      "Pipe Welding",
-      "Pipe Welding (SMAW/TIG)",
-      "pipe welding"
-    ]
-  },
-  {
-    "concept": "building automation systems",
-    "terms": [
-      "Building Automation Systems",
-      "Building Automation Systems (BAS)",
-      "Building automation systems"
-    ]
-  },
-  {
-    "concept": "kitchen safety",
-    "terms": [
-      "Kitchen Safety",
-      "kitchen safety",
-      "kitchen_safety"
     ]
   },
   {
@@ -1061,13 +882,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "osha-30 certification",
-    "terms": [
-      "OSHA-30",
-      "OSHA-30 Certification"
-    ]
-  },
-  {
     "concept": "quality assurance",
     "terms": [
       "call center quality assurance",
@@ -1079,20 +893,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     "terms": [
       "interior design",
       "interior design principles"
-    ]
-  },
-  {
-    "concept": "crm software",
-    "terms": [
-      "CRM Software",
-      "CRM Software (e.g. Salesforce, HubSpot)"
-    ]
-  },
-  {
-    "concept": "english language",
-    "terms": [
-      "English",
-      "English (Spoken)"
     ]
   },
   {
@@ -1117,24 +917,10 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "apache spark",
-    "terms": [
-      "Apache Spark",
-      "apache_spark"
-    ]
-  },
-  {
     "concept": "quality control",
     "terms": [
       "Quality Control Inspection",
       "quality control"
-    ]
-  },
-  {
-    "concept": "point of sale systems",
-    "terms": [
-      "POS systems",
-      "point of sale systems"
     ]
   },
   {
@@ -1173,13 +959,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "scaffold safety",
-    "terms": [
-      "Scaffold Safety (OSHA 10)",
-      "scaffold safety"
-    ]
-  },
-  {
     "concept": "mortar mixing",
     "terms": [
       "Mortar Mixing and Matching",
@@ -1187,24 +966,10 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "permit compliance",
-    "terms": [
-      "permit compliance",
-      "permit_compliance"
-    ]
-  },
-  {
     "concept": "regulatory compliance",
     "terms": [
       "Regulatory Compliance Knowledge",
       "regulatory compliance"
-    ]
-  },
-  {
-    "concept": "welding",
-    "terms": [
-      "welding",
-      "welding (SMAW/MIG)"
     ]
   },
   {
@@ -1229,20 +994,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "low-latency systems",
-    "terms": [
-      "low-latency systems",
-      "low-latency-systems"
-    ]
-  },
-  {
-    "concept": "medical records",
-    "terms": [
-      "medical records",
-      "medical_records"
-    ]
-  },
-  {
     "concept": "railway operations",
     "terms": [
       "Railway Operations Knowledge",
@@ -1264,24 +1015,10 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "distributed computing",
-    "terms": [
-      "Distributed Computing",
-      "distributed_computing"
-    ]
-  },
-  {
     "concept": "emergency response",
     "terms": [
       "emergency response",
       "emergency response procedures"
-    ]
-  },
-  {
-    "concept": "food production",
-    "terms": [
-      "food production",
-      "food_production"
     ]
   },
   {
@@ -1313,31 +1050,10 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "hl7 fhir",
-    "terms": [
-      "HL7 FHIR",
-      "HL7/FHIR"
-    ]
-  },
-  {
     "concept": "patient monitoring",
     "terms": [
       "overnight patient monitoring",
       "patient monitoring"
-    ]
-  },
-  {
-    "concept": "transportation management system",
-    "terms": [
-      "Transportation Management System (TMS)",
-      "transportation management system"
-    ]
-  },
-  {
-    "concept": "healthcare data",
-    "terms": [
-      "healthcare data",
-      "healthcare_data"
     ]
   },
   {
@@ -1359,27 +1075,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     "terms": [
       "barista training",
       "barista training / coaching"
-    ]
-  },
-  {
-    "concept": "siem tools",
-    "terms": [
-      "SIEM Tools",
-      "SIEM tools (Splunk, ELK Stack)"
-    ]
-  },
-  {
-    "concept": "osha 30 certification",
-    "terms": [
-      "OSHA 30 Construction Safety",
-      "OSHA 30 certification"
-    ]
-  },
-  {
-    "concept": "dementia and alzheimer's care",
-    "terms": [
-      "Dementia & Alzheimer's Care",
-      "dementia and Alzheimer's care"
     ]
   },
   {
@@ -1411,13 +1106,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "electronic visit verification",
-    "terms": [
-      "electronic visit verification",
-      "electronic visit verification (EVV)"
-    ]
-  },
-  {
     "concept": "therapeutic exercise",
     "terms": [
       "therapeutic exercise assistance",
@@ -1429,13 +1117,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     "terms": [
       "high-pressure piping",
       "high-pressure piping systems"
-    ]
-  },
-  {
-    "concept": "mig/tig welding",
-    "terms": [
-      "MIG/TIG Welding",
-      "welding (MIG/TIG)"
     ]
   },
   {
@@ -1457,13 +1138,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     "terms": [
       "dumpling and bao preparation",
       "dumpling and dough handling"
-    ]
-  },
-  {
-    "concept": "ehr documentation",
-    "terms": [
-      "electronic health records (EHR) documentation",
-      "electronic health records documentation"
     ]
   },
   {
@@ -1523,13 +1197,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "wound care observation",
-    "terms": [
-      "Wound Care Observation",
-      "Wound care observation and reporting"
-    ]
-  },
-  {
     "concept": "dot compliance",
     "terms": [
       "DOT Compliance",
@@ -1537,31 +1204,10 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     ]
   },
   {
-    "concept": "infrastructure as code",
-    "terms": [
-      "Infrastructure as Code",
-      "Infrastructure as Code (Terraform/CloudFormation)"
-    ]
-  },
-  {
     "concept": "culinary knowledge",
     "terms": [
       "culinary knowledge",
       "food knowledge"
-    ]
-  },
-  {
-    "concept": "cloud platforms",
-    "terms": [
-      "Cloud Platforms",
-      "Cloud Platforms (AWS/GCP/Azure)"
-    ]
-  },
-  {
-    "concept": "scheduling management",
-    "terms": [
-      "calendar and meeting management",
-      "calendar and scheduling management"
     ]
   },
   {
@@ -1576,20 +1222,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     "terms": [
       "Security Architecture",
       "Security Architecture Design"
-    ]
-  },
-  {
-    "concept": "cloud security",
-    "terms": [
-      "Cloud Security",
-      "Cloud Security (AWS/Azure)"
-    ]
-  },
-  {
-    "concept": "attention to detail",
-    "terms": [
-      "Attention to detail",
-      "attention_to_detail"
     ]
   },
   {
@@ -1611,13 +1243,6 @@ export const SKILL_CONCEPT_GROUPS: Array<{ concept: string; terms: string[] }> =
     "terms": [
       "Math and measurement",
       "Math and measurements"
-    ]
-  },
-  {
-    "concept": "scheduling coordination",
-    "terms": [
-      "Calendar and scheduling management",
-      "Scheduling and Coordination"
     ]
   },
   {
