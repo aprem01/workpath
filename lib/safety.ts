@@ -384,6 +384,17 @@ export async function screenInput(opts: {
             "Our safety check is temporarily unavailable. Please try again in a moment.",
         };
       }
+      // The phrase matched an unambiguous illicit pattern. Only an
+      // AFFIRMATIVE allow rescues it — a "clarify" is not good enough,
+      // or "pimp counselor" degrades from block to a clarification
+      // prompt just by carrying a respectable-sounding word.
+      if (r.verdict !== "allow") {
+        return {
+          verdict: "block",
+          reason: `protective_not_cleared:${r.verdict}:${r.reason}`,
+          layer: "fastpath",
+        };
+      }
       return { ...r, reason: `protective_candidate→ai:${r.reason}` };
     }
     return { verdict: "block", reason: `fastpath:${hit}`, layer: "fastpath" };
