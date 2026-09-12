@@ -59,32 +59,48 @@ export async function POST(req: Request) {
       }
       const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
-      if (process.env.RESEND_API_KEY && process.env.RESEND_FROM) {
+      // Send via the Resend REST API with plain fetch — the same
+      // approach as /api/auth/send-verification. The `resend` SDK is NOT
+      // a dependency of this app; importing it built locally (stale
+      // transitive copy in node_modules) but broke the Vercel build.
+      const apiKey = process.env.RESEND_API_KEY;
+      const fromAddr = process.env.RESEND_FROM || "onboarding@resend.dev";
+      if (apiKey) {
         try {
-          const { Resend } = await import("resend");
-          const resend = new Resend(process.env.RESEND_API_KEY);
-          await resend.emails.send({
-            from: process.env.RESEND_FROM,
-            to: addr,
-            subject: "Reset your PayRanker password",
-            text:
-              `Use the link below to choose a new PayRanker password:\n\n${resetUrl}\n\n` +
-              `This link is valid for one hour. If you didn't ask for it, ignore this email.`,
-            html:
-              `<p>Use the button below to choose a new PayRanker password:</p>` +
-              `<p><a href="${resetUrl}" style="display:inline-block;background:#E725E2;color:#fff;` +
-              `text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:24px">` +
-              `Reset my password</a></p>` +
-              `<p style="font-size:13px;color:#666">Or paste this into your browser:<br/><code>${resetUrl}</code></p>` +
-              `<p style="font-size:12px;color:#999">Valid for one hour. If you didn't ask for it, ignore this email.</p>`,
+          const r = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: fromAddr,
+              to: addr,
+              subject: "Reset your PayRanker password",
+              text:
+                `Use the link below to choose a new PayRanker password:\n\n${resetUrl}\n\n` +
+                `This link is valid for one hour. If you didn't ask for it, ignore this email.`,
+              html:
+                `<p>Use the button below to choose a new PayRanker password:</p>` +
+                `<p><a href="${resetUrl}" style="display:inline-block;background:#E725E2;color:#fff;` +
+                `text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:24px">` +
+                `Reset my password</a></p>` +
+                `<p style="font-size:13px;color:#666">Or paste this into your browser:<br/>` +
+                `<code>${resetUrl}</code></p>` +
+                `<p style="font-size:12px;color:#999">Valid for one hour. If you didn't ask ` +
+                `for it, ignore this email.</p>`,
+            }),
           });
+          if (!r.ok) {
+            console.error("reset email send failed:", r.status, await r.text());
+          }
         } catch (e) {
           // Never fail the request because delivery failed — the user
           // still sees "check your email"; we log for ops.
           console.error("reset email send failed:", e instanceof Error ? e.message : e);
         }
       } else {
-        console.warn("request-reset: Resend not configured; token created but not emailed");
+        console.warn("request-reset: RESEND_API_KEY unset; token created but not emailed");
       }
     }
     return NextResponse.json({ ok: true });
