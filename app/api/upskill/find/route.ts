@@ -1,5 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import {
+  buildTrainingLinks,
+  buildInPersonLinks,
+  findRealCourses,
+} from "@/lib/training-links";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +80,33 @@ export async function POST(req: Request) {
       return NextResponse.json(cached.data);
     }
 
+    // ── Deterministic path (primary) ────────────────────────────────
+    // Verified-pattern provider links plus any Coursera courses confirmed
+    // to exist in their public catalog. Covers every skill, cannot return
+    // a dead link, costs nothing, and needs no model. The old pre-built
+    // catalog matched only 3% of the skills real users actually have, so
+    // 97% of requests reached the model, which is the path that invents
+    // courses, prices and addresses.
+    try {
+      const realCourses = await findRealCourses(skill, 3);
+      const generic = buildTrainingLinks(skill);
+      // Verified specific courses first, then honest provider searches.
+      const seen = new Set<string>();
+      const online = [...realCourses, ...generic].filter((r) => {
+        if (seen.has(r.url)) return false;
+        seen.add(r.url);
+        return true;
+      }).slice(0, 6);
+      const inPerson = buildInPersonLinks(skill);
+      if (online.length) {
+        const result = { online, inPerson, source: "verified" };
+        cache.set(cacheKey, { data: result, timestamp: Date.now() });
+        return NextResponse.json(result);
+      }
+    } catch (e) {
+      console.warn("deterministic training path failed, falling back:", e);
+    }
+
     // Phase 5 fast-path: try the pre-cached catalog before hitting Claude.
     // Returns ONLY the online portion (free + paid). In-person training
     // still requires the runtime AI call because it depends on the zip.
@@ -93,7 +125,13 @@ export async function POST(req: Request) {
           title: r.title,
           provider: r.provider,
           url: r.url,
-          cost: r.priceUSD ? `$${r.priceUSD}` : "Paid",
+          // The catalog's priceUSD came from a model, not from the
+          // provider. Sampling found the values clustered on round
+          // guesses ($40 x557, $49 x329, $15 x281) and Udemy list prices
+          // change constantly anyway. A worker deciding whether they can
+          // afford a course must not be shown an invented number, so we
+          // say "Paid" until a real price is fetched.
+          cost: "Paid",
           duration: r.duration || "",
           isOnline: true,
         })),
@@ -111,9 +149,16 @@ export async function POST(req: Request) {
       // code change small. In-person results from Claude get appended.)
     }
 
+    // Earlier this asked the model for centers "likely to exist near this
+    // zip code" and told it not to invent schools. Instructing a model not
+    // to invent is not a control, and a hallucinated address sends someone
+    // across the city for nothing. We now ask only for national
+    // organisations that genuinely run local chapters, and require the
+    // worker to be sent to that organisation's own location finder rather
+    // than to a specific address we cannot verify.
     const zipContext = zipCode
-      ? `The job seeker lives in ZIP code ${zipCode}. For in-person options, suggest REAL training centers, hospitals, community colleges, or chain locations (like American Red Cross, YMCA, community colleges, vocational schools) that are likely to exist near this zip code. Mention the actual neighborhood or city name when possible.`
-      : `For in-person options, suggest real training providers like American Red Cross, YMCA, community colleges, or vocational schools — but mark them as nationwide chains.`;
+      ? `The job seeker lives in ZIP code ${zipCode}. For in-person options, name only NATIONAL organisations that genuinely operate local branches everywhere (American Red Cross, YMCA, community colleges, public library systems, vocational schools). Do NOT name a specific branch, street address, or neighbourhood, and do NOT estimate a distance — you cannot verify those. Set "address" to the organisation's own location-finder page or the words "Check provider's location finder".`
+      : `For in-person options, name only national organisations that genuinely operate local branches (American Red Cross, YMCA, community colleges, vocational schools). Mark them as nationwide and do not invent specific locations.`;
 
     const message = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
@@ -132,7 +177,7 @@ Return ONLY valid JSON (no markdown, no explanation):
       "title": "Course or certification name",
       "provider": "Real provider name (Coursera, edX, Red Cross, etc.)",
       "url": "Real URL if you know it, otherwise the provider's main URL",
-      "cost": "Free, $35, $50-100, etc.",
+      "cost": "Free, or Paid — no invented dollar figures",
       "duration": "4 hours, 2 weeks, etc.",
       "isOnline": true
     }
@@ -158,7 +203,12 @@ RULES:
 - Prioritize FREE options first, then low-cost
 - For in-person: only suggest providers that genuinely have training locations (Red Cross, YMCA, community colleges, hospital systems, vocational schools, fire/EMS academies)
 - For online: prefer Coursera, edX, LinkedIn Learning, Khan Academy, Red Cross Online, free YouTube training, government training programs
-- URLs should be real provider homepages if you don't know specific course URLs
+- URLs: give the provider's HOMEPAGE or their course-search page. Do NOT
+  construct a deep link to a specific course page unless you are certain it
+  exists — a broken link wastes the worker's time and costs us their trust.
+- Never state a specific price unless you are certain of it. Use "Free" only
+  when the course genuinely is free; otherwise use "Paid" with no number.
+- Never invent an address, branch, or distance.
 - Be honest about costs — don't make up free if it's actually paid
 - If a skill cannot be acquired through standard training (it's purely experiential), return empty arrays`,
         },
