@@ -255,7 +255,9 @@ Pharmacist, Harm Reduction Worker, Legal Counsel (a lawyer — including
 one whose clients are criminals; defending or advising an offender is
 lawful work), Adult Entertainment Manager (absent coercion signals),
 Companion / Home Companion / In-Home Companion (elder care), Logistics,
-Delivery Driver, Courier, Bartender, Cannabis Dispensary Associate.
+Delivery Driver, Courier, Bartender, Cannabis Dispensary Associate,
+Patient Escort and Security Escort (safely transporting people — an
+ordinary hospital / campus / venue job).
 
 IMPORTANT — clarification must be able to RESOLVE. If the user has
 supplied a description that identifies a lawful occupation, ALLOW it.
@@ -273,6 +275,12 @@ not resolve it — or when an individually innocuous input sits in a
 basket that points toward illicit intent:
 - "Discreet Delivery" → clarify (alone or with Logistics + Driving +
   Cash Handling).
+- "Escort recruiter", "escort manager", "escort booker" → clarify.
+  Hiring or managing escorts is procurement of sex work when it means
+  commercial companionship, but "escort" is also an ordinary hospital,
+  campus and security job. Ask which. If the reply describes patient
+  transport, security walk-alongs or venue escorting → allow. If it
+  describes booking companions for paying clients → block.
 - "Adult Client Services" → clarify.
 - "Companionship Services" / "Private Companionship" with NO context →
   clarify. But "Companionship" / "Companion" when the basket contains
