@@ -30,8 +30,33 @@ export async function POST(req: Request) {
         data: { identifier: `reset:${addr}`, token, expires },
       });
 
-      const baseUrl =
-        process.env.NEXT_PUBLIC_APP_URL || `https://${req.headers.get("host")}`;
+      // SECURITY: never build a reset link from the raw Host header.
+      // An attacker who sends `Host: evil.example` would otherwise have
+      // us email the victim a VALID token pointing at their domain —
+      // classic password-reset poisoning. Prefer the configured origin;
+      // otherwise accept the Host ONLY if it is on an explicit
+      // allowlist; otherwise fail closed (no email, but the caller still
+      // gets an opaque ok:true so this stays non-enumerable).
+      const ALLOWED_HOSTS = new Set([
+        "workpath-iota.vercel.app",
+        "localhost:3000",
+        "localhost:3001",
+      ]);
+      const configured = process.env.NEXT_PUBLIC_APP_URL;
+      const rawHost = (req.headers.get("host") || "").toLowerCase();
+      let baseUrl: string | null = null;
+      if (configured) {
+        baseUrl = configured.replace(/\/+$/, "");
+      } else if (ALLOWED_HOSTS.has(rawHost)) {
+        baseUrl = `${rawHost.startsWith("localhost") ? "http" : "https"}://${rawHost}`;
+      }
+      if (!baseUrl) {
+        console.error(
+          "request-reset: refusing to send — untrusted host and no NEXT_PUBLIC_APP_URL",
+          { rawHost }
+        );
+        return NextResponse.json({ ok: true });
+      }
       const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
       if (process.env.RESEND_API_KEY && process.env.RESEND_FROM) {
