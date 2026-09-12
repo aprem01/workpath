@@ -239,19 +239,23 @@ export async function POST(req: Request) {
           projection: null,
           workplace: null,
         };
-        // Gap threshold. The absolute "<= 2 missing" rule penalised jobs
-        // with longer skill lists: a job asking for 8 skills that the
-        // worker matches 6 of was shown, but one they matched 5 of (62%)
-        // was hidden entirely. Accept either a small absolute gap OR a
-        // majority of the required skills, so the rule scales with the
-        // length of the employer's list. Caroline's standing rule — "an
-        // incorrect match is much worse than no match" — is respected:
-        // these surface as GAP jobs with their missing skills named, not
-        // as qualified matches.
+        // Gap threshold: the worker shares at least one required skill
+        // (guaranteed above) AND the rest is a learnable distance away.
+        // "Learnable" is capped at 3 missing skills — the same cap the
+        // gap-pill renderer already uses for Adzuna jobs, so the two
+        // surfaces agree on what counts as a reachable job. The ratio
+        // clause additionally admits longer skill lists: a job asking
+        // for 8 skills that the worker matches 5 of (62%) was previously
+        // hidden while one they matched 6 of was shown.
+        //
+        // Caroline's standing rule — "an incorrect match is much worse
+        // than no match" — is respected: everything here surfaces as a
+        // GAP job with its missing skills named on the card, never as a
+        // qualified match.
         const matchRatio = req.length > 0 ? matchedCount / req.length : 0;
         if (req.length === 0 || missing.length === 0) {
           dbJobsQualified.push(base as unknown as (typeof qualifiedJobs)[number]);
-        } else if (missing.length <= 2 || matchRatio >= 0.5) {
+        } else if (missing.length <= 3 || matchRatio >= 0.5) {
           dbJobsGap.push(base);
         }
       }
