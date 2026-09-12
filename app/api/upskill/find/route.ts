@@ -100,7 +100,11 @@ export async function POST(req: Request) {
       });
       // Free before paid, real course before search page.
       const ordered = orderForLearner(online).slice(0, 6);
-      const inPerson = buildInPersonLinks(skill);
+      // In-person needs the same ordering as online. It renders ABOVE the
+      // online list, so leaving it unsorted put a paid college finder above
+      // free government job training (American Job Centers) — the exact
+      // inversion this ordering exists to prevent.
+      const inPerson = orderForLearner(buildInPersonLinks(skill));
       if (ordered.length) {
         const result = { online: ordered, inPerson, source: "verified" };
         cache.set(cacheKey, { data: result, timestamp: Date.now() });
