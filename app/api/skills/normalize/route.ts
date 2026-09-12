@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { screenInput, BLOCK_MESSAGE_JOBSEEKER } from "@/lib/safety";
+import { screenInput, BLOCK_MESSAGE_JOBSEEKER, SAFETY_RULES_VERSION } from "@/lib/safety";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
@@ -282,6 +282,86 @@ async function enrichFromGraph(
 }
 
 // ─── Main Handler ──────────────────────────────────────────────────
+
+// Deterministic normalization cache.
+//
+// Real user data showed the AI normalizer answering differently for the
+// same word across runs: "cooking" produced five canonical terms,
+// "customer service" three that differed only by capitalisation. Each
+// variant splits the matching pool, so the canonical layer was not
+// canonical and matching was not reproducible.
+//
+// First answer wins, forever. Lookups are keyed on the lowercased input
+// so "Cooking" and "cooking" cannot diverge, and on the industry the user
+// explicitly picked so deliberate variants stay distinct.
+//
+// Never blocks the user: a cache failure falls through to the normal path.
+function cacheKey(raw: string): string {
+  return raw.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+async function readNormalizationCache(
+  raw: string,
+  domainId: string
+): Promise<Record<string, unknown> | null> {
+  try {
+    const row = await prisma.skillNormalization.findUnique({
+      where: {
+        rawInput_domainId: { rawInput: cacheKey(raw), domainId: domainId || "" },
+      },
+    });
+    if (!row) return null;
+    // Safety rules changed since this was cached — re-screen rather than
+    // grandfather it in.
+    if (row.safetyVersion !== SAFETY_RULES_VERSION) return null;
+    const parsed = JSON.parse(row.payload) as Record<string, unknown>;
+    prisma.skillNormalization
+      .update({
+        where: { id: row.id },
+        data: { hitCount: { increment: 1 }, lastUsedAt: new Date() },
+      })
+      .catch(() => {});
+    return { ...parsed, source: "cache" };
+  } catch {
+    return null;
+  }
+}
+
+async function writeNormalizationCache(
+  raw: string,
+  domainId: string,
+  result: Record<string, unknown>
+): Promise<void> {
+  try {
+    const term = typeof result.normalizedTerm === "string" ? result.normalizedTerm : "";
+    if (!term) return;
+    // Never cache an error, a block, or a degraded answer — it would
+    // otherwise become permanent.
+    if (
+      result.isProhibited ||
+      result.needsClarification ||
+      result.source === "ai_unavailable"
+    )
+      return;
+    const key = cacheKey(raw);
+    const payload = JSON.stringify(result);
+    await prisma.skillNormalization.upsert({
+      where: { rawInput_domainId: { rawInput: key, domainId: domainId || "" } },
+      create: {
+        rawInput: key,
+        domainId: domainId || "",
+        normalizedTerm: term,
+        payload,
+        safetyVersion: SAFETY_RULES_VERSION,
+      },
+      // Someone else won the race; keep their answer so it stays stable.
+      update: { lastUsedAt: new Date() },
+    });
+  } catch {
+    // Caching is best-effort and must never fail a user request.
+  }
+}
+
 export async function POST(req: Request) {
   let rawSkill = "";
   try {
@@ -426,7 +506,27 @@ export async function POST(req: Request) {
           },
         });
       } catch {}
+      await writeNormalizationCache(rawSkill, domainId || "", result as Record<string, unknown>);
       return NextResponse.json(result);
+    }
+
+    // Cache lookup before any model call. Safety has already run above,
+    // so only the expensive, non-deterministic part is skipped.
+    const cached = await readNormalizationCache(rawSkill, domainId || "");
+    if (cached) {
+      try {
+        await prisma.analyticsEvent.create({
+          data: {
+            event: "skill_added",
+            metadata: JSON.stringify({
+              rawSkill,
+              normalized: cached.normalizedTerm,
+              source: "cache",
+            }),
+          },
+        });
+      } catch {}
+      return NextResponse.json(cached);
     }
 
     // Stage 2: AI taxonomy expansion (domain-aware)
@@ -537,6 +637,9 @@ export async function POST(req: Request) {
         },
       });
     } catch {}
+
+    // Freeze this answer so the same input never resolves differently.
+    await writeNormalizationCache(rawSkill, domainId || "", aiResult as Record<string, unknown>);
 
     return NextResponse.json(aiResult);
   } catch (error) {

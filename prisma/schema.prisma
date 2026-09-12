@@ -121,6 +121,40 @@ model SkillAlias {
   createdAt   DateTime  @default(now())
 }
 
+// Deterministic normalization cache.
+//
+// The AI normalizer returned a different canonical term for the same word
+// on different runs: "cooking" produced five ("Meal Preparation", "Food
+// Preparation and Cooking", ...) and "customer service" produced three
+// that differed only by capitalisation. Every variant splits the matching
+// pool, so the layer we call canonical was not canonical.
+//
+// The first resolution of a given input wins and is reused forever. That
+// makes matching reproducible and testable (Caroline 8/11) and removes a
+// model call from the hot path.
+//
+// Keyed on the lowercased input plus the industry the user picked, so a
+// deliberate "Meal Preparation (Food Service)" stays distinct from
+// "Meal Preparation (Healthcare Support)" while accidental drift cannot
+// happen.
+model SkillNormalization {
+  id             String   @id @default(cuid())
+  rawInput       String
+  domainId       String   @default("")
+  normalizedTerm String
+  // Full response body, so a cache hit returns exactly what a miss would.
+  payload        String
+  // Bumped when safety rules change so previously-allowed terms are
+  // re-screened instead of being grandfathered in by the cache.
+  safetyVersion  Int      @default(1)
+  hitCount       Int      @default(0)
+  createdAt      DateTime @default(now())
+  lastUsedAt     DateTime @default(now())
+
+  @@unique([rawInput, domainId])
+  @@index([normalizedTerm])
+}
+
 // =====================
 // Jobs
 // =====================

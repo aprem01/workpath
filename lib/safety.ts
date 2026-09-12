@@ -53,6 +53,19 @@ const LEET: Record<string, string> = {
   "7": "t", "@": "a", "$": "s", "!": "i", "|": "l",
 };
 
+/**
+ * Bumped whenever the rules in this file change.
+ *
+ * The normalization cache stores results for inputs that already passed
+ * safety. Without a version, a term allowed under old rules would be
+ * grandfathered in forever by a cache hit. Entries stamped with an older
+ * version are ignored and re-screened.
+ *
+ * Raise this on any change to the fastpath patterns, the known-legitimate
+ * list, or the classifier prompt.
+ */
+export const SAFETY_RULES_VERSION = 2;
+
 export function normalizeForMatching(input: string): string {
   let s = input.toLowerCase();
   s = s.replace(/[0134578@$!|]/g, (c) => LEET[c] ?? c);
