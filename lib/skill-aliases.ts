@@ -67,6 +67,30 @@ const GROUPS: string[][] = [
   ["wound care", "wound care basics", "dressing changes"],
   ["behavioral de-escalation", "de-escalation", "behavior management", "crisis de-escalation"],
 
+  // ── Spoken languages ──
+  // A worker who picks a language in the bilingual picker stores it as
+  // "Spanish (Spoken)". Employers write the same thing as "Bilingual
+  // Spanish" or "Spanish Speaking". These groups make the two meet.
+  ["bilingual english", "english", "english (spoken)", "english fluency", "english language", "english speaker", "english speaking", "fluent in english"],
+  ["bilingual spanish", "fluent in spanish", "spanish", "spanish (spoken)", "spanish fluency", "spanish language", "spanish speaker", "spanish speaking"],
+  ["bilingual chinese", "chinese", "chinese (mandarin)", "chinese (mandarin) (spoken)", "chinese (spoken)", "chinese fluency", "chinese language", "chinese speaker", "chinese speaking", "fluent in chinese"],
+  ["bilingual mandarin", "fluent in mandarin", "mandarin", "mandarin (spoken)", "mandarin fluency", "mandarin language", "mandarin speaker", "mandarin speaking"],
+  ["bilingual french", "fluent in french", "french", "french (spoken)", "french fluency", "french language", "french speaker", "french speaking"],
+  ["bilingual vietnamese", "fluent in vietnamese", "vietnamese", "vietnamese (spoken)", "vietnamese fluency", "vietnamese language", "vietnamese speaker", "vietnamese speaking"],
+  ["arabic", "arabic (spoken)", "arabic fluency", "arabic language", "arabic speaker", "arabic speaking", "bilingual arabic", "fluent in arabic"],
+  ["bilingual polish", "fluent in polish", "polish", "polish (spoken)", "polish fluency", "polish language", "polish speaker", "polish speaking"],
+  ["bilingual russian", "fluent in russian", "russian", "russian (spoken)", "russian fluency", "russian language", "russian speaker", "russian speaking"],
+  ["bilingual tagalog", "fluent in tagalog", "tagalog", "tagalog (spoken)", "tagalog fluency", "tagalog language", "tagalog speaker", "tagalog speaking"],
+  ["bilingual german", "fluent in german", "german", "german (spoken)", "german fluency", "german language", "german speaker", "german speaking"],
+  ["bilingual korean", "fluent in korean", "korean", "korean (spoken)", "korean fluency", "korean language", "korean speaker", "korean speaking"],
+  ["bilingual portuguese", "fluent in portuguese", "portuguese", "portuguese (spoken)", "portuguese fluency", "portuguese language", "portuguese speaker", "portuguese speaking"],
+  ["bilingual hindi", "fluent in hindi", "hindi", "hindi (spoken)", "hindi fluency", "hindi language", "hindi speaker", "hindi speaking"],
+  ["bilingual urdu", "fluent in urdu", "urdu", "urdu (spoken)", "urdu fluency", "urdu language", "urdu speaker", "urdu speaking"],
+  ["bilingual italian", "fluent in italian", "italian", "italian (spoken)", "italian fluency", "italian language", "italian speaker", "italian speaking"],
+  ["bilingual haitian creole", "fluent in haitian creole", "haitian creole", "haitian creole (spoken)", "haitian creole fluency", "haitian creole language", "haitian creole speaker", "haitian creole speaking"],
+  ["bilingual somali", "fluent in somali", "somali", "somali (spoken)", "somali fluency", "somali language", "somali speaker", "somali speaking"],
+  ["bengali", "bengali (spoken)", "bengali fluency", "bengali language", "bengali speaker", "bengali speaking", "bilingual bengali", "fluent in bengali"],
+
   // ── Retail / customer-facing ──
   ["retail sales", "sales associate", "sales", "store associate", "floor sales"],
   ["cash handling", "cash register", "pos systems", "point of sale", "register operation"],

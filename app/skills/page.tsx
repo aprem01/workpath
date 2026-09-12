@@ -202,6 +202,46 @@ function SkillsPageInner() {
     return () => clearTimeout(t);
   }, [skills]);
 
+  /**
+   * Add a spoken language as its own skill — WITHOUT the AI normalizer.
+   *
+   * Caroline 9/12: picking "English" from the bilingual language picker
+   * was being sent through /api/skills/normalize, which read it as the
+   * academic subject and returned English Composition, Literature
+   * Analysis, Creative Writing and "English: ESL/Language Instruction".
+   * A home health aide who speaks English is not an English teacher.
+   *
+   * A language chosen from a language picker is unambiguous data, so
+   * there is nothing for a model to interpret. We construct the skill
+   * directly: deterministic, instant, and impossible to misread. The
+   * "(Spoken)" suffix is what keeps it distinct from the subject, and
+   * lib/skill-aliases.ts links it to how employers write it
+   * ("Bilingual Spanish", "Spanish Speaking").
+   */
+  const addLanguageSkill = useCallback((language: string) => {
+    const lang = language.trim();
+    if (!lang) return;
+    const term = `${lang} (Spoken)`;
+    setSkills((prev) => {
+      if (prev.some((s) => s.normalizedTerm.toLowerCase() === term.toLowerCase())) {
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          rawInput: lang,
+          normalizedTerm: term,
+          category: "language",
+          isAISuggested: false,
+          // Speaking a language with patients and customers is
+          // interpersonal work, which is where automation struggles most.
+          aiResistanceScore: 78,
+        },
+      ];
+    });
+    setInput("");
+  }, []);
+
   const normalizeAndAdd = useCallback(
     async (raw: string, bypassClarification = false, context?: string) => {
       const trimmed = raw.trim();
@@ -688,12 +728,12 @@ function SkillsPageInner() {
                       const kind = pendingClarification.kind;
                       if (kind === "language") {
                         // Store the LANGUAGE as the skill; don't add
-                        // "Bilingual" itself. Tap multiple chips to add
-                        // multiple languages (each tap normalizes one
-                        // language then re-opens the picker until Cancel).
-                        void normalizeAndAdd(option, true);
-                        // Keep the picker open so the user can add more
-                        // languages — Caroline's "Spanish + Chinese" case.
+                        // "Bilingual" itself, and don't run it through the
+                        // AI normalizer — "English" is a language here,
+                        // not a school subject. The picker stays open so
+                        // the user can tap several — Caroline's
+                        // "Spanish + Chinese" case.
+                        addLanguageSkill(option);
                         return;
                       }
                       setPendingClarification(null);
@@ -717,7 +757,9 @@ function SkillsPageInner() {
                     if (!lang) return;
                     // Add the typed language as its own skill; keep the picker
                     // open so the user can add more (German + English, etc.).
-                    void normalizeAndAdd(lang, true);
+                    // Same AI-free path as the chips — a typed language is
+                    // a language, not a subject to be interpreted.
+                    addLanguageSkill(lang);
                     setOtherLanguage("");
                   }}
                   className="flex gap-2 mb-2"
