@@ -17,6 +17,7 @@ import { getMetroById, DEFAULT_METRO_ID } from "@/lib/metros";
 import { getAiResistance, isAiProof } from "@/lib/ai-resistance";
 import { prisma } from "@/lib/prisma";
 import { expandWithSynonyms } from "@/lib/equivalencies";
+import { expandWithAliases } from "@/lib/skill-aliases";
 
 export const dynamic = "force-dynamic";
 
@@ -163,9 +164,14 @@ export async function POST(req: Request) {
       //     "Edgewater, Chicago, IL". That is why switching to Anywhere
       //     returned zero matches. Nationwide metros now skip the
       //     location filter entirely.
+      // Expand through BOTH the O*NET synonym family and the curated
+      // alias map. The O*NET data is asymmetric ("Personal Care
+      // Assistance" has five variants, "Caregiving" has none), so the
+      // curated map supplies the human-obvious links it misses.
       const expandedUserSkills = new Set<string>();
       for (const t of skillTerms) {
         for (const v of expandWithSynonyms(t)) expandedUserSkills.add(v.toLowerCase());
+        for (const v of expandWithAliases(t)) expandedUserSkills.add(v.toLowerCase());
       }
       const isNationwide = metro.id === "us" || metro.id === "remote";
       const locationFilter = isNationwide
@@ -197,9 +203,8 @@ export async function POST(req: Request) {
 
       /** A job skill counts as held if ANY of its synonyms is in the basket. */
       const userHasSkill = (jobSkill: string) =>
-        expandWithSynonyms(jobSkill).some((v) =>
-          expandedUserSkills.has(v.toLowerCase())
-        );
+        expandWithSynonyms(jobSkill).some((v) => expandedUserSkills.has(v.toLowerCase())) ||
+        expandWithAliases(jobSkill).some((v) => expandedUserSkills.has(v.toLowerCase()));
 
       for (const j of dbJobs) {
         const req = j.requiredSkills.map((r) => r.normalizedTerm);
@@ -234,9 +239,19 @@ export async function POST(req: Request) {
           projection: null,
           workplace: null,
         };
+        // Gap threshold. The absolute "<= 2 missing" rule penalised jobs
+        // with longer skill lists: a job asking for 8 skills that the
+        // worker matches 6 of was shown, but one they matched 5 of (62%)
+        // was hidden entirely. Accept either a small absolute gap OR a
+        // majority of the required skills, so the rule scales with the
+        // length of the employer's list. Caroline's standing rule — "an
+        // incorrect match is much worse than no match" — is respected:
+        // these surface as GAP jobs with their missing skills named, not
+        // as qualified matches.
+        const matchRatio = req.length > 0 ? matchedCount / req.length : 0;
         if (req.length === 0 || missing.length === 0) {
           dbJobsQualified.push(base as unknown as (typeof qualifiedJobs)[number]);
-        } else if (missing.length <= 2) {
+        } else if (missing.length <= 2 || matchRatio >= 0.5) {
           dbJobsGap.push(base);
         }
       }
