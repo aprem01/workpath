@@ -18,6 +18,7 @@ import { getAiResistance, isAiProof } from "@/lib/ai-resistance";
 import { prisma } from "@/lib/prisma";
 import { expandWithSynonyms } from "@/lib/equivalencies";
 import { expandWithAliases } from "@/lib/skill-aliases";
+import { expandWithConcepts } from "@/lib/skill-concepts.generated";
 
 export const dynamic = "force-dynamic";
 
@@ -168,10 +169,18 @@ export async function POST(req: Request) {
       // alias map. The O*NET data is asymmetric ("Personal Care
       // Assistance" has five variants, "Caregiving" has none), so the
       // curated map supplies the human-obvious links it misses.
+      // Three expansion sources, all exact-string lookups at query time:
+      //  - O*NET synonyms (broad but asymmetric)
+      //  - the hand-curated alias map (launch verticals)
+      //  - derived concept groups, which catch the equivalences nobody
+      //    wrote down because the two terms share no words at all
+      //    ("Caregiving" / "Personal Care Assistance"). Derived offline
+      //    so matching stays deterministic and explainable.
       const expandedUserSkills = new Set<string>();
       for (const t of skillTerms) {
         for (const v of expandWithSynonyms(t)) expandedUserSkills.add(v.toLowerCase());
         for (const v of expandWithAliases(t)) expandedUserSkills.add(v.toLowerCase());
+        for (const v of expandWithConcepts(t)) expandedUserSkills.add(v.toLowerCase());
       }
       const isNationwide = metro.id === "us" || metro.id === "remote";
       const locationFilter = isNationwide
@@ -204,7 +213,8 @@ export async function POST(req: Request) {
       /** A job skill counts as held if ANY of its synonyms is in the basket. */
       const userHasSkill = (jobSkill: string) =>
         expandWithSynonyms(jobSkill).some((v) => expandedUserSkills.has(v.toLowerCase())) ||
-        expandWithAliases(jobSkill).some((v) => expandedUserSkills.has(v.toLowerCase()));
+        expandWithAliases(jobSkill).some((v) => expandedUserSkills.has(v.toLowerCase())) ||
+        expandWithConcepts(jobSkill).some((v) => expandedUserSkills.has(v.toLowerCase()));
 
       for (const j of dbJobs) {
         const req = j.requiredSkills.map((r) => r.normalizedTerm);

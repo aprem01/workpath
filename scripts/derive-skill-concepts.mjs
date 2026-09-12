@@ -123,6 +123,24 @@ const useful = [...groups.entries()]
   })
   .sort((a, b) => b[1].length - a[1].length);
 
+// Consolidate near-duplicate concept labels. The labeller produced both
+// "cpr and first aid" and "cpr first aid", and both "personal care" and
+// "activities of daily living", which splits terms that should match each
+// other. Merging on the token signature costs nothing and recovers those.
+const bySig = new Map();
+const STOPW = new Set(["and","or","the","of","a","an","for","with","in","to","&"]);
+const sig = (c) =>
+  c.split(/[^a-z0-9]+/i).filter((w) => w && !STOPW.has(w)).map((w) => w.replace(/s$/, "")).sort().join("|");
+for (const [c, set] of groups) {
+  const k = sig(c);
+  if (!bySig.has(k)) bySig.set(k, { concept: c, terms: new Set() });
+  for (const t of set) bySig.get(k).terms.add(t);
+}
+const merged = groups.size - bySig.size;
+if (merged > 0) console.log(`consolidated ${merged} near-duplicate concept label(s)`);
+groups.clear();
+for (const { concept, terms } of bySig.values()) groups.set(concept, terms);
+
 console.log(`concepts: ${groups.size}, useful groups (2+ distinct spellings): ${useful.length}`);
 
 const coverage = concept.size / terms.length;
