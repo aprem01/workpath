@@ -32,6 +32,12 @@ export interface TrainingLink {
   isOnline: boolean;
   /** true when this points at a specific course confirmed to exist. */
   verified: boolean;
+  /**
+   * true when the link opens a provider's search results rather than one
+   * course. Honest, but a different experience, so the UI must say which
+   * it is instead of dressing a search page up as a course.
+   */
+  isSearch?: boolean;
 }
 
 /**
@@ -80,6 +86,7 @@ export function buildTrainingLinks(skill: string): TrainingLink[] {
     duration: "Self-paced",
     isOnline: true,
     verified: false,
+    isSearch: true,
   });
   out.push({
     title: `${label} training videos`,
@@ -89,6 +96,7 @@ export function buildTrainingLinks(skill: string): TrainingLink[] {
     duration: "Varies",
     isOnline: true,
     verified: false,
+    isSearch: true,
   });
 
   if (SAFETY.test(skill)) {
@@ -100,6 +108,7 @@ export function buildTrainingLinks(skill: string): TrainingLink[] {
       duration: "Varies",
       isOnline: true,
       verified: false,
+      isSearch: true,
     });
   }
   if (FOOD.test(skill)) {
@@ -111,6 +120,7 @@ export function buildTrainingLinks(skill: string): TrainingLink[] {
       duration: "Varies",
       isOnline: true,
       verified: false,
+      isSearch: true,
     });
   }
 
@@ -123,6 +133,7 @@ export function buildTrainingLinks(skill: string): TrainingLink[] {
     duration: "Varies",
     isOnline: true,
     verified: false,
+    isSearch: true,
   });
   out.push({
     title: `${label} courses`,
@@ -132,6 +143,7 @@ export function buildTrainingLinks(skill: string): TrainingLink[] {
     duration: "Varies",
     isOnline: true,
     verified: false,
+    isSearch: true,
   });
 
   return out;
@@ -157,6 +169,7 @@ export function buildInPersonLinks(skill: string): TrainingLink[] {
       duration: "Varies",
       isOnline: false,
       verified: false,
+      isSearch: true,
     });
   }
   out.push({
@@ -269,4 +282,18 @@ export async function findRealCourses(skill: string, limit = 3): Promise<Trainin
       // This slug came from Coursera's own catalog, so the page exists.
       verified: true,
     }));
+}
+
+/**
+ * Order training options for someone deciding what they can afford.
+ *
+ * Free first, always. The audience is a worker weighing whether to spend
+ * money they may not have, so a free option must never sit below a paid
+ * one. Within each tier, a confirmed specific course outranks a search
+ * page, because it is a shorter path to actually learning the thing.
+ */
+export function orderForLearner(links: TrainingLink[]): TrainingLink[] {
+  const rank = (r: TrainingLink) =>
+    (r.cost === "Free" ? 0 : 10) + (r.verified ? 0 : 1);
+  return [...links].sort((a, b) => rank(a) - rank(b));
 }

@@ -4,6 +4,7 @@ import {
   buildTrainingLinks,
   buildInPersonLinks,
   findRealCourses,
+  orderForLearner,
 } from "@/lib/training-links";
 
 export const dynamic = "force-dynamic";
@@ -96,10 +97,12 @@ export async function POST(req: Request) {
         if (seen.has(r.url)) return false;
         seen.add(r.url);
         return true;
-      }).slice(0, 6);
+      });
+      // Free before paid, real course before search page.
+      const ordered = orderForLearner(online).slice(0, 6);
       const inPerson = buildInPersonLinks(skill);
-      if (online.length) {
-        const result = { online, inPerson, source: "verified" };
+      if (ordered.length) {
+        const result = { online: ordered, inPerson, source: "verified" };
         cache.set(cacheKey, { data: result, timestamp: Date.now() });
         return NextResponse.json(result);
       }

@@ -34,6 +34,10 @@ interface UpskillResource {
   provider: string;
   url: string;
   cost: string;
+  /** true when the link opens a provider's search results, not one course. */
+  isSearch?: boolean;
+  /** true when this is a specific course confirmed to exist. */
+  verified?: boolean;
   duration: string;
   isOnline: boolean;
   address?: string;
@@ -510,7 +514,15 @@ function ResourceRow({
         </p>
         {(r.cost || r.duration) && (
           <p className="text-xs text-graytext mt-0.5 truncate">
-            {[r.cost, r.duration].filter(Boolean).join(" • ")}
+            {r.cost === "Free" ? (
+              <span className="inline-flex items-center rounded-full bg-green-100 text-green-800 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide mr-1.5">
+                Free
+              </span>
+            ) : (
+              r.cost && <span>{r.cost} • </span>
+            )}
+            {r.duration}
+            {r.isSearch && <span> • opens a search</span>}
           </p>
         )}
       </div>

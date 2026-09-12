@@ -101,6 +101,10 @@ interface UpskillResource {
   provider: string;
   url: string;
   cost: string;
+  /** true when the link opens a provider's search results, not one course. */
+  isSearch?: boolean;
+  /** true when this is a specific course confirmed to exist. */
+  verified?: boolean;
   duration: string;
   isOnline: boolean;
   address?: string;
@@ -695,8 +699,26 @@ function JobsPageInner() {
                                             <p className="text-sm font-bold text-gray-900 group-hover:text-amber-dark">
                                               {r.title}
                                             </p>
-                                            <p className="text-xs text-graytext mt-0.5">
-                                              {r.provider} • {r.cost} • {r.duration}
+                                            <p className="text-xs text-graytext mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                                              {/* Free is the thing a worker
+                                                  deciding what they can afford
+                                                  needs to see first, so it gets
+                                                  a badge rather than sitting in
+                                                  a run of grey text. */}
+                                              {r.cost === "Free" ? (
+                                                <span className="inline-flex items-center rounded-full bg-green-100 text-green-800 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                                                  Free
+                                                </span>
+                                              ) : (
+                                                <span>{r.cost}</span>
+                                              )}
+                                              <span>• {r.provider}</span>
+                                              {r.duration && <span>• {r.duration}</span>}
+                                              {/* Be honest that this opens a
+                                                  list of results, not a course.
+                                                  Both are useful; they are not
+                                                  the same click. */}
+                                              {r.isSearch && <span>• opens a search</span>}
                                             </p>
                                           </div>
                                           <ExternalLink
@@ -715,7 +737,7 @@ function JobsPageInner() {
                                     <div className="flex items-center gap-1.5 mb-2">
                                       <MapPin size={12} className="text-amber-dark" />
                                       <p className="text-[11px] font-bold text-graytext uppercase tracking-wider">
-                                        In-person {zipCode && `near ${zipCode}`}
+                                        In-person
                                       </p>
                                     </div>
                                     <div className="space-y-1.5">
