@@ -199,24 +199,64 @@ async function loadIndex(): Promise<Row[]> {
   return INDEX!;
 }
 
+/**
+ * Generic head-nouns. These appear in thousands of unrelated course
+ * titles, so a match on one of them alone means nothing: "Certification"
+ * pairs "HHA Certification" with "Scrum Certification", "Operations"
+ * pairs "Forklift Operation" with "Tax Operations", and "Preparation"
+ * pairs "Meal Preparation" with "Coding Interview Preparation". A match
+ * must be carried by a distinctive word, never by one of these.
+ */
+const GENERIC_TERM = new Set([
+  "certification","certificate","certified","preparation","prep","operation",
+  "operations","training","course","fundamentals","introduction","basics",
+  "management","managing","professional","skills","essentials","advanced",
+  "practice","practices","principles","systems","services","support",
+  "assistant","specialist","technician","analysis","development","design",
+  "monitoring","planning","assessment","safety","care","level","exam",
+]);
+
+/** Whole-word test. Substring matching pairs "CPR" with "CPRA Compliance". */
+function hasWord(haystack: string, word: string): boolean {
+  const esc = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${esc}\\b`, "i").test(haystack);
+}
+
+/**
+ * Real Coursera courses matching a skill.
+ *
+ * Deliberately strict. Returning nothing is a good outcome: the caller
+ * still shows honest provider-search links, which is better than sending
+ * a home health aide to a Scrum certification. Caroline's standing rule
+ * is that an incorrect match is much worse than no match.
+ */
 export async function findRealCourses(skill: string, limit = 3): Promise<TrainingLink[]> {
   const idx = await loadIndex();
   if (!idx.length) return [];
-  const want = searchTerms(skill, 6).toLowerCase().split(/\s+/).filter((w) => w.length > 2);
-  if (!want.length) return [];
+
+  const terms = searchTerms(skill, 6)
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2);
+  if (!terms.length) return [];
+
+  const distinctive = terms.filter((w) => !GENERIC_TERM.has(w));
+  // Nothing distinctive to match on (e.g. the skill is literally
+  // "Certification") — do not guess.
+  if (!distinctive.length) return [];
 
   const scored: { row: Row; score: number }[] = [];
   for (const row of idx) {
-    const name = row[1].toLowerCase();
-    let score = 0;
-    for (const w of want) if (name.includes(w)) score++;
-    if (score > 0) scored.push({ row, score });
+    const name = row[1];
+    // Every distinctive word must appear as a whole word. This is the
+    // guard that keeps "Forklift Operation" away from "Tax Operations".
+    if (!distinctive.every((w) => hasWord(name, w))) continue;
+    let score = distinctive.length * 2;
+    for (const w of terms) if (hasWord(name, w)) score++;
+    scored.push({ row, score });
   }
-  // Require at least half the terms to appear, so a single common word
-  // like "care" cannot drag in an unrelated course.
-  const need = Math.max(1, Math.ceil(want.length / 2));
+
   return scored
-    .filter((s) => s.score >= need)
     .sort((a, b) => b.score - a.score || a.row[1].length - b.row[1].length)
     .slice(0, limit)
     .map(({ row }) => ({
