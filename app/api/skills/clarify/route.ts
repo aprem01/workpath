@@ -44,11 +44,22 @@ const FORCE_AMBIGUOUS: Record<string, string[]> = {
 // Caroline 7/28 Round 7: "Bilingual" and "Trilingual" describe the
 // worker but aren't skills employers search on — the actual LANGUAGE
 // is what matches jobs. Force a language picker for these labels.
-const FORCE_LANGUAGE_PICKER: Record<string, string[]> = {
-  bilingual: ["Spanish", "Chinese (Mandarin)", "French", "Vietnamese", "Arabic", "Polish", "Russian", "Tagalog"],
-  trilingual: ["Spanish", "Chinese (Mandarin)", "French", "Vietnamese", "Arabic", "Polish", "Russian", "Tagalog"],
-  multilingual: ["Spanish", "Chinese (Mandarin)", "French", "Vietnamese", "Arabic", "Polish", "Russian", "Tagalog"],
-};
+// Caroline 9/9: English goes first. Caroline 9/11: the AI also suggests
+// compound phrases like "Bilingual Patient Support" — those must route to
+// the picker too, so we match any phrase CONTAINING bi/tri/multilingual
+// rather than only the bare word.
+const LANGUAGE_OPTIONS = [
+  "English",
+  "Spanish",
+  "Chinese (Mandarin)",
+  "French",
+  "Vietnamese",
+  "Arabic",
+  "Polish",
+  "Russian",
+  "Tagalog",
+];
+const LANGUAGE_PHRASE = /\b(bi|tri|multi)[\s-]?lingual\b/i;
 
 /**
  * POST /api/skills/clarify
@@ -78,9 +89,11 @@ export async function POST(req: Request) {
     // aren't industries, they're a language-question funnel. Front-end
     // treats `kind: "language"` the same as industry chips today but
     // stores the picked LANGUAGE as the skill, not the umbrella term.
-    const langOpts = FORCE_LANGUAGE_PICKER[lower];
-    if (langOpts) {
-      return NextResponse.json({ candidates: langOpts, kind: "language" });
+    if (LANGUAGE_PHRASE.test(trimmed)) {
+      return NextResponse.json({
+        candidates: LANGUAGE_OPTIONS,
+        kind: "language",
+      });
     }
     const forced = FORCE_AMBIGUOUS[lower];
     if (forced && !(anchor && forced.includes(anchor))) {

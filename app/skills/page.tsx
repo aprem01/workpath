@@ -431,6 +431,42 @@ function SkillsPageInner() {
   }
 
   function addSuggestion(term: string) {
+    // Caroline 9/11: the AI suggested "Bilingual Patient Support" and
+    // tapping it added that phrase as a pink pill. "Bilingual" is not a
+    // skill — the LANGUAGE is. Any bi/tri/multilingual suggestion opens
+    // the language picker instead, matching the standalone flow.
+    if (/\b(bi|tri|multi)[\s-]?lingual\b/i.test(term)) {
+      setSuggestions((prev) => prev.filter((s) => s !== term));
+      void (async () => {
+        try {
+          const res = await fetch("/api/skills/clarify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ skill: term }),
+          });
+          const data = await res.json();
+          if (Array.isArray(data.candidates) && data.candidates.length) {
+            setPendingClarification({
+              rawSkill: term,
+              industries: data.candidates,
+              kind: "language",
+            });
+          }
+        } catch {
+          // Network failure — fall back to a sensible built-in list so the
+          // user is never stuck with an un-addable suggestion.
+          setPendingClarification({
+            rawSkill: term,
+            industries: [
+              "English", "Spanish", "Chinese (Mandarin)", "French",
+              "Vietnamese", "Arabic", "Polish", "Russian", "Tagalog",
+            ],
+            kind: "language",
+          });
+        }
+      })();
+      return;
+    }
     const newSkill: Skill = {
       rawInput: term,
       normalizedTerm: term,

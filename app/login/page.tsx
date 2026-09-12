@@ -14,6 +14,26 @@ function LoginInner() {
   const [showPw, setShowPw] = useState(false);
   const [state, setState] = useState<"idle" | "sending" | "error">("idle");
   const [error, setError] = useState("");
+  // Caroline 9/11: Log In had no password-reset path.
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetState, setResetState] = useState<"idle" | "sending" | "sent">("idle");
+
+  async function requestReset(e: React.FormEvent) {
+    e.preventDefault();
+    setResetState("sending");
+    try {
+      await fetch("/api/auth/request-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail || email }),
+      });
+    } catch {
+      // The endpoint always reports success to avoid leaking which
+      // addresses exist; a network failure shouldn't say otherwise.
+    }
+    setResetState("sent");
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -119,6 +139,60 @@ function LoginInner() {
             Log in <ArrowRight size={16} />
           </button>
         </form>
+
+        <div className="mt-4 text-center">
+          {!forgotOpen ? (
+            <button
+              type="button"
+              onClick={() => {
+                setForgotOpen(true);
+                setResetEmail(email);
+              }}
+              className="text-sm text-magenta font-semibold hover:underline"
+            >
+              Forgot your password?
+            </button>
+          ) : resetState === "sent" ? (
+            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-left">
+              <p className="text-sm font-semibold text-green-800">
+                Check your email to reset your password.
+              </p>
+              <p className="text-xs text-green-700 mt-1">
+                We sent a reset link to {resetEmail || email}. It&apos;s valid for one hour.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={requestReset} className="text-left space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                Email for your reset link
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  className="flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:border-magenta focus:ring-1 focus:ring-magenta outline-none text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={resetState === "sending"}
+                  className="px-4 py-2 rounded-lg bg-magenta text-white text-sm font-semibold hover:bg-magenta-dark disabled:opacity-60"
+                >
+                  {resetState === "sending" ? "Sending…" : "Send link"}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForgotOpen(false)}
+                className="text-xs text-graytext hover:text-magenta underline"
+              >
+                Cancel
+              </button>
+            </form>
+          )}
+        </div>
 
         <p className="text-sm text-graytext mt-6 text-center">
           New to PayRanker?{" "}

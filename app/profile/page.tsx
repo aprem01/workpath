@@ -86,8 +86,22 @@ function ProfilePageInner() {
   const [veteranStatus, setVeteranStatus] = useState("");
   const [disabilityStatus, setDisabilityStatus] = useState("");
   const [tosAccepted, setTosAccepted] = useState(false);
+  // Caroline 9/11 (P2): an already-signed-in user who hit Start Over was
+  // funnelled back through Create Profile, got "This account already
+  // exists", and had no way to log in from that page. We now detect an
+  // existing session on mount and offer a way forward instead.
+  const [existingAccount, setExistingAccount] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Already signed in? Surface it rather than silently asking them to
+    // register again.
+    if (
+      localStorage.getItem("payranker_handle") &&
+      localStorage.getItem("payranker_profile_complete")
+    ) {
+      setExistingAccount(true);
+    }
     let h = localStorage.getItem("payranker_handle");
     if (!h) {
       h = generateHandle();
@@ -126,14 +140,20 @@ function ProfilePageInner() {
         });
         if (!regRes.ok) {
           const j = await regRes.json().catch(() => ({}));
-          alert(
-            "Couldn't create your profile: " +
-              (j.error || `HTTP ${regRes.status}`)
-          );
+          // 409 = the account exists. Don't dead-end with an alert that
+          // says "log in instead" on a page with no login link.
+          if (regRes.status === 409) {
+            setExistingAccount(true);
+            setSubmitError(
+              "You already have an account with this email. Log in to continue."
+            );
+          } else {
+            setSubmitError(j.error || `Couldn't create your profile (HTTP ${regRes.status}).`);
+          }
           return;
         }
       } catch (err) {
-        alert(
+        setSubmitError(
           "Couldn't create your profile right now. " +
             (err instanceof Error ? err.message : "")
         );
@@ -275,6 +295,35 @@ function ProfilePageInner() {
               </div>
             </div>
 
+            {/* Caroline 9/11 (P2): already-signed-in escape hatch. Start Over
+                used to funnel an authenticated user back through Create
+                Profile with no way out. */}
+            {existingAccount && (
+              <div className="rounded-xl border-2 border-magenta/30 bg-magenta/5 px-4 py-3">
+                <p className="text-sm font-semibold text-gray-800 mb-1">
+                  You already have a PayRanker account.
+                </p>
+                <p className="text-xs text-graytext mb-2">
+                  You don&apos;t need to create another one to change your skills.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <a href="/login" className="text-sm font-bold text-magenta hover:underline">
+                    Log in
+                  </a>
+                  <a href="/skills" className="text-sm font-bold text-magenta hover:underline">
+                    Back to my skills
+                  </a>
+                  <a href="/jobs" className="text-sm font-bold text-magenta hover:underline">
+                    See my matches
+                  </a>
+                </div>
+              </div>
+            )}
+            {submitError && (
+              <p role="alert" className="text-sm text-red-600">
+                {submitError}
+              </p>
+            )}
             <div className="pt-2">
               <label className="flex items-start gap-2.5 text-sm text-graytext cursor-pointer">
                 <input
@@ -464,6 +513,35 @@ function ProfilePageInner() {
             </div>
           </div>
 
+            {/* Caroline 9/11 (P2): already-signed-in escape hatch. Start Over
+              used to funnel an authenticated user back through Create
+              Profile with no way out. */}
+          {existingAccount && (
+            <div className="rounded-xl border-2 border-magenta/30 bg-magenta/5 px-4 py-3">
+              <p className="text-sm font-semibold text-gray-800 mb-1">
+                You already have a PayRanker account.
+              </p>
+              <p className="text-xs text-graytext mb-2">
+                You don&apos;t need to create another one to change your skills.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <a href="/login" className="text-sm font-bold text-magenta hover:underline">
+                  Log in
+                </a>
+                <a href="/skills" className="text-sm font-bold text-magenta hover:underline">
+                  Back to my skills
+                </a>
+                <a href="/jobs" className="text-sm font-bold text-magenta hover:underline">
+                  See my matches
+                </a>
+              </div>
+            </div>
+          )}
+          {submitError && (
+            <p role="alert" className="text-sm text-red-600">
+              {submitError}
+            </p>
+          )}
           <div className="pt-2">
             <label className="flex items-start gap-2.5 text-sm text-graytext cursor-pointer">
               <input

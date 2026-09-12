@@ -16,6 +16,7 @@ import { getWorkplace, workplaceHighlight } from "@/lib/workplace";
 import { getMetroById, DEFAULT_METRO_ID } from "@/lib/metros";
 import { getAiResistance, isAiProof } from "@/lib/ai-resistance";
 import { prisma } from "@/lib/prisma";
+import { expandWithSynonyms } from "@/lib/equivalencies";
 
 export const dynamic = "force-dynamic";
 
@@ -115,7 +116,6 @@ export async function POST(req: Request) {
     // user's basket (case-insensitive), score them, and merge into
     // qualifiedJobs (100% match) or gapJobs (partial match) — same
     // shape as the Adzuna rows so the rest of the pipeline is unchanged.
-    const skillTermsLower = skillTerms.map((s: string) => s.toLowerCase());
     const dbJobsQualified: typeof qualifiedJobs = [];
     const dbJobsGap: Array<{
       id: string;
@@ -126,6 +126,7 @@ export async function POST(req: Request) {
       payMin: number;
       payMax: number;
       payType: string;
+      payEstimated: boolean;
       shiftType: string;
       vertical: string;
       postedAt: Date;
@@ -144,21 +145,48 @@ export async function POST(req: Request) {
       workplace: null;
     }> = [];
     try {
-      // Only fetch jobs whose required-skill list overlaps the user's
-      // basket — the DB has ~1400 active Chicago jobs, and `take: N`
-      // without a filter was missing recently-posted rows (Caroline's
-      // Round 7 "(test)" seed). `requiredSkills.some.normalizedTerm.in`
-      // is index-friendly and keeps the fetch under a hundred rows.
+      // Caroline 9/11 (P1): Skilmatch-posted jobs were not reaching
+      // PayRanker. Two distinct causes, both fixed here.
+      //
+      // (a) SKILL MATCHING WAS EXACT-STRING. The query used
+      //     `normalizedTerm: { in: skillTerms }`, so a jobseeker who
+      //     typed "Caregiving" never matched a job requiring "Personal
+      //     Care Assistance". Skilmatch's candidate side already solved
+      //     this with expandWithSynonyms; PayRanker's job side did not.
+      //     We now expand the user's basket through the synonym family
+      //     before querying, and compare synonym-aware when scoring.
+      //
+      // (b) LOCATION FILTER BROKE "ANYWHERE IN THE US". metro.adzunaWhere
+      //     for the `us` and `remote` metros is the literal string
+      //     "United States", and `location: { contains: "United States" }`
+      //     matches no row on earth — every job location is like
+      //     "Edgewater, Chicago, IL". That is why switching to Anywhere
+      //     returned zero matches. Nationwide metros now skip the
+      //     location filter entirely.
+      const expandedUserSkills = new Set<string>();
+      for (const t of skillTerms) {
+        for (const v of expandWithSynonyms(t)) expandedUserSkills.add(v.toLowerCase());
+      }
+      const isNationwide = metro.id === "us" || metro.id === "remote";
+      const locationFilter = isNationwide
+        ? {}
+        : {
+            location: {
+              contains: metro.adzunaWhere.split(",")[0]?.trim() || "Chicago",
+              mode: "insensitive" as const,
+            },
+          };
+
       const dbJobs = await prisma.job.findMany({
         where: {
           isActive: true,
-          location: {
-            contains: metro.adzunaWhere.split(",")[0]?.trim() || "Chicago",
-            mode: "insensitive",
-          },
+          ...locationFilter,
           requiredSkills: {
             some: {
-              normalizedTerm: { in: skillTerms, mode: "insensitive" },
+              normalizedTerm: {
+                in: Array.from(expandedUserSkills),
+                mode: "insensitive",
+              },
             },
           },
         },
@@ -166,16 +194,18 @@ export async function POST(req: Request) {
         orderBy: { postedAt: "desc" },
         take: 100,
       });
+
+      /** A job skill counts as held if ANY of its synonyms is in the basket. */
+      const userHasSkill = (jobSkill: string) =>
+        expandWithSynonyms(jobSkill).some((v) =>
+          expandedUserSkills.has(v.toLowerCase())
+        );
+
       for (const j of dbJobs) {
         const req = j.requiredSkills.map((r) => r.normalizedTerm);
-        const reqLower = req.map((r) => r.toLowerCase());
-        const missing = req.filter((r, i) => !skillTermsLower.includes(reqLower[i]));
+        const missing = req.filter((r) => !userHasSkill(r));
         const matchedCount = req.length - missing.length;
-        // Need at least one requiredSkill overlap to consider surfacing
         if (req.length > 0 && matchedCount === 0) continue;
-        // Prevent double-count: if we already have an Adzuna row with
-        // this title+employer, prefer the DB row (fresher, has apply URL
-        // internal to the platform).
         const key = `db_${j.id}`;
         const base = {
           id: key,
@@ -186,6 +216,7 @@ export async function POST(req: Request) {
           payMin: j.payMin,
           payMax: j.payMax,
           payType: j.payType,
+          payEstimated: false,
           shiftType: j.shiftType,
           vertical: j.vertical || userVertical || "other",
           postedAt: j.postedAt,
@@ -204,7 +235,7 @@ export async function POST(req: Request) {
           workplace: null,
         };
         if (req.length === 0 || missing.length === 0) {
-          dbJobsQualified.push(base as unknown as typeof qualifiedJobs[number]);
+          dbJobsQualified.push(base as unknown as (typeof qualifiedJobs)[number]);
         } else if (missing.length <= 2) {
           dbJobsGap.push(base);
         }
