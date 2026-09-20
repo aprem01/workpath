@@ -166,8 +166,11 @@ model Job {
   location        String
   vertical        String
   description     String        @db.Text
-  payMin          Int           // hourly cents
-  payMax          Int           // hourly cents
+  // Nullable: a posting may state no wage. Must render as "Pay not
+  // specified" rather than an invented figure. Kept in sync with the
+  // Skilmatch schema — both apps share this database.
+  payMin          Int?          // hourly cents
+  payMax          Int?          // hourly cents
   payType         String        // "hourly" | "salary" | "contract"
   shiftType       String        @default("full_time") // "full_time" | "part_time" | "contract" | "per_diem"
   isActive        Boolean       @default(true)

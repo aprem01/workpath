@@ -15,6 +15,12 @@ export const dynamic = "force-dynamic";
  * otherwise this endpoint becomes an account-enumeration oracle.
  */
 export async function POST(req: Request) {
+  // Whether we can send mail at all is a property of OUR configuration,
+  // never of the submitted address, so it is computed before we look
+  // anything up and returned identically on every path. An earlier
+  // version returned it only when the account existed, which turned this
+  // endpoint into an account-enumeration oracle.
+  const emailConfigured = Boolean(process.env.RESEND_API_KEY);
   try {
     const { email } = await req.json();
     if (!email || typeof email !== "string" || !email.includes("@")) {
@@ -37,8 +43,14 @@ export async function POST(req: Request) {
       // otherwise accept the Host ONLY if it is on an explicit
       // allowlist; otherwise fail closed (no email, but the caller still
       // gets an opaque ok:true so this stays non-enumerable).
+      // Caroline tests on payranker.io, which was missing here, so a reset
+      // from her actual domain would have refused to send even once an
+      // email key exists. Exact matches only — this guards against Host
+      // header injection pointing a valid token at an attacker's domain.
       const ALLOWED_HOSTS = new Set([
         "workpath-iota.vercel.app",
+        "payranker.io",
+        "www.payranker.io",
         "localhost:3000",
         "localhost:3001",
       ]);
@@ -55,7 +67,7 @@ export async function POST(req: Request) {
           "request-reset: refusing to send — untrusted host and no NEXT_PUBLIC_APP_URL",
           { rawHost }
         );
-        return NextResponse.json({ ok: true });
+        return NextResponse.json({ ok: true, emailConfigured });
       }
       const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
@@ -101,17 +113,9 @@ export async function POST(req: Request) {
         }
       } else {
         console.warn("request-reset: RESEND_API_KEY unset; token created but not emailed");
-        // Caroline 9/20 #2: she requested a reset and no email arrived, and
-        // the page still told her to check her inbox. The token is created
-        // correctly and the reset page works; there is simply no email
-        // provider configured. Telling her to wait for mail that cannot be
-        // sent wastes her time, so the client is told the difference.
-        // This says nothing about whether the address exists, so the
-        // endpoint stays non-enumerable.
-        return NextResponse.json({ ok: true, emailConfigured: false });
       }
     }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, emailConfigured });
   } catch (error) {
     console.error("request-reset error:", error instanceof Error ? error.message : error);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

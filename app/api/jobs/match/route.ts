@@ -228,8 +228,11 @@ export async function POST(req: Request) {
           employer: j.employer,
           location: j.location,
           description: j.description || "",
-          payMin: j.payMin,
-          payMax: j.payMax,
+          // Pay may be absent on an employer posting. Treat it as 0 for
+          // sorting so a wageless job cannot outrank a real one, and let
+          // the card render "Pay not specified" rather than a fake figure.
+          payMin: j.payMin ?? 0,
+          payMax: j.payMax ?? 0,
           payType: j.payType,
           payEstimated: false,
           shiftType: j.shiftType,
