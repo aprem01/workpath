@@ -44,6 +44,21 @@ interface NearestRole {
 
 export default function MatchRevealPage() {
   const router = useRouter();
+  // Has this person already completed the short-form profile? Checked on
+  // mount because localStorage is unavailable during server render.
+  const [hasProfile, setHasProfile] = useState(false);
+  useEffect(() => {
+    try {
+      setHasProfile(
+        Boolean(
+          localStorage.getItem("payranker_handle") &&
+            localStorage.getItem("payranker_profile_complete")
+        )
+      );
+    } catch {
+      setHasProfile(false);
+    }
+  }, []);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [results, setResults] = useState<MatchResults | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,8 +108,13 @@ export default function MatchRevealPage() {
         const data = await res.json();
         setResults(data);
 
-        // Use pre-computed top gap skills from API (sorted by AI-resistance + count)
-        const sorted = (data.topGapSkills || []).slice(0, 3);
+        // Use pre-computed top gap skills from API (sorted by AI-resistance
+        // + count), minus anything already in the basket. The server
+        // computes gaps from its own vocabulary, so on a reload it can
+        // re-offer a skill the worker added last session.
+        const sorted = (data.topGapSkills || [])
+          .filter((g: { skill: string }) => !alreadyHave(g.skill, skillsToUse))
+          .slice(0, 3);
         setTopGapSkills(sorted);
 
         // Phase 3: also fetch adjacent careers so we can surface a
@@ -124,7 +144,27 @@ export default function MatchRevealPage() {
 
   // Caroline 8/23 Round 8: add a suggested skill (yellow "+") to the
   // basket and recalculate matches without leaving the page.
+  /**
+   * Is this recommended skill already in the basket?
+   *
+   * Caroline 9/20 #5: "CPR/First Aid Certification" did not disappear
+   * after being tapped, and tapping it again added it to the basket
+   * twice. Two separate causes: nothing checked for a duplicate before
+   * appending, and the recalculated gap list could still contain the
+   * skill that had just been added, so the chip stayed on screen
+   * inviting a second tap.
+   */
+  function alreadyHave(label: string, basket: Skill[]) {
+    const key = label.toLowerCase().trim();
+    return basket.some((s) => s.normalizedTerm.toLowerCase().trim() === key);
+  }
+
   async function addSkillAndRecalc(skillLabel: string) {
+    // Guard against the double-add directly.
+    if (alreadyHave(skillLabel, skills)) {
+      setTopGapSkills((prev) => prev.filter((g) => !alreadyHave(g.skill, skills)));
+      return;
+    }
     setAddingSkill(skillLabel);
     try {
       const nextSkills: Skill[] = [
@@ -155,7 +195,15 @@ export default function MatchRevealPage() {
       });
       const data = await res.json();
       setResults(data);
-      setTopGapSkills((data.topGapSkills || []).slice(0, 3));
+      // Never re-offer something the basket already contains. The server
+      // recomputes gaps from its own vocabulary, so a skill the worker just
+      // added can come back under a slightly different spelling; filtering
+      // against the basket here is what actually makes the chip disappear.
+      setTopGapSkills(
+        (data.topGapSkills || [])
+          .filter((g: { skill: string }) => !alreadyHave(g.skill, nextSkills))
+          .slice(0, 3)
+      );
     } catch {
       // best-effort — the skill is already saved to localStorage
     } finally {
@@ -346,15 +394,23 @@ export default function MatchRevealPage() {
           <p className="text-magenta font-bold text-lg mb-4">
             {qualifiedCount} jobs ready to view
           </p>
+          {/* Caroline 9/20 #6: this always pushed to /profile, so someone
+              who had already completed their profile was sent back to
+              "Create Your Anonymous Profile" just to view their matches.
+              The short-form profile should only be reachable again through
+              the hamburger menu. Someone who already has one goes straight
+              to the job list. */}
           <button
-            onClick={() => router.push("/profile")}
+            onClick={() => router.push(hasProfile ? "/jobs" : "/profile")}
             className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-white bg-magenta hover:bg-magenta-dark transition-colors text-base"
           >
             See your job list&nbsp;&rarr;
           </button>
-          <p className="text-sm text-graytext italic mt-3 font-medium">
-            Create your anonymous profile to continue
-          </p>
+          {!hasProfile && (
+            <p className="text-sm text-graytext italic mt-3 font-medium">
+              Create your anonymous profile to continue
+            </p>
+          )}
         </div>
       </main>
     </div>

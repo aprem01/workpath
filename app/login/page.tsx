@@ -18,16 +18,21 @@ function LoginInner() {
   const [forgotOpen, setForgotOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetState, setResetState] = useState<"idle" | "sending" | "sent">("idle");
+  // Distinguish "we emailed you" from "we can't email yet". Claiming the
+  // first when the second is true sends people to an empty inbox.
+  const [emailConfigured, setEmailConfigured] = useState(true);
 
   async function requestReset(e: React.FormEvent) {
     e.preventDefault();
     setResetState("sending");
     try {
-      await fetch("/api/auth/request-reset", {
+      const res = await fetch("/api/auth/request-reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: resetEmail || email }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (data && data.emailConfigured === false) setEmailConfigured(false);
     } catch {
       // The endpoint always reports success to avoid leaking which
       // addresses exist; a network failure shouldn't say otherwise.
@@ -153,6 +158,7 @@ function LoginInner() {
               Forgot your password?
             </button>
           ) : resetState === "sent" ? (
+            emailConfigured ? (
             <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-left">
               <p className="text-sm font-semibold text-green-800">
                 Check your email to reset your password.
@@ -161,6 +167,18 @@ function LoginInner() {
                 We sent a reset link to {resetEmail || email}. It&apos;s valid for one hour.
               </p>
             </div>
+            ) : (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left">
+              <p className="text-sm font-semibold text-amber-900">
+                We can&apos;t send the reset email yet.
+              </p>
+              <p className="text-xs text-amber-800 mt-1">
+                Password reset by email isn&apos;t switched on for this beta yet, so
+                nothing will arrive in your inbox. Contact us and we&apos;ll reset it
+                for you.
+              </p>
+            </div>
+            )
           ) : (
             <form onSubmit={requestReset} className="text-left space-y-2">
               <label className="block text-sm font-semibold text-gray-700">

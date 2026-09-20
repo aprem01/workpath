@@ -101,6 +101,14 @@ export async function POST(req: Request) {
         }
       } else {
         console.warn("request-reset: RESEND_API_KEY unset; token created but not emailed");
+        // Caroline 9/20 #2: she requested a reset and no email arrived, and
+        // the page still told her to check her inbox. The token is created
+        // correctly and the reset page works; there is simply no email
+        // provider configured. Telling her to wait for mail that cannot be
+        // sent wastes her time, so the client is told the difference.
+        // This says nothing about whether the address exists, so the
+        // endpoint stays non-enumerable.
+        return NextResponse.json({ ok: true, emailConfigured: false });
       }
     }
     return NextResponse.json({ ok: true });
