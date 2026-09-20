@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sendEmail, isEmailConfigured } from "@/lib/email";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -7,10 +8,13 @@ export const dynamic = "force-dynamic";
  * Send a verification email via Resend.
  *
  * Setup:
- * 1. Sign up at https://resend.com (free: 3,000 emails/month)
- * 2. Add a sending domain (or use onboarding@resend.dev for testing)
- * 3. Set RESEND_API_KEY in Vercel env vars
- * 4. Set RESEND_FROM in Vercel env vars (e.g., "noreply@payranker.app")
+ * 1. Sign up at https://sendgrid.com (free: 100 emails/day)
+ * 2. Authenticate the domain with CNAME records, or verify a single
+ *    sender address if you can't change DNS yet
+ * 3. Set SENDGRID_API_KEY in Vercel env vars
+ * 4. Set EMAIL_FROM in Vercel env vars, e.g. "PayRanker <noreply@payranker.io>"
+ *
+ * Sending goes through lib/email.ts — change providers there, not here.
  *
  * Without those env vars, the API returns sent:false with a helpful message
  * (so the UI can show "Email service not configured yet" instead of lying).
@@ -26,10 +30,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const apiKey = process.env.RESEND_API_KEY;
-    const fromAddr = process.env.RESEND_FROM || "onboarding@resend.dev";
-
-    if (!apiKey) {
+    if (!isEmailConfigured()) {
       return NextResponse.json({
         sent: false,
         message:
@@ -75,23 +76,13 @@ export async function POST(req: Request) {
       </html>
     `;
 
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: fromAddr,
-        to: email,
-        subject: "Verify your PayRanker email",
-        html: emailHtml,
-      }),
+    const result = await sendEmail({
+      to: email,
+      subject: "Verify your PayRanker email",
+      html: emailHtml,
     });
 
-    if (!r.ok) {
-      const err = await r.text();
-      console.error("Resend error:", err);
+    if (!result.sent) {
       return NextResponse.json({
         sent: false,
         message: "Could not send verification email. Try again later.",

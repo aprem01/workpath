@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendEmail, isEmailConfigured } from "@/lib/email";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
   // anything up and returned identically on every path. An earlier
   // version returned it only when the account existed, which turned this
   // endpoint into an account-enumeration oracle.
-  const emailConfigured = Boolean(process.env.RESEND_API_KEY);
+  const emailConfigured = isEmailConfigured();
   try {
     const { email } = await req.json();
     if (!email || typeof email !== "string" || !email.includes("@")) {
@@ -75,44 +76,30 @@ export async function POST(req: Request) {
       // approach as /api/auth/send-verification. The `resend` SDK is NOT
       // a dependency of this app; importing it built locally (stale
       // transitive copy in node_modules) but broke the Vercel build.
-      const apiKey = process.env.RESEND_API_KEY;
-      const fromAddr = process.env.RESEND_FROM || "onboarding@resend.dev";
-      if (apiKey) {
-        try {
-          const r = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              from: fromAddr,
-              to: addr,
-              subject: "Reset your PayRanker password",
-              text:
-                `Use the link below to choose a new PayRanker password:\n\n${resetUrl}\n\n` +
-                `This link is valid for one hour. If you didn't ask for it, ignore this email.`,
-              html:
-                `<p>Use the button below to choose a new PayRanker password:</p>` +
-                `<p><a href="${resetUrl}" style="display:inline-block;background:#E725E2;color:#fff;` +
-                `text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:24px">` +
-                `Reset my password</a></p>` +
-                `<p style="font-size:13px;color:#666">Or paste this into your browser:<br/>` +
-                `<code>${resetUrl}</code></p>` +
-                `<p style="font-size:12px;color:#999">Valid for one hour. If you didn't ask ` +
-                `for it, ignore this email.</p>`,
-            }),
-          });
-          if (!r.ok) {
-            console.error("reset email send failed:", r.status, await r.text());
-          }
-        } catch (e) {
-          // Never fail the request because delivery failed — the user
-          // still sees "check your email"; we log for ops.
-          console.error("reset email send failed:", e instanceof Error ? e.message : e);
+      if (emailConfigured) {
+        const result = await sendEmail({
+          to: addr,
+          subject: "Reset your PayRanker password",
+          text:
+            `Use the link below to choose a new PayRanker password:\n\n${resetUrl}\n\n` +
+            `This link is valid for one hour. If you didn't ask for it, ignore this email.`,
+          html:
+            `<p>Use the button below to choose a new PayRanker password:</p>` +
+            `<p><a href="${resetUrl}" style="display:inline-block;background:#E725E2;color:#fff;` +
+            `text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:24px">` +
+            `Reset my password</a></p>` +
+            `<p style="font-size:13px;color:#666">Or paste this into your browser:<br/>` +
+            `<code>${resetUrl}</code></p>` +
+            `<p style="font-size:12px;color:#999">Valid for one hour. If you didn't ask ` +
+            `for it, ignore this email.</p>`,
+        });
+        if (!result.sent) {
+          // Log for ops, but never change the response — the reply must look
+          // identical whether or not the address exists.
+          console.error("reset email send failed:", result.error);
         }
       } else {
-        console.warn("request-reset: RESEND_API_KEY unset; token created but not emailed");
+        console.warn("request-reset: no email provider configured; token created but not emailed");
       }
     }
     return NextResponse.json({ ok: true, emailConfigured });

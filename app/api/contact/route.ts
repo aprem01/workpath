@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendEmail, isEmailConfigured } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,29 @@ export async function POST(req: Request) {
         }),
       },
     });
+
+    // Caroline 9/20 #9: her test message was stored correctly but nobody
+    // was notified, so from her side it looked like it had gone nowhere.
+    // The database row stays the record of truth; this is the ping.
+    if (isEmailConfigured()) {
+      const to = process.env.CONTACT_NOTIFY_TO || "";
+      if (to) {
+        const result = await sendEmail({
+          to,
+          subject: `PayRanker contact: ${cleanTopic}`,
+          text: `From: ${cleanName || "(no name)"} <${cleanEmail || "no email"}>\nTopic: ${cleanTopic}\n\n${cleanMessage}`,
+          html:
+            `<p><strong>From:</strong> ${cleanName || "(no name)"} &lt;${cleanEmail || "no email"}&gt;</p>` +
+            `<p><strong>Topic:</strong> ${cleanTopic}</p>` +
+            `<hr/><p style="white-space:pre-wrap">${cleanMessage}</p>`,
+        });
+        if (!result.sent) {
+          // Never fail the user's submission because our notification
+          // failed — their message is already saved.
+          console.error("contact notify failed:", result.error);
+        }
+      }
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
