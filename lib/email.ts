@@ -1,19 +1,29 @@
 /**
  * Outbound transactional email.
  *
- * One seam, one provider behind it. We moved from Resend to SendGrid on
- * 2026-09-20 because Resend requires an MX record on a `send` subdomain,
- * and on Namecheap adding MX means switching Mail Settings away from
- * "Email Forwarding" — which would have broken the forwarding Caroline
- * relies on for hello@payranker.io. SendGrid authenticates with CNAMEs
- * only and never touches Mail Settings.
+ * Provider history, because it explains the shape of this file:
+ *   Resend   — required an MX record on a `send` subdomain. On Namecheap
+ *              adding MX means switching Mail Settings off "Email
+ *              Forwarding", which would have broken forwarding for
+ *              hello@payranker.io. Caroline hit this while adding records.
+ *   SendGrid — no MX, but its free tier became a 60-day trial in 2025,
+ *              then $19.95/mo. Poor value for a three-user beta.
+ *   Postmark — 100/month free indefinitely, two DNS records, no MX, and
+ *              the strongest transactional deliverability. Chosen
+ *              2026-09-20.
  *
- * That switch touched five call sites across two apps. Hence this file:
- * the next provider change should be this one function.
+ * Deliverability is the point here, not price. A password reset that
+ * lands in spam leaves a jobseeker locked out of an account with no
+ * support channel.
+ *
+ * Every call site in both apps goes through sendEmail(). Switching
+ * providers is this file only — that is the whole reason it exists.
  *
  * Env:
- *   SENDGRID_API_KEY  — SG.xxx from sendgrid.com
- *   EMAIL_FROM        — "PayRanker <noreply@payranker.io>" or a bare address
+ *   POSTMARK_SERVER_TOKEN — Server API token from postmarkapp.com
+ *   EMAIL_FROM            — must match a verified Sender Signature or a
+ *                           verified domain, e.g.
+ *                           "PayRanker <hello@payranker.io>"
  */
 
 export interface SendResult {
@@ -24,28 +34,24 @@ export interface SendResult {
   configured: boolean;
 }
 
+function fromAddress(): string {
+  // Older names read as fallbacks so a half-migrated environment still
+  // sends rather than silently going quiet.
+  return (
+    process.env.EMAIL_FROM ||
+    process.env.RESEND_FROM ||
+    ""
+  ).trim();
+}
+
 /**
  * Is outbound email switched on at all?
  *
- * Callers use this to tell "we emailed you" apart from "we cannot email
- * yet". Depends only on server config, never on the recipient, so it is
+ * Depends only on server configuration, never on the recipient, so it is
  * safe to report to a client without leaking whether an account exists.
  */
 export function isEmailConfigured(): boolean {
-  return Boolean(process.env.SENDGRID_API_KEY && fromAddress());
-}
-
-function fromAddress(): string {
-  // RESEND_FROM is read as a fallback so a half-migrated environment still
-  // sends rather than silently going quiet.
-  return (process.env.EMAIL_FROM || process.env.RESEND_FROM || "").trim();
-}
-
-/** Split "Name <addr@example.com>" into SendGrid's shape. */
-function parseFrom(raw: string): { email: string; name?: string } {
-  const m = raw.match(/^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/);
-  if (m) return { email: m[2].trim(), name: m[1].trim() || undefined };
-  return { email: raw.trim() };
+  return Boolean(process.env.POSTMARK_SERVER_TOKEN && fromAddress());
 }
 
 export async function sendEmail(opts: {
@@ -54,41 +60,47 @@ export async function sendEmail(opts: {
   html: string;
   text?: string;
 }): Promise<SendResult> {
-  const apiKey = process.env.SENDGRID_API_KEY;
+  const token = process.env.POSTMARK_SERVER_TOKEN;
   const from = fromAddress();
-  if (!apiKey || !from) {
+  if (!token || !from) {
     return { sent: false, configured: false, error: "email not configured" };
   }
 
-  const content: { type: string; value: string }[] = [];
-  // SendGrid requires text/plain before text/html when both are present.
-  if (opts.text) content.push({ type: "text/plain", value: opts.text });
-  content.push({ type: "text/html", value: opts.html });
-
   try {
-    const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    const res = await fetch("https://api.postmarkapp.com/email", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        "X-Postmark-Server-Token": token,
         "Content-Type": "application/json",
+        Accept: "application/json",
       },
       body: JSON.stringify({
-        personalizations: [{ to: [{ email: opts.to }] }],
-        from: parseFrom(from),
-        subject: opts.subject,
-        content,
+        From: from,
+        To: opts.to,
+        Subject: opts.subject,
+        HtmlBody: opts.html,
+        ...(opts.text ? { TextBody: opts.text } : {}),
+        // Keep password resets and verifications on the transactional
+        // stream. Mixing them with bulk mail would let a marketing
+        // complaint rate degrade delivery of account-critical email.
+        MessageStream: "outbound",
       }),
     });
-    // A successful send is 202 Accepted with an empty body.
-    if (res.status >= 200 && res.status < 300) {
+
+    // Postmark answers 200 with ErrorCode 0 on success; failures carry a
+    // non-zero ErrorCode and usually a 422.
+    const body = await res.json().catch(() => ({}) as Record<string, unknown>);
+    const errorCode = (body as { ErrorCode?: number }).ErrorCode;
+    if (res.ok && (errorCode === 0 || errorCode === undefined)) {
       return { sent: true, configured: true };
     }
-    const body = await res.text();
-    console.error("sendgrid error:", res.status, body.slice(0, 300));
-    return { sent: false, configured: true, error: `http ${res.status}` };
+    const message =
+      (body as { Message?: string }).Message || `http ${res.status}`;
+    console.error("postmark error:", res.status, errorCode, message);
+    return { sent: false, configured: true, error: `${errorCode ?? res.status}: ${message}` };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("sendgrid send failed:", msg);
+    console.error("postmark send failed:", msg);
     return { sent: false, configured: true, error: msg };
   }
 }

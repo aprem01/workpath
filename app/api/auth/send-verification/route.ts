@@ -8,11 +8,12 @@ export const dynamic = "force-dynamic";
  * Send a verification email via Resend.
  *
  * Setup:
- * 1. Sign up at https://sendgrid.com (free: 100 emails/day)
- * 2. Authenticate the domain with CNAME records, or verify a single
- *    sender address if you can't change DNS yet
- * 3. Set SENDGRID_API_KEY in Vercel env vars
- * 4. Set EMAIL_FROM in Vercel env vars, e.g. "PayRanker <noreply@payranker.io>"
+ * 1. Sign up at https://postmarkapp.com (free: 100 emails/month, no expiry)
+ * 2. Verify a Sender Signature (one address, no DNS) or authenticate the
+ *    domain with two records — a DKIM TXT and a Return-Path CNAME. No MX,
+ *    so Namecheap Mail Settings stays on "Email Forwarding".
+ * 3. Set POSTMARK_SERVER_TOKEN in Vercel env vars
+ * 4. Set EMAIL_FROM in Vercel env vars, e.g. "PayRanker <hello@payranker.io>"
  *
  * Sending goes through lib/email.ts — change providers there, not here.
  *
