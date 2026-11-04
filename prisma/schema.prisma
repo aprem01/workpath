@@ -181,10 +181,28 @@ model Job {
   optionalSkills  String[]      @default([])
   requiredSkills  JobSkill[]
   postedAt        DateTime      @default(now())
+
+  // ── Provenance (added 2026-11-04) ─────────────────────────────────
+  // Every job must be able to say where it came from. Without this the
+  // database held 1,618 model-invented listings attributed to real
+  // employers, indistinguishable from real ones because nothing
+  // recorded a source.
+  //
+  // source     — "adzuna" | "employer" | "greenhouse" | "lever" | ...
+  // sourceUrl  — the original posting, where a jobseeker actually applies
+  // externalId — the source's own id, so re-imports update not duplicate
+  // lastSeenAt — last time the source confirmed this posting still exists
+  source          String?
+  sourceUrl       String?
+  externalId      String?
+  lastSeenAt      DateTime?
+
   applications    Application[]
 
   @@index([recruiterEmail])
   @@index([isActive])
+  @@index([source, externalId])
+  @@index([lastSeenAt])
 }
 
 model JobSkill {
