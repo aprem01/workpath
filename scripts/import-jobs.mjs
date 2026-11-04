@@ -24,20 +24,28 @@ import fs from "node:fs";
  *
  * An earlier version also read /tmp/wp.env. /tmp is world-writable, so
  * any local user could plant a file there and inject DATABASE_URL,
- * pointing this importer's writes at a database they control. Flagged by
- * the security review.
+ * pointing this importer's writes at a database they control.
  *
- * Only the keys this script needs are accepted, so a stray line in a
- * project .env cannot set anything else in the process environment.
+ * Note on what the allowlist does and does not do: Prisma loads .env on
+ * its own, before this code runs, so filtering keys here never protected
+ * DATABASE_URL. The real control is aborting outright when a credential
+ * file has loose permissions — that is what stops a tampered file being
+ * trusted — plus passing the database URL to the client explicitly
+ * rather than relying on ambient process state.
  */
 const ALLOWED_KEYS = new Set(["ADZUNA_APP_ID", "ADZUNA_APP_KEY", "DATABASE_URL"]);
 for (const f of [".env.local", ".env"]) {
   if (!fs.existsSync(f)) continue;
   const st = fs.statSync(f);
-  // Refuse group- or world-writable credential files.
   if (st.mode & 0o022) {
-    console.warn(`skipping ${f}: group/world-writable`);
-    continue;
+    // Abort, never continue. Prisma has already read this file, so
+    // carrying on would use credentials we just judged untrustworthy.
+    console.error(
+      `${f} is group- or world-writable (mode ${(st.mode & 0o777).toString(8)}).\n` +
+      `Refusing to run: another user could have altered DATABASE_URL.\n` +
+      `Fix with: chmod 600 ${f}`
+    );
+    process.exit(1);
   }
   for (const line of fs.readFileSync(f, "utf8").split("\n")) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
@@ -47,13 +55,21 @@ for (const f of [".env.local", ".env"]) {
   }
 }
 
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error("DATABASE_URL not set; refusing to run.");
+  process.exit(1);
+}
+
 const APP_ID = process.env.ADZUNA_APP_ID;
 const APP_KEY = process.env.ADZUNA_APP_KEY;
 if (!APP_ID || !APP_KEY) { console.error("ADZUNA_APP_ID / ADZUNA_APP_KEY not set"); process.exit(1); }
 
 const DRY = process.argv.includes("--dry");
 const LIMIT = Number((process.argv.find(a => a.startsWith("--limit=")) || "").split("=")[1]) || 50;
-const prisma = new PrismaClient();
+// Explicit datasource, so the connection cannot be redirected by
+// ambient environment state we did not validate.
+const prisma = new PrismaClient({ datasources: { db: { url: DATABASE_URL } } });
 
 // Chicago launch vertical first, then the adjacent ones PayRanker serves.
 // Occupations PayRanker actually serves, across every launch vertical.
