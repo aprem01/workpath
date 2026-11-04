@@ -19,11 +19,31 @@
 import { PrismaClient } from "@prisma/client";
 import fs from "node:fs";
 
-for (const f of ["/tmp/wp.env", ".env.local", ".env"]) {
+/**
+ * Load credentials from project-local env files only.
+ *
+ * An earlier version also read /tmp/wp.env. /tmp is world-writable, so
+ * any local user could plant a file there and inject DATABASE_URL,
+ * pointing this importer's writes at a database they control. Flagged by
+ * the security review.
+ *
+ * Only the keys this script needs are accepted, so a stray line in a
+ * project .env cannot set anything else in the process environment.
+ */
+const ALLOWED_KEYS = new Set(["ADZUNA_APP_ID", "ADZUNA_APP_KEY", "DATABASE_URL"]);
+for (const f of [".env.local", ".env"]) {
   if (!fs.existsSync(f)) continue;
+  const st = fs.statSync(f);
+  // Refuse group- or world-writable credential files.
+  if (st.mode & 0o022) {
+    console.warn(`skipping ${f}: group/world-writable`);
+    continue;
+  }
   for (const line of fs.readFileSync(f, "utf8").split("\n")) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+    if (m && ALLOWED_KEYS.has(m[1]) && !process.env[m[1]]) {
+      process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+    }
   }
 }
 
@@ -36,17 +56,60 @@ const LIMIT = Number((process.argv.find(a => a.startsWith("--limit=")) || "").sp
 const prisma = new PrismaClient();
 
 // Chicago launch vertical first, then the adjacent ones PayRanker serves.
+// Occupations PayRanker actually serves, across every launch vertical.
+// Adzuna reports thousands available per broad term in Chicago, so the
+// limit is our pagination, not supply.
 const SEARCHES = [
-  { what: "home health aide",    vertical: "home_health_aide" },
-  { what: "caregiver",           vertical: "home_health_aide" },
+  // Home care / healthcare support — the launch vertical
+  { what: "home health aide", vertical: "home_health_aide" },
+  { what: "caregiver", vertical: "home_health_aide" },
   { what: "certified nursing assistant", vertical: "home_health_aide" },
-  { what: "personal care aide",  vertical: "home_health_aide" },
+  { what: "personal care aide", vertical: "home_health_aide" },
+  { what: "direct support professional", vertical: "home_health_aide" },
+  { what: "medical assistant", vertical: "home_health_aide" },
+  { what: "patient care technician", vertical: "home_health_aide" },
+  { what: "phlebotomist", vertical: "home_health_aide" },
+  { what: "dietary aide", vertical: "home_health_aide" },
+  { what: "medical receptionist", vertical: "home_health_aide" },
+  // Transport / logistics
   { what: "warehouse associate", vertical: "transport" },
-  { what: "forklift operator",   vertical: "transport" },
+  { what: "forklift operator", vertical: "transport" },
+  { what: "delivery driver", vertical: "transport" },
+  { what: "cdl driver", vertical: "transport" },
+  { what: "package handler", vertical: "transport" },
+  { what: "material handler", vertical: "transport" },
+  { what: "shipping receiving", vertical: "transport" },
+  // Retail
   { what: "retail sales associate", vertical: "retail" },
-  { what: "line cook",           vertical: "food_service" },
+  { what: "cashier", vertical: "retail" },
+  { what: "stock associate", vertical: "retail" },
+  { what: "store manager", vertical: "retail" },
+  { what: "merchandiser", vertical: "retail" },
+  // Food service
+  { what: "line cook", vertical: "food_service" },
+  { what: "prep cook", vertical: "food_service" },
+  { what: "server restaurant", vertical: "food_service" },
+  { what: "dishwasher", vertical: "food_service" },
+  { what: "barista", vertical: "food_service" },
+  { what: "food service worker", vertical: "food_service" },
+  // Admin / customer-facing
   { what: "customer service representative", vertical: "admin" },
+  { what: "administrative assistant", vertical: "admin" },
+  { what: "data entry clerk", vertical: "admin" },
+  { what: "receptionist", vertical: "admin" },
+  { what: "call center", vertical: "admin" },
+  // Trades / facilities
+  { what: "maintenance technician", vertical: "trades" },
+  { what: "janitor custodian", vertical: "trades" },
+  { what: "security guard", vertical: "trades" },
+  { what: "housekeeper", vertical: "trades" },
+  { what: "landscaper", vertical: "trades" },
 ];
+
+/** Adzuna pages to pull per occupation. 50 results per page. */
+const PAGES = Number((process.argv.find((a) => a.startsWith("--pages=")) || "").split("=")[1]) || 3;
+/** Be polite to the API between calls. */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Skill vocabulary we can honestly detect in a posting's own words. */
 const SKILL_TERMS = [
@@ -83,60 +146,61 @@ const now = new Date();
 let created = 0, refreshed = 0, skipped = 0;
 
 for (const { what, vertical } of SEARCHES) {
-  let batch;
-  try { batch = await fetchPage(what, 1); }
-  catch (e) { console.warn(`  ${what}: ${e.message}`); continue; }
-  const results = (batch.results || []).slice(0, LIMIT);
-  for (const r of results) {
-    const externalId = String(r.id || "");
-    if (!externalId || !r.redirect_url) { skipped++; continue; }
-    const text = `${r.title || ""} ${r.description || ""}`;
-    const skills = extractSkills(text);
-    // Adzuna pay is annual USD when present. Convert to hourly cents to
-    // match the column's documented unit; absent stays null, never guessed.
-    const toHourlyCents = (annual) =>
-      typeof annual === "number" && annual > 0 ? Math.round((annual / 2080) * 100) : null;
+  let seenForTerm = 0;
+  for (let page = 1; page <= PAGES; page++) {
+    let batch;
+    try { batch = await fetchPage(what, page); }
+    catch (e) { console.warn(`  ${what} p${page}: ${e.message}`); break; }
+    const results = batch.results || [];
+    if (!results.length) break; // no more pages for this term
+    seenForTerm += results.length;
+    for (const r of results) {
+      const externalId = String(r.id || "");
+      if (!externalId || !r.redirect_url) { skipped++; continue; }
+      const text = `${r.title || ""} ${r.description || ""}`;
+      const skills = extractSkills(text);
+      const toHourlyCents = (annual) =>
+        typeof annual === "number" && annual > 0 ? Math.round((annual / 2080) * 100) : null;
 
-    const data = {
-      title: String(r.title || "").replace(/<[^>]+>/g, "").trim().slice(0, 200),
-      employer: String(r.company?.display_name || "").trim().slice(0, 160) || "Employer not stated",
-      location: String(r.location?.display_name || "Chicago, IL").slice(0, 160),
-      vertical,
-      description: String(r.description || "").replace(/<[^>]+>/g, "").trim().slice(0, 4000),
-      payMin: toHourlyCents(r.salary_min),
-      payMax: toHourlyCents(r.salary_max),
-      payType: "hourly",
-      shiftType: /part[- ]time/i.test(text) ? "part_time" : "full_time",
-      isActive: true,
-      source: "adzuna",
-      sourceUrl: r.redirect_url,
-      externalId,
-      lastSeenAt: now,
-      postedAt: r.created ? new Date(r.created) : now,
-    };
-    if (DRY) { created++; continue; }
-    const existing = await prisma.job.findFirst({
-      where: { source: "adzuna", externalId }, select: { id: true },
-    });
-    if (existing) {
-      await prisma.job.update({ where: { id: existing.id }, data: { lastSeenAt: now, isActive: true } });
-      refreshed++;
-    } else {
-      await prisma.job.create({
-        data: {
-          ...data,
-          requiredSkills: {
-            // The posting names a skill, not a level. "unspecified" says
-            // so honestly; guessing "intermediate" would invent a
-            // requirement the employer never set.
-            create: skills.map((s) => ({ normalizedTerm: s, proficiencyLevel: "unspecified" })),
-          },
-        },
+      const data = {
+        title: String(r.title || "").replace(/<[^>]+>/g, "").trim().slice(0, 200),
+        employer: String(r.company?.display_name || "").trim().slice(0, 160) || "Employer not stated",
+        location: String(r.location?.display_name || "Chicago, IL").slice(0, 160),
+        vertical,
+        description: String(r.description || "").replace(/<[^>]+>/g, "").trim().slice(0, 4000),
+        payMin: toHourlyCents(r.salary_min),
+        payMax: toHourlyCents(r.salary_max),
+        payType: "hourly",
+        shiftType: /part[- ]time/i.test(text) ? "part_time" : "full_time",
+        isActive: true,
+        source: "adzuna",
+        sourceUrl: r.redirect_url,
+        externalId,
+        lastSeenAt: now,
+        postedAt: r.created ? new Date(r.created) : now,
+      };
+      if (DRY) { created++; continue; }
+      const existing = await prisma.job.findFirst({
+        where: { source: "adzuna", externalId }, select: { id: true },
       });
-      created++;
+      if (existing) {
+        await prisma.job.update({ where: { id: existing.id }, data: { lastSeenAt: now, isActive: true } });
+        refreshed++;
+      } else {
+        await prisma.job.create({
+          data: {
+            ...data,
+            requiredSkills: {
+              create: skills.map((sk) => ({ normalizedTerm: sk, proficiencyLevel: "unspecified" })),
+            },
+          },
+        });
+        created++;
+      }
     }
+    await sleep(350);
   }
-  console.log(`  ${what.padEnd(34)} ${results.length} returned`);
+  console.log(`  ${what.padEnd(34)} ${String(seenForTerm).padStart(4)} seen`);
 }
 
 console.log(`\n${DRY ? "[dry run] " : ""}created ${created}, refreshed ${refreshed}, skipped ${skipped}`);
