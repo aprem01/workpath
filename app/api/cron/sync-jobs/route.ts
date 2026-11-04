@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +55,23 @@ const toHourlyCents = (annual: unknown) =>
   typeof annual === "number" && annual > 0 ? Math.round((annual / 2080) * 100) : null;
 
 export async function GET(req: Request) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Fail closed. An unset CRON_SECRET used to make this compare against
+  // the literal string "Bearer undefined", so anyone sending that header
+  // could trigger a sync — burning the Adzuna quota and, worse, driving
+  // the retire step that deactivates job inventory.
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    console.error("cron/sync-jobs: CRON_SECRET unset; refusing to run");
+    return NextResponse.json({ error: "Cron not configured" }, { status: 503 });
+  }
+  const presented = Buffer.from(req.headers.get("authorization") ?? "");
+  const expected = Buffer.from(`Bearer ${secret}`);
+  // timingSafeEqual throws on length mismatch, so check that first. The
+  // length itself is not secret.
+  if (
+    presented.length !== expected.length ||
+    !timingSafeEqual(presented, expected)
+  ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const appId = process.env.ADZUNA_APP_ID;
