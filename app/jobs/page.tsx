@@ -831,7 +831,8 @@ function JobsPageInner() {
                     onClick={(e) => {
                       e.stopPropagation();
                       // Re-open the external page
-                      if (job.applyUrl) window.open(job.applyUrl, "_blank");
+                      if (job.applyUrl)
+                        window.open(job.applyUrl, "_blank", "noopener,noreferrer");
                     }}
                     className="px-3 py-1 rounded-full border border-gray-300 text-graytext font-semibold text-xs hover:bg-gray-50 transition-colors"
                   >

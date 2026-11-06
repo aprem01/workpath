@@ -19,6 +19,7 @@ import { prisma } from "@/lib/prisma";
 import { expandWithSynonyms } from "@/lib/equivalencies";
 import { expandWithAliases } from "@/lib/skill-aliases";
 import { expandWithConcepts } from "@/lib/skill-concepts.generated";
+import { safeExternalUrl } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -251,7 +252,8 @@ export async function POST(req: Request) {
           // flow, because only then does a recruiter exist on our side to
           // receive it. Sending a worker into an internal form for a job
           // Visionworks never posted here is a dead end.
-          applyUrl: j.source === "employer" ? undefined : (j.sourceUrl ?? undefined),
+          applyUrl:
+            j.source === "employer" ? undefined : safeExternalUrl(j.sourceUrl),
           transferability: null,
           wage: null,
           projection: null,
@@ -313,7 +315,7 @@ export async function POST(req: Request) {
         missingSkills: [],
         requiredSkills: [],
         isReal: true,
-        applyUrl: aj.redirect_url,
+        applyUrl: safeExternalUrl(aj.redirect_url),
         wage: wage
           ? {
               medianHourly: wage.medianHourly,
@@ -469,7 +471,7 @@ export async function POST(req: Request) {
         missingSkills,
         requiredSkills: [],
         isReal: true,
-        applyUrl: aj.redirect_url,
+        applyUrl: safeExternalUrl(aj.redirect_url),
         transferability,
         wage: gapWage
           ? {
@@ -623,7 +625,7 @@ export async function POST(req: Request) {
             missingSkills: [aj._missingSkill],
             requiredSkills: [],
             isReal: true,
-            applyUrl: aj.redirect_url,
+            applyUrl: safeExternalUrl(aj.redirect_url),
             transferability: null,
             wage: null,
             projection: null,

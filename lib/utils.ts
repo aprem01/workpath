@@ -38,3 +38,23 @@ export function generateAnonymousHandle(): string {
 
   return `${c1}${v1a}${v1b}${c2}${v2a}${v2b}${num}`;
 }
+
+/**
+ * Only ever hand the browser an http(s) link.
+ *
+ * Apply URLs come from third-party job feeds (Adzuna today, Greenhouse /
+ * Lever later), so they are untrusted input that we put straight into an
+ * `href` and a `window.open`. A `javascript:` or `data:` URL there would
+ * run in the worker's session. Anything that is not plain http(s) is
+ * dropped rather than rendered.
+ */
+export function safeExternalUrl(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return undefined;
+    return u.toString();
+  } catch {
+    return undefined;
+  }
+}
