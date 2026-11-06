@@ -24652,7 +24652,10 @@ const CREDENTIAL_PATTERNS: CredentialPattern[] = [
   },
   {
     label: "RN License",
-    jobPattern: /\b(registered nurse|rn\b)\b/,
+    // A title that says only "Nurse" (Home Health Nurse, Staff Nurse) is
+    // licensed work. "Nurse Aide" / "Nursing Assistant" are not, so they
+    // are excluded here and handled by the CNA entry below.
+    jobPattern: /\b(registered nurse|rn\b|nurse\b(?!\s*(aide|assistant|asst|extern|tech)))\b/,
     userAliases: ["rn license", "rn", "registered nurse license"],
   },
   {
@@ -24677,13 +24680,63 @@ const CREDENTIAL_PATTERNS: CredentialPattern[] = [
   },
   {
     label: "CNA License",
-    jobPattern: /\b(cna\b|certified nursing assistant)\b/,
+    jobPattern: /(\bcna\b|\bc\.n\.a\.?|certified nursing assistant|certified nursing asst|certified nurse aide)/,
     userAliases: ["cna license", "cna", "certified nursing assistant"],
   },
   {
     label: "HHA Certification",
     jobPattern: /\b(hha\b|home health aide)\b/,
     userAliases: ["hha certification", "hha", "home health aide certification"],
+  },
+  {
+    label: "PA / APRN License",
+    jobPattern: /\b(physician'?s? assistant|pa-c\b|advanced practice provider|advanced practice registered nurse|aprn\b|fnp\b)\b/,
+    userAliases: ["pa license", "pa-c", "physician assistant license", "aprn", "fnp"],
+  },
+  {
+    label: "Optometry License",
+    jobPattern: /\b(optometrist|doctor of optometry)\b/,
+    userAliases: ["optometry license", "optometrist license", "doctor of optometry"],
+  },
+  {
+    label: "SLP License",
+    jobPattern: /\b(speech[- ]language pathologist|speech therapist|slp\b)\b/,
+    userAliases: ["slp license", "speech language pathologist license", "ccc-slp"],
+  },
+  {
+    label: "OTA License",
+    jobPattern: /\b(occupational therapy assistant|cota\b)\b/,
+    userAliases: ["ota license", "cota", "occupational therapy assistant license"],
+  },
+  {
+    label: "Pharmacy License",
+    jobPattern: /\b(pharmacist|pharmd\b|rph\b)\b/,
+    userAliases: ["pharmacy license", "pharmacist license", "pharmd", "rph"],
+  },
+  {
+    label: "Dental License",
+    jobPattern: /\b(dentist|dental hygienist|rdh\b)\b/,
+    userAliases: ["dental license", "dentist license", "dental hygiene license", "rdh"],
+  },
+  {
+    label: "Respiratory Therapy License",
+    jobPattern: /\b(respiratory therapist|rrt\b)\b/,
+    userAliases: ["respiratory therapy license", "rrt", "respiratory therapist license"],
+  },
+  {
+    label: "Radiologic Tech License",
+    jobPattern: /\b(radiologic technologist|rad tech|arrt\b)\b/,
+    userAliases: ["radiologic technologist license", "arrt", "rad tech license"],
+  },
+  {
+    label: "Surgical Tech Certification",
+    jobPattern: /\b(surgical technologist|surg(ical)? scrub tech|scrub tech|cath lab tech)\b/,
+    userAliases: ["surgical tech certification", "certified surgical technologist", "rcis"],
+  },
+  {
+    label: "Veterinary Tech License",
+    jobPattern: /\b(veterinary technician|vet tech)\b/,
+    userAliases: ["veterinary tech license", "veterinary technician license", "cvt", "rvt"],
   },
   // Wellness
   {

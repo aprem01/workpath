@@ -246,7 +246,12 @@ export async function POST(req: Request) {
           missingSkills: missing,
           requiredSkills: req,
           isReal: true,
-          applyUrl: undefined,
+          // Imported jobs (Adzuna) must link out to the employer's own
+          // posting. Only an employer-posted job uses the internal apply
+          // flow, because only then does a recruiter exist on our side to
+          // receive it. Sending a worker into an internal form for a job
+          // Visionworks never posted here is a dead end.
+          applyUrl: j.source === "employer" ? undefined : (j.sourceUrl ?? undefined),
           transferability: null,
           wage: null,
           projection: null,
