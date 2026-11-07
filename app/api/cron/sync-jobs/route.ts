@@ -71,6 +71,48 @@ const PAGES_PER_TERM = 3;
  */
 const PULL_BUDGET_MS = 230_000;
 
+/**
+ * Adzuna rate-limits hard. Firing the page requests back-to-back gets
+ * most of them rejected with 429: a burst of 15 concurrent requests on
+ * 2026-11-07 returned nine 429s. The old loop treated any non-OK
+ * response as "no more pages" and moved on silently, so a throttled run
+ * reported success having refreshed 68 postings instead of ~2,500.
+ *
+ * So: one request at a time, spaced, and a 429 is retried rather than
+ * taken as the end of the data.
+ */
+const REQUEST_SPACING_MS = 1_100;
+const MAX_RETRIES = 2;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+type PageOutcome =
+  | { ok: true; results: Record<string, unknown>[] }
+  | { ok: false; reason: "throttled" | "error" };
+
+async function fetchPage(url: string, lastRequestAt: { at: number }): Promise<PageOutcome> {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const since = Date.now() - lastRequestAt.at;
+    if (since < REQUEST_SPACING_MS) await sleep(REQUEST_SPACING_MS - since);
+    lastRequestAt.at = Date.now();
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(25000) });
+      if (res.status === 429) {
+        // Back off further on each retry, then give up on this page.
+        await sleep(REQUEST_SPACING_MS * (attempt + 2));
+        continue;
+      }
+      if (!res.ok) return { ok: false, reason: "error" };
+      const body = (await res.json()) as { results?: Record<string, unknown>[] };
+      return { ok: true, results: body.results ?? [] };
+    } catch {
+      if (attempt === MAX_RETRIES) return { ok: false, reason: "error" };
+      await sleep(REQUEST_SPACING_MS);
+    }
+  }
+  return { ok: false, reason: "throttled" };
+}
+
 const SKILL_TERMS = [
   "CPR","First Aid","HHA Certification","CNA","Vital Signs Monitoring","Medication Reminders",
   "Meal Preparation","Light Housekeeping","Mobility Assistance","Companionship","Dementia Care",
@@ -127,35 +169,61 @@ export async function GET(req: Request) {
   const startedAt = Date.now();
   let budgetHit = false;
 
+  let pagesOk = 0;
+  let pagesThrottled = 0;
+  let pagesErrored = 0;
+  const lastRequestAt = { at: 0 };
+
   outer: for (const { what, vertical } of SEARCHES) {
     for (let page = 1; page <= PAGES_PER_TERM; page++) {
       if (Date.now() - startedAt > PULL_BUDGET_MS) { budgetHit = true; break outer; }
-      try {
+      {
         const url =
           `https://api.adzuna.com/v1/api/jobs/us/search/${page}?app_id=${appId}&app_key=${appKey}` +
           `&results_per_page=50&where=${encodeURIComponent("Chicago")}` +
           `&what=${encodeURIComponent(what)}&max_days_old=30&content-type=application/json`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(25000) });
-        if (!res.ok) break;
-        const { results } = (await res.json()) as { results?: Record<string, unknown>[] };
-        if (!results || results.length === 0) break;
-        for (const r of results) {
-          const externalId = String((r as { id?: unknown }).id ?? "");
-          const sourceUrl = String((r as { redirect_url?: unknown }).redirect_url ?? "");
-          if (!externalId || !sourceUrl) continue;
+        const outcome = await fetchPage(url, lastRequestAt);
+        if (!outcome.ok) {
+          // A rejected page is NOT "no more data". Record it and stop
+          // paging this occupation, but never let it look like success.
+          if (outcome.reason === "throttled") pagesThrottled++;
+          else pagesErrored++;
+          break;
+        }
+        pagesOk++;
+        const results = outcome.results;
+        if (results.length === 0) break;
 
-          const existing = await prisma.job.findFirst({
-            where: { source: "adzuna", externalId },
-            select: { id: true },
+        // Resolve the whole page's 50 postings in two queries instead of
+        // 100. The old loop did a findFirst plus an update for every
+        // single result, which spent the entire time budget on database
+        // round trips and left no room for the request spacing above.
+        const pageRows = results
+          .map((r) => ({
+            r,
+            externalId: String((r as { id?: unknown }).id ?? ""),
+            sourceUrl: String((r as { redirect_url?: unknown }).redirect_url ?? ""),
+          }))
+          .filter((x) => x.externalId && x.sourceUrl);
+        const ids = pageRows.map((x) => x.externalId);
+        const known = new Set(
+          (
+            await prisma.job.findMany({
+              where: { source: "adzuna", externalId: { in: ids } },
+              select: { externalId: true },
+            })
+          ).map((j) => j.externalId as string)
+        );
+        if (known.size > 0) {
+          const { count } = await prisma.job.updateMany({
+            where: { source: "adzuna", externalId: { in: Array.from(known) } },
+            data: { lastSeenAt: now, isActive: true },
           });
-          if (existing) {
-            await prisma.job.update({
-              where: { id: existing.id },
-              data: { lastSeenAt: now, isActive: true },
-            });
-            refreshed++;
-            continue;
-          }
+          refreshed += count;
+        }
+
+        for (const { r, externalId, sourceUrl } of pageRows) {
+          if (known.has(externalId)) continue;
           const rec = r as Record<string, never>;
           const title = String(rec.title ?? "").replace(/<[^>]+>/g, "").trim();
           const description = String(rec.description ?? "").replace(/<[^>]+>/g, "").trim();
@@ -183,9 +251,6 @@ export async function GET(req: Request) {
           });
           created++;
         }
-      } catch {
-        // One failed page must not stop the sync or trigger a fallback.
-        break;
       }
     }
   }
@@ -194,7 +259,11 @@ export async function GET(req: Request) {
   // refreshed every live posting, so retiring here would deactivate jobs
   // that are still open purely because we ran out of time.
   const cutoff = new Date(Date.now() - 30 * 86400000);
-  const { count: retiredStale } = budgetHit ? { count: 0 } : await prisma.job.updateMany({
+  // A run that lost pages to throttling has not re-confirmed every live
+  // posting, so retiring on its evidence would deactivate jobs that are
+  // still open. Same reasoning as budgetHit.
+  const degraded = budgetHit || pagesThrottled + pagesErrored > 0;
+  const { count: retiredStale } = degraded ? { count: 0 } : await prisma.job.updateMany({
     where: {
       isActive: true, recruiterEmail: null, source: { not: null },
       OR: [{ lastSeenAt: null }, { lastSeenAt: { lt: cutoff } }],
@@ -207,11 +276,16 @@ export async function GET(req: Request) {
   });
 
   const openNow = await prisma.job.count({ where: { isActive: true } });
-  const summary = { created, refreshed, retiredStale, retiredUnsourced, openNow, budgetHit };
+  const summary = {
+    created, refreshed, retiredStale, retiredUnsourced, openNow, budgetHit,
+    pagesOk, pagesThrottled, pagesErrored, degraded,
+  };
 
   await prisma.analyticsEvent
     .create({ data: { event: "cron_job_sync", metadata: JSON.stringify(summary) } })
     .catch(() => {});
 
-  return NextResponse.json({ success: true, ...summary });
+  // Report honestly. A run that silently refreshed 2% of inventory must
+  // not answer 200 { success: true }.
+  return NextResponse.json({ success: !degraded, ...summary }, { status: degraded ? 207 : 200 });
 }
