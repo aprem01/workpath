@@ -63,8 +63,13 @@ const LEET: Record<string, string> = {
  *
  * Raise this on any change to the fastpath patterns, the known-legitimate
  * list, or the classifier prompt.
+ *
+ * 3: classifier moved from Haiku 4.5 to Haiku 5.5. A different model is a
+ *    different classifier, so every cached verdict is re-screened rather
+ *    than left frozen at the old model's answer. Expect a one-off spike in
+ *    normalization calls as the cache refills.
  */
-export const SAFETY_RULES_VERSION = 2;
+export const SAFETY_RULES_VERSION = 3;
 
 export function normalizeForMatching(input: string): string {
   let s = input.toLowerCase();
@@ -214,24 +219,18 @@ export function isKnownLegitimate(input: string): boolean {
 // ─── L3: AI contextual classifier ─────────────────────────────────
 const client = new Anthropic();
 
-async function callClassifier(opts: {
-  input: string;
-  context?: string[];
-  surface: "jobseeker_skill" | "employer_role" | "employer_skill";
-  model?: string;
-}): Promise<SafetyResult> {
-  const ctx = (opts.context || []).filter(Boolean);
-  const surfaceDesc =
-    opts.surface === "employer_role"
-      ? "an EMPLOYER is entering a job role/title they want to hire for"
-      : opts.surface === "employer_skill"
-        ? "an EMPLOYER is entering a required/optional skill for a job posting"
-        : "a JOBSEEKER is entering a skill they have";
-
-  const prompt = `You are the safety classifier for a legitimate job-matching platform. ${surfaceDesc}.
-
-INPUT: "${opts.input}"
-${ctx.length ? `SURROUNDING CONTEXT (other items already entered): ${ctx.map((c) => `"${c}"`).join(", ")}` : "SURROUNDING CONTEXT: (none yet)"}
+/**
+ * The classifier's rules. Static and byte-identical on every call, so it
+ * rides in `system` behind a cache breakpoint instead of being re-billed
+ * as fresh input each time. Haiku 5.5 caches a prefix from 512 tokens;
+ * this is ~990, so it qualifies. (On Haiku 4.5 the floor was 4096 and a
+ * breakpoint here would have silently done nothing.)
+ *
+ * Everything that varies per request — which surface the text came from,
+ * the text itself, the surrounding basket — goes in the user turn, after
+ * this prefix. Nothing variable may move above it or the cache breaks.
+ */
+const CLASSIFIER_SYSTEM = `You are the safety classifier for a legitimate job-matching platform.
 
 Return ONLY valid JSON:
 { "verdict": "allow" | "clarify" | "block", "reason": "<one sentence>", "clarifyPrompt": "<only for clarify — a short neutral question>" }
@@ -302,9 +301,35 @@ basket that points toward illicit intent:
 Ordinary skills must not wash out a suspicious one: judge the basket as
 a whole.`;
 
+async function callClassifier(opts: {
+  input: string;
+  context?: string[];
+  surface: "jobseeker_skill" | "employer_role" | "employer_skill";
+  model?: string;
+}): Promise<SafetyResult> {
+  const ctx = (opts.context || []).filter(Boolean);
+  const surfaceDesc =
+    opts.surface === "employer_role"
+      ? "an EMPLOYER is entering a job role/title they want to hire for"
+      : opts.surface === "employer_skill"
+        ? "an EMPLOYER is entering a required/optional skill for a job posting"
+        : "a JOBSEEKER is entering a skill they have";
+
+  const prompt = `${surfaceDesc}.
+
+INPUT: "${opts.input}"
+${ctx.length ? `SURROUNDING CONTEXT (other items already entered): ${ctx.map((c) => `"${c}"`).join(", ")}` : "SURROUNDING CONTEXT: (none yet)"}`;
+
   const msg = await client.messages.create({
-    model: opts.model || "claude-haiku-4-5-20251001",
+    model: opts.model || "claude-haiku-5-5",
     max_tokens: 300,
+    system: [
+      {
+        type: "text",
+        text: CLASSIFIER_SYSTEM,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
     messages: [{ role: "user", content: prompt }],
   });
   let text = (msg.content[0] as { type: string; text: string }).text || "";

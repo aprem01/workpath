@@ -168,7 +168,7 @@ export async function POST(req: Request) {
       : `For in-person options, name only national organisations that genuinely operate local branches (American Red Cross, YMCA, community colleges, vocational schools). Mark them as nationwide and do not invent specific locations.`;
 
     const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-haiku-5-5",
       max_tokens: 2500,
       messages: [
         {

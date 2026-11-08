@@ -38,7 +38,7 @@ if (!process.env.ANTHROPIC_API_KEY) {
 }
 
 const client = new Anthropic();
-const MODEL = "claude-haiku-4-5-20251001";
+const MODEL = "claude-haiku-5-5";
 const BATCH = 40;
 
 const vocab = JSON.parse(fs.readFileSync("/tmp/vocab.json", "utf8"));
