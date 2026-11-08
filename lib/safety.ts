@@ -412,7 +412,11 @@ never to allow. Return only the JSON object.`;
 
   const msg = await client.messages.create({
     model: opts.model || "claude-haiku-5-5",
-    max_tokens: 300,
+    // Haiku 5.5 spends part of max_tokens on thinking, so a cap sized for
+    // the JSON alone truncates it mid-string. Raised well clear of the
+    // answer's real length: unused headroom is free, a cut-off response is
+    // billed and then thrown away.
+    max_tokens: 2000,
     system: [
       {
         type: "text",

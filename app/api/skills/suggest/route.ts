@@ -39,7 +39,15 @@ export async function POST(req: Request) {
     // Fall back to AI suggestion
     const message = await client.messages.create({
       model: "claude-haiku-5-5",
-      max_tokens: 300,
+      // Haiku 5.5 spends part of max_tokens on thinking, so a cap sized for
+      // the JSON alone truncates it mid-string. Raised well clear of the
+      // answer's real length: unused headroom is free, a cut-off response is
+      // billed and then thrown away.
+      max_tokens: 2000,
+      // Structured extraction with a checkable shape — the task that low
+      // effort is for. It also cuts the thinking tokens that now dominate
+      // output cost on this model.
+      output_config: { effort: "low" as const },
       messages: [
         {
           role: "user",
