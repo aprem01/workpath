@@ -221,6 +221,21 @@ export function isKnownLegitimate(input: string): boolean {
 const client = new Anthropic();
 
 /**
+ * The longest input the classifier will screen.
+ *
+ * A skill is a phrase, and the natural-language path sends a sentence or
+ * two. Anything past this is a stuffing attempt, and it is REJECTED rather
+ * than trimmed: trimming would screen a prefix while the normalizer and the
+ * stored skill keep the whole string, so padding the first 2,000 characters
+ * with ordinary work would carry anything after it past the gate. The
+ * classifier and every downstream consumer must see the same text.
+ */
+const MAX_SCREENED_CHARS = 600;
+
+/** Cap on how many basket items travel as context; each was screened on entry. */
+const MAX_CONTEXT_ITEMS = 40;
+
+/**
  * Fence untrusted text before it reaches the classifier.
  *
  * The thing being classified is typed by the person being screened, so it
@@ -228,12 +243,11 @@ const client = new Anthropic();
  * classifier into "allow" defeats the gate. Two defences, since neither is
  * sufficient alone — JSON-encoding neutralises quotes, newlines and control
  * characters, and stripping angle brackets stops a closing tag ending the
- * fenced block early. Length is capped because a skill is a phrase; only a
- * stuffing attempt is longer.
+ * fenced block early. This never shortens its argument; length is handled
+ * by MAX_SCREENED_CHARS, above, which rejects instead.
  */
 function fenceUntrusted(raw: string): string {
-  const stripped = String(raw).replace(/[<>]/g, " ").slice(0, 2000);
-  return JSON.stringify(stripped);
+  return JSON.stringify(String(raw).replace(/[<>]/g, " "));
 }
 
 /**
@@ -324,7 +338,23 @@ async function callClassifier(opts: {
   surface: "jobseeker_skill" | "employer_role" | "employer_skill";
   model?: string;
 }): Promise<SafetyResult> {
-  const ctx = (opts.context || []).filter(Boolean);
+  const ctx = (opts.context || [])
+    .filter(Boolean)
+    .filter((c) => c.length <= MAX_SCREENED_CHARS)
+    .slice(0, MAX_CONTEXT_ITEMS);
+  // Fail closed on over-long input. See MAX_SCREENED_CHARS: screening a
+  // prefix of a string the rest of the app uses in full is a bypass, so an
+  // over-long input is held rather than trimmed.
+  if (opts.input.length > MAX_SCREENED_CHARS) {
+    return {
+      verdict: "clarify",
+      reason: "input_over_length",
+      layer: "fastpath",
+      clarifyPrompt:
+        "That is longer than we can check at once. Can you describe the work in a few words?",
+    };
+  }
+
   const surfaceDesc =
     opts.surface === "employer_role"
       ? "an EMPLOYER is entering a job role/title they want to hire for"
