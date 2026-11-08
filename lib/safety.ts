@@ -232,8 +232,21 @@ const client = new Anthropic();
  */
 const MAX_SCREENED_CHARS = 600;
 
-/** Cap on how many basket items travel as context; each was screened on entry. */
-const MAX_CONTEXT_ITEMS = 40;
+/**
+ * Cap on how many basket items travel as context.
+ *
+ * Deliberately far above any real basket, because going over it HOLDS rather
+ * than drops. Context only ever makes a verdict stricter — "Discreet
+ * Delivery" alone clarifies, and alongside Logistics, Driving and Cash
+ * Handling it still clarifies because the basket corroborates. Silently
+ * dropping context items therefore weakens the gate, and in Skilmatch an
+ * employer's individual skills are screened with skipAI, so the role's
+ * context is the only place the model sees them at all.
+ */
+const MAX_CONTEXT_ITEMS = 200;
+
+/** Cap on the total context characters, so the prompt stays bounded. */
+const MAX_CONTEXT_CHARS = 20_000;
 
 /**
  * Fence untrusted text before it reaches the classifier.
@@ -338,10 +351,7 @@ async function callClassifier(opts: {
   surface: "jobseeker_skill" | "employer_role" | "employer_skill";
   model?: string;
 }): Promise<SafetyResult> {
-  const ctx = (opts.context || [])
-    .filter(Boolean)
-    .filter((c) => c.length <= MAX_SCREENED_CHARS)
-    .slice(0, MAX_CONTEXT_ITEMS);
+  const ctx = (opts.context || []).filter(Boolean);
   // Fail closed on over-long input. See MAX_SCREENED_CHARS: screening a
   // prefix of a string the rest of the app uses in full is a bypass, so an
   // over-long input is held rather than trimmed.
@@ -352,6 +362,24 @@ async function callClassifier(opts: {
       layer: "fastpath",
       clarifyPrompt:
         "That is longer than we can check at once. Can you describe the work in a few words?",
+    };
+  }
+
+  // The context fails closed on the same terms as the input. Dropping an
+  // item here would judge the basket without it, and context only ever
+  // tightens a verdict, so a drop is a weaker screen rather than a neutral
+  // one. These bounds sit far above any real basket.
+  if (
+    ctx.length > MAX_CONTEXT_ITEMS ||
+    ctx.some((c) => c.length > MAX_SCREENED_CHARS) ||
+    ctx.reduce((n, c) => n + c.length, 0) > MAX_CONTEXT_CHARS
+  ) {
+    return {
+      verdict: "clarify",
+      reason: "context_over_length",
+      layer: "fastpath",
+      clarifyPrompt:
+        "There is too much here to check at once. Can you remove a few items and try again?",
     };
   }
 
