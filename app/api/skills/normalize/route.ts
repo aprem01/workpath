@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { screenInput, BLOCK_MESSAGE_JOBSEEKER, SAFETY_RULES_VERSION } from "@/lib/safety";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { responseText } from "@/lib/anthropic-text";
 import {
   findSkillNode,
   getChildren,
@@ -143,7 +144,7 @@ Rules:
     ],
   });
 
-  let text = (message.content[0] as { type: string; text: string }).text;
+  let text = responseText(message);
   text = text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
   return JSON.parse(text);
 }
@@ -251,7 +252,7 @@ SUGGESTION RULES:
     ],
   });
 
-  let text = (message.content[0] as { type: string; text: string }).text;
+  let text = responseText(message);
   // Strip markdown code fences if present
   text = text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
   return JSON.parse(text);

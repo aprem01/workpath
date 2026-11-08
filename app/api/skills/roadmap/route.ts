@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { responseText } from "@/lib/anthropic-text";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +70,7 @@ Rules:
       ],
     });
 
-    const text = (message.content[0] as { type: string; text: string }).text;
+    const text = responseText(message);
     const parsed = JSON.parse(text);
     return NextResponse.json(parsed);
   } catch (error) {

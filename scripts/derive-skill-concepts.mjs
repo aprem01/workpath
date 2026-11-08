@@ -82,7 +82,8 @@ async function label(batch, attempt = 0) {
       max_tokens: 2000,
       messages: [{ role: "user", content: `${PROMPT}\n\nTERMS:\n${numbered}` }],
     });
-    let txt = msg.content[0].text.trim();
+    // Haiku 5.5 emits a thinking block first, so content[0] has no text.
+    let txt = (msg.content.find((b) => b.type === "text")?.text ?? "").trim();
     txt = txt.replace(/^```(?:json)?\s*/i, "").replace(/```$/, "").trim();
     const a = txt.indexOf("["), b = txt.lastIndexOf("]");
     return JSON.parse(txt.slice(a, b + 1));

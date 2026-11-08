@@ -33,6 +33,7 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 import Anthropic from "@anthropic-ai/sdk";
 import { TAXONOMY } from "../lib/taxonomy";
+import { responseText } from "../lib/anthropic-text";
 
 const OUTPUT = path.resolve(__dirname, "../lib/ai-resistance.ts");
 const BATCH_SIZE = 25;
@@ -78,7 +79,7 @@ async function runBatch(skills: string[]): Promise<Record<string, number>> {
     messages: [{ role: "user", content: userMsg }],
   });
 
-  const text = (res.content[0] as { type: string; text: string }).text
+  const text = responseText(res)
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/```\s*$/, "")
     .trim();

@@ -21,6 +21,7 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 import Anthropic from "@anthropic-ai/sdk";
 import { TAXONOMY } from "../lib/taxonomy";
+import { responseText } from "../lib/anthropic-text";
 
 const OUTPUT = path.resolve(__dirname, "../lib/training-catalog.ts");
 const BATCH_SIZE = 10;
@@ -73,7 +74,7 @@ async function runBatch(skills: string[]): Promise<Record<string, unknown>> {
     ],
   });
 
-  let text = (res.content[0] as { type: string; text: string }).text.trim();
+  let text = responseText(res).trim();
   // Re-attach the prefilled opening brace.
   if (!text.startsWith("{")) text = "{" + text;
   // Strip any trailing code fence or extra text.

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { responseText } from "@/lib/anthropic-text";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,7 @@ Suggest 1–2 real resources. Prioritize free ones (YouTube, Khan Academy, gover
       ],
     });
 
-    const text = (message.content[0] as { type: string; text: string }).text;
+    const text = responseText(message);
     const parsed = JSON.parse(text);
     return NextResponse.json(parsed);
   } catch (error) {

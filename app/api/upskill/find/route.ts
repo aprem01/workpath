@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { responseText } from "@/lib/anthropic-text";
 import {
   buildTrainingLinks,
   buildInPersonLinks,
@@ -222,7 +223,7 @@ RULES:
       ],
     });
 
-    let text = (message.content[0] as { type: string; text: string }).text;
+    let text = responseText(message);
     // Strip any markdown fences (handles ```json, ```, and variations)
     text = text.replace(/^\s*```(?:json|JSON)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
     // If Claude wrapped in extra prose, find the first { and last }
