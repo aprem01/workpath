@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Your Job Matches — Sorted by Pay, Not Date",
   description:
     "See the highest-paying jobs you qualify for right now based on the skills in your basket. Plus, jobs that are just 1-2 skills away. Real Chicago job listings from top employers.",
-  alternates: { canonical: "https://workpath-iota.vercel.app/jobs" },
+  alternates: { canonical: "https://payranker.io/jobs" },
   openGraph: {
     title: "Your Job Matches on PayRanker",
     description:

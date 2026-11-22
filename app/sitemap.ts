@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const BASE = "https://workpath-iota.vercel.app";
+const BASE = "https://payranker.io";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

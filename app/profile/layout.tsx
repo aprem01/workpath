@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Create Your Anonymous Profile",
   description:
     "Your profile is invisible to employers. They only see your anonymous handle when you apply to jobs. Minimal info required to get started — just email, password, and zip code.",
-  alternates: { canonical: "https://workpath-iota.vercel.app/profile" },
+  alternates: { canonical: "https://payranker.io/profile" },
   robots: { index: false },
 };
 

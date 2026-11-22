@@ -335,7 +335,7 @@ export default function DashboardPage() {
       <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-20">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="font-heading text-xl font-bold text-gray-900">
-            Work<span className="text-amber-primary">Path</span>
+            Pay<span className="text-amber-primary">Ranker</span>
           </h1>
           <div className="flex items-center gap-2">
             <ProfileSelector

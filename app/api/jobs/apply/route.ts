@@ -36,6 +36,11 @@ export async function POST(req: Request) {
     // Exact-string origin match. Substring/startsWith would let
     // https://workpath-iota.vercel.app.evil.example bypass the check.
     const ALLOWED_ORIGINS = new Set([
+      // payranker.io is the canonical domain and where ads land. It was
+      // missing, so Apply answered 403 "Origin not allowed" for every
+      // visitor on the real site while working on the vercel.app host.
+      "https://payranker.io",
+      "https://www.payranker.io",
       "https://workpath-iota.vercel.app",
       "http://localhost:3000",
       "http://localhost:3001",

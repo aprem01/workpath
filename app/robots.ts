@@ -71,7 +71,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/api/"],
       },
     ],
-    sitemap: "https://workpath-iota.vercel.app/sitemap.xml",
-    host: "https://workpath-iota.vercel.app",
+    sitemap: "https://payranker.io/sitemap.xml",
+    host: "https://payranker.io",
   };
 }

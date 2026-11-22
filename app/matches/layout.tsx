@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Your Skill Match Results",
   description:
     "See how many jobs you qualify for right now — and how many more you could unlock by learning 1-2 more skills. Plus the top skills to add next.",
-  alternates: { canonical: "https://workpath-iota.vercel.app/matches" },
+  alternates: { canonical: "https://payranker.io/matches" },
 };
 
 export default function MatchesLayout({ children }: { children: React.ReactNode }) {

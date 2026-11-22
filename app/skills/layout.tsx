@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Add Your Skills — Skills Basket & AI Suggestions",
   description:
     "Enter your skills in plain English — cooking, driving, CPR, Python, anything. Our AI normalizes them to the professional terms employers recognize, then suggests related skills to help you qualify for more jobs.",
-  alternates: { canonical: "https://workpath-iota.vercel.app/skills" },
+  alternates: { canonical: "https://payranker.io/skills" },
   openGraph: {
     title: "Add Your Skills to PayRanker",
     description:

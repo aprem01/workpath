@@ -9,7 +9,7 @@ const inter = Inter({
   display: "swap",
 });
 
-const BASE_URL = "https://workpath-iota.vercel.app";
+const BASE_URL = "https://payranker.io";
 
 export const viewport: Viewport = {
   themeColor: "#E725E2",

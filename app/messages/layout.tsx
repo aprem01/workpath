@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Your Inbox — Interview Requests & Direct Hire Offers",
   description:
     "View messages from employers. Interview requests, direct hire offers with pay details, and more. Reply, decline, or accept directly from your inbox.",
-  alternates: { canonical: "https://workpath-iota.vercel.app/messages" },
+  alternates: { canonical: "https://payranker.io/messages" },
 };
 
 export default function MessagesLayout({ children }: { children: React.ReactNode }) {
