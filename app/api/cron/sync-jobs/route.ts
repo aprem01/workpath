@@ -164,6 +164,28 @@ const toHourlyCents = (annual: unknown) =>
   typeof annual === "number" && annual > 0 ? Math.round((annual / 2080) * 100) : null;
 
 /**
+ * Is this a URL we are willing to make a server-side request to?
+ *
+ * The sweep below fetches a URL that came from a third party, so without
+ * a check it is an SSRF primitive: Adzuna's /land/ad/ links are
+ * redirects, and following them blindly would let whoever controls the
+ * destination point our server at an arbitrary address. Pin the host to
+ * Adzuna, require TLS, and refuse anything with credentials or a port.
+ */
+function isAdzunaUrl(raw: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:") return false;
+  if (u.username || u.password || u.port) return false;
+  const h = u.hostname.toLowerCase();
+  return h === "adzuna.com" || h.endsWith(".adzuna.com");
+}
+
+/**
  * Retire postings whose apply link is explicitly gone.
  *
  * Adzuna keeps returning postings in search results after its own detail
@@ -214,9 +236,20 @@ async function retireGonePostings(
     if (Date.now() > deadline) { ranOutOfTime = true; break; }
     checked++;
     await sleep(LINK_SPACING_MS);
+    const url = job.sourceUrl as string;
+    if (!isAdzunaUrl(url)) {
+      // Not a URL we will call. Says nothing about the posting, so it is
+      // inconclusive rather than gone — never retire on our own refusal.
+      inconclusive++;
+      continue;
+    }
     try {
-      const res = await fetch(job.sourceUrl as string, {
-        redirect: "follow",
+      const res = await fetch(url, {
+        // Never follow. We are asking Adzuna whether the posting is still
+        // theirs, and a redirect means it is — following it would both
+        // leave the allowlisted host and start judging the posting by the
+        // employer's own site instead.
+        redirect: "manual",
         signal: AbortSignal.timeout(12000),
         cache: "no-store",
       });
@@ -225,6 +258,8 @@ async function retireGonePostings(
         gone++;
       } else if (res.status === 403) {
         blocked++;
+      } else if (res.status >= 300 && res.status < 400) {
+        // Adzuna is still willing to hand the visitor on: posting alive.
       } else if (!res.ok) {
         inconclusive++;
       }
@@ -421,9 +456,20 @@ export async function GET(req: Request) {
 
   // The previous run's fingerprint, to tell a repeating feed from one we
   // are simply caught up with.
+  // The integrity of this comparison rests on nothing untrusted being
+  // able to write a cron_job_sync row. Until today anything could:
+  // /api/analytics took any event name, unauthenticated, so a planted row
+  // could have held the stalled flag permanently false — a health check
+  // that reads attacker-writable state fails open. That endpoint is now
+  // deleted and had no callers.
+  //
+  // The userId filter below is narrowing, NOT a guard: a forger would
+  // simply omit userId and get null too. The durable fix is a table only
+  // this route writes; noted rather than done, because that needs a
+  // migration against production.
   const previousSignature = await prisma.analyticsEvent
     .findFirst({
-      where: { event: "cron_job_sync" },
+      where: { event: "cron_job_sync", userId: null },
       orderBy: { createdAt: "desc" },
       select: { metadata: true },
     })
