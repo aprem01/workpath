@@ -87,7 +87,7 @@ const MAX_RETRIES = 2;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type PageOutcome =
-  | { ok: true; results: Record<string, unknown>[] }
+  | { ok: true; results: Record<string, unknown>[]; sourceCount: number | null }
   | { ok: false; reason: "throttled" | "error" };
 
 async function fetchPage(url: string, lastRequestAt: { at: number }): Promise<PageOutcome> {
@@ -96,15 +96,29 @@ async function fetchPage(url: string, lastRequestAt: { at: number }): Promise<Pa
     if (since < REQUEST_SPACING_MS) await sleep(REQUEST_SPACING_MS - since);
     lastRequestAt.at = Date.now();
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(25000) });
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(25000),
+        // Never serve this from a cache. `dynamic = "force-dynamic"`
+        // is supposed to imply it, but every run from 11-08 to 11-22
+        // returned a byte-identical result set, so it is stated here
+        // explicitly rather than inferred.
+        cache: "no-store",
+      });
       if (res.status === 429) {
         // Back off further on each retry, then give up on this page.
         await sleep(REQUEST_SPACING_MS * (attempt + 2));
         continue;
       }
       if (!res.ok) return { ok: false, reason: "error" };
-      const body = (await res.json()) as { results?: Record<string, unknown>[] };
-      return { ok: true, results: body.results ?? [] };
+      const body = (await res.json()) as {
+        results?: Record<string, unknown>[];
+        count?: number;
+      };
+      return {
+        ok: true,
+        results: body.results ?? [],
+        sourceCount: typeof body.count === "number" ? body.count : null,
+      };
     } catch {
       if (attempt === MAX_RETRIES) return { ok: false, reason: "error" };
       await sleep(REQUEST_SPACING_MS);
@@ -172,6 +186,13 @@ export async function GET(req: Request) {
   let pagesOk = 0;
   let pagesThrottled = 0;
   let pagesErrored = 0;
+  // How many postings the source actually handed us. "created: 0" is only
+  // meaningful next to this: 0 created out of 3,080 fetched means the feed
+  // repeated itself, 0 out of 4,950 would mean the create path is broken.
+  let fetched = 0;
+  // A fingerprint of the first page, so two runs can be compared. If this
+  // is identical day after day, the source is repeating, not advancing.
+  let firstPageSignature: string | null = null;
   const lastRequestAt = { at: 0 };
 
   outer: for (const { what, vertical } of SEARCHES) {
@@ -192,6 +213,13 @@ export async function GET(req: Request) {
         }
         pagesOk++;
         const results = outcome.results;
+        fetched += results.length;
+        if (firstPageSignature === null) {
+          firstPageSignature =
+            `${what}|count=${outcome.sourceCount ?? "?"}` +
+            `|n=${results.length}` +
+            `|first=${String((results[0] as { id?: unknown } | undefined)?.id ?? "none")}`;
+        }
         if (results.length === 0) break;
 
         // Resolve the whole page's 50 postings in two queries instead of
@@ -277,8 +305,13 @@ export async function GET(req: Request) {
 
   const openNow = await prisma.job.count({ where: { isActive: true } });
   const summary = {
-    created, refreshed, retiredStale, retiredUnsourced, openNow, budgetHit,
-    pagesOk, pagesThrottled, pagesErrored, degraded,
+    created, refreshed, fetched, retiredStale, retiredUnsourced, openNow,
+    budgetHit, pagesOk, pagesThrottled, pagesErrored, degraded,
+    firstPageSignature,
+    // A pull that fetched postings but created none, over a source that
+    // is still publishing, means the feed repeated itself. That is not a
+    // healthy run, so say so rather than reporting success.
+    stalled: pagesOk > 0 && fetched > 0 && created === 0,
   };
 
   await prisma.analyticsEvent
@@ -287,5 +320,16 @@ export async function GET(req: Request) {
 
   // Report honestly. A run that silently refreshed 2% of inventory must
   // not answer 200 { success: true }.
-  return NextResponse.json({ success: !degraded, ...summary }, { status: degraded ? 207 : 200 });
+  //
+  // `stalled` counts too. From 11-08 to 11-22 every run answered 200
+  // { success: true } while creating nothing, and because the repeated
+  // feed kept refreshing lastSeenAt on the same 3,080 postings, nothing
+  // retired either — a frozen feed keeps dead jobs alive indefinitely.
+  // A genuinely quiet day will trip this, which is the right trade: a
+  // false alarm costs a glance, silence cost fifteen days.
+  const unhealthy = degraded || summary.stalled;
+  return NextResponse.json(
+    { success: !unhealthy, ...summary },
+    { status: unhealthy ? 207 : 200 }
+  );
 }
