@@ -170,12 +170,37 @@ function LoginInner() {
             ) : (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left">
               <p className="text-sm font-semibold text-amber-900">
-                We can&apos;t send the reset email yet.
+                We can&apos;t email the reset link yet.
               </p>
               <p className="text-xs text-amber-800 mt-1">
-                Password reset by email isn&apos;t switched on for this beta yet, so
-                nothing will arrive in your inbox. Contact us and we&apos;ll reset it
-                for you.
+                Automatic reset emails aren&apos;t switched on for this beta, so nothing
+                will arrive in your inbox. Email us from the address on your account and
+                we&apos;ll send you a reset link.
+              </p>
+              {/*
+                The mailto is the primary action, not the contact form: inbound
+                mail to hello@payranker.io forwards to a real inbox today, while
+                /api/contact only writes a row nobody is notified about until
+                CONTACT_NOTIFY_TO is set. Point people at the path that works.
+              */}
+              <a
+                href={`mailto:hello@payranker.io?subject=${encodeURIComponent(
+                  "Password reset"
+                )}&body=${encodeURIComponent(
+                  `Please send me a password reset link.\n\nMy account email: ${
+                    resetEmail || email || ""
+                  }\n`
+                )}`}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-900 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-800"
+              >
+                Email hello@payranker.io <ArrowRight size={13} />
+              </a>
+              <p className="text-[11px] text-amber-700 mt-2">
+                Or use the{" "}
+                <a href="/contact" className="underline font-semibold">
+                  contact form
+                </a>
+                .
               </p>
             </div>
             )
