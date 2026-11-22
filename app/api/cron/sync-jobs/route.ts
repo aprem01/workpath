@@ -82,6 +82,19 @@ const PULL_BUDGET_MS = 230_000;
  * taken as the end of the data.
  */
 const REQUEST_SPACING_MS = 1_100;
+/** Apply links verified per run, subject to the deadline below. */
+const LINK_CHECKS_PER_RUN = 120;
+/**
+ * Link checks hit www.adzuna.com, not the API, so they do not share the
+ * API's rate limit and need less spacing — still spaced, to stay polite.
+ */
+const LINK_SPACING_MS = 350;
+/**
+ * Hard wall for the whole run. maxDuration is 300s; being killed at the
+ * limit would lose the summary entirely, so stop well short. The first
+ * run with both the pull and the sweep took 251s, which was too close.
+ */
+const RUN_DEADLINE_MS = 265_000;
 const MAX_RETRIES = 2;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -150,6 +163,90 @@ function extractSkills(text: string): string[] {
 const toHourlyCents = (annual: unknown) =>
   typeof annual === "number" && annual > 0 ? Math.round((annual / 2080) * 100) : null;
 
+/**
+ * Retire postings whose apply link is explicitly gone.
+ *
+ * Adzuna keeps returning postings in search results after its own detail
+ * pages have started answering 410 Gone, so lastSeenAt never ages them
+ * out and a third of open inventory can point at a dead page. Measured
+ * 2026-11-22 over 80 random active postings: 29% answered 410, 4% 404.
+ *
+ * Only 404 and 410 count. A 403 is Adzuna refusing a datacenter IP, not
+ * a closed posting — it serves "Access Denied / suspicious behaviour",
+ * and 34% of the same sample hit it. Timeouts, 5xx and network errors
+ * are equally uninformative. Acting on any of those would retire live
+ * jobs, which is worse than keeping a dead link: a jobseeker who cannot
+ * find the posting is annoyed, a jobseeker who never sees it is not
+ * served at all.
+ *
+ * Bounded per run and ordered oldest-first, since the oldest postings
+ * are the likeliest to be gone. Retirement advances the frontier, so
+ * successive runs sweep the whole inventory without a cursor column.
+ */
+async function retireGonePostings(
+  limit: number,
+  now: Date,
+  deadline: number
+): Promise<{
+  checked: number;
+  gone: number;
+  blocked: number;
+  inconclusive: number;
+  ranOutOfTime: boolean;
+}> {
+  const candidates = await prisma.job.findMany({
+    where: {
+      isActive: true,
+      recruiterEmail: null,
+      source: "adzuna",
+      sourceUrl: { not: null },
+    },
+    orderBy: { postedAt: "asc" },
+    take: limit,
+    select: { id: true, sourceUrl: true },
+  });
+
+  let gone = 0, blocked = 0, inconclusive = 0, checked = 0;
+  let ranOutOfTime = false;
+  const goneIds: string[] = [];
+
+  for (const job of candidates) {
+    if (Date.now() > deadline) { ranOutOfTime = true; break; }
+    checked++;
+    await sleep(LINK_SPACING_MS);
+    try {
+      const res = await fetch(job.sourceUrl as string, {
+        redirect: "follow",
+        signal: AbortSignal.timeout(12000),
+        cache: "no-store",
+      });
+      if (res.status === 404 || res.status === 410) {
+        goneIds.push(job.id);
+        gone++;
+      } else if (res.status === 403) {
+        blocked++;
+      } else if (!res.ok) {
+        inconclusive++;
+      }
+    } catch {
+      inconclusive++;
+    }
+  }
+
+  if (goneIds.length > 0) {
+    await prisma.job.updateMany({
+      where: { id: { in: goneIds } },
+      data: {
+        isActive: false,
+        closedAt: now,
+        closedReason: "retired: apply link gone (404/410)",
+      },
+    });
+  }
+
+  return { checked, gone, blocked, inconclusive, ranOutOfTime };
+}
+
 export async function GET(req: Request) {
   // Fail closed. An unset CRON_SECRET used to make this compare against
   // the literal string "Bearer undefined", so anyone sending that header
@@ -202,7 +299,15 @@ export async function GET(req: Request) {
         const url =
           `https://api.adzuna.com/v1/api/jobs/us/search/${page}?app_id=${appId}&app_key=${appKey}` +
           `&results_per_page=50&where=${encodeURIComponent("Chicago")}` +
-          `&what=${encodeURIComponent(what)}&max_days_old=30&content-type=application/json`;
+          `&what=${encodeURIComponent(what)}&max_days_old=30` +
+          // Newest first. Without this Adzuna orders by relevance, and
+          // since we only pull PAGES_PER_TERM pages per occupation the
+          // new postings never surfaced: page 1 of "caregiver" by
+          // relevance held 4 postings from the last three days and
+          // reached back to October, where by date it held 50 of 50.
+          // A daily incremental sync wants the newest, not the best.
+          `&sort_by=date` +
+          `&content-type=application/json`;
         const outcome = await fetchPage(url, lastRequestAt);
         if (!outcome.ok) {
           // A rejected page is NOT "no more data". Record it and stop
@@ -303,15 +408,61 @@ export async function GET(req: Request) {
     data: { isActive: false, closedAt: now, closedReason: "retired: no verifiable source" },
   });
 
+  // Validate apply links only when the pull was clean. A degraded run has
+  // already shown the network is against us, and a blocked check would
+  // read as inconclusive anyway.
+  const linkCheck = degraded
+    ? { checked: 0, gone: 0, blocked: 0, inconclusive: 0, ranOutOfTime: false }
+    : await retireGonePostings(
+        LINK_CHECKS_PER_RUN,
+        now,
+        startedAt + RUN_DEADLINE_MS
+      );
+
+  // The previous run's fingerprint, to tell a repeating feed from one we
+  // are simply caught up with.
+  const previousSignature = await prisma.analyticsEvent
+    .findFirst({
+      where: { event: "cron_job_sync" },
+      orderBy: { createdAt: "desc" },
+      select: { metadata: true },
+    })
+    .then((row) => {
+      if (!row?.metadata) return null;
+      try {
+        const parsed = JSON.parse(row.metadata) as { firstPageSignature?: unknown };
+        return typeof parsed.firstPageSignature === "string"
+          ? parsed.firstPageSignature
+          : null;
+      } catch {
+        return null;
+      }
+    })
+    .catch(() => null);
+
   const openNow = await prisma.job.count({ where: { isActive: true } });
   const summary = {
     created, refreshed, fetched, retiredStale, retiredUnsourced, openNow,
     budgetHit, pagesOk, pagesThrottled, pagesErrored, degraded,
     firstPageSignature,
-    // A pull that fetched postings but created none, over a source that
-    // is still publishing, means the feed repeated itself. That is not a
-    // healthy run, so say so rather than reporting success.
-    stalled: pagesOk > 0 && fetched > 0 && created === 0,
+    linkChecked: linkCheck.checked,
+    linkGone: linkCheck.gone,
+    linkBlocked: linkCheck.blocked,
+    linkInconclusive: linkCheck.inconclusive,
+    linkRanOutOfTime: linkCheck.ranOutOfTime,
+    // "Created nothing" on its own is not a fault — a run minutes after
+    // the last one is simply caught up, and so is a quiet day. The real
+    // frozen-feed signature is creating nothing while the source hands
+    // back a byte-identical first page, which is what ran unnoticed from
+    // 11-08 to 11-22. Comparing the fingerprint with the previous run
+    // tells the two apart, so this means the feed stopped advancing
+    // rather than merely "nothing new this minute".
+    stalled:
+      pagesOk > 0 &&
+      fetched > 0 &&
+      created === 0 &&
+      firstPageSignature !== null &&
+      firstPageSignature === previousSignature,
   };
 
   await prisma.analyticsEvent
