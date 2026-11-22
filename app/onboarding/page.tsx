@@ -18,11 +18,20 @@ interface Skill {
 
 interface NormalizeResponse {
   normalizedTerm: string;
-  category: string;
-  proficiencyLevel: string;
-  isRecognized: boolean;
-  aiSuggestions: string[];
-  note: string;
+  // Everything below is optional, because the route has three shapes.
+  // The prohibited and clarify replies carry only a message, so typing
+  // these as required made `data.aiSuggestions.filter(...)` look safe
+  // when it was not: a prohibited input threw here and took the page
+  // down with it.
+  category?: string;
+  proficiencyLevel?: string;
+  isRecognized?: boolean;
+  aiSuggestions?: string[];
+  note?: string;
+  isProhibited?: boolean;
+  needsClarification?: boolean;
+  message?: string;
+  clarifyPrompt?: string;
 }
 
 // Sparkle colors from the design system
@@ -39,6 +48,8 @@ export default function OnboardingPage() {
   const [openToLearning, setOpenToLearning] = useState("");
   const [zipCode, setZipCode] = useState("60614");
   const [showCelebration, setShowCelebration] = useState(false);
+  const [rejectedInput, setRejectedInput] = useState("");
+  const [clarifyPrompt, setClarifyPrompt] = useState("");
   const [sparkles, setSparkles] = useState<Array<{ id: number; x: number; y: number; color: string }>>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const skillsContainerRef = useRef<HTMLDivElement>(null);
@@ -87,6 +98,25 @@ export default function OnboardingPage() {
 
       const data: NormalizeResponse = await res.json();
 
+      // Caroline 8/26 global rule, which this page was missing: when the
+      // classifier flags the input as illegal or non-occupational, do not
+      // add it and show a neutral message. Until now onboarding added the
+      // skill anyway and then crashed on the missing aiSuggestions.
+      if (data?.isProhibited) {
+        setRejectedInput(trimmed);
+        setInputValue("");
+        setIsLoading(false);
+        return;
+      }
+
+      // Caroline 9/4 Round 9: ambiguous in context, so ask rather than
+      // guess. Same missing-field crash applied here.
+      if (data?.needsClarification) {
+        setClarifyPrompt(data.clarifyPrompt || data.message || "");
+        setIsLoading(false);
+        return;
+      }
+
       // Don't add duplicates
       if (
         skills.some(
@@ -104,15 +134,17 @@ export default function OnboardingPage() {
         id: crypto.randomUUID(),
         rawInput: trimmed,
         normalizedTerm: data.normalizedTerm,
-        category: data.category,
-        proficiencyLevel: data.proficiencyLevel,
+        // The route omits both on some replies, so default rather than
+        // write undefined into the basket.
+        category: data.category || "other",
+        proficiencyLevel: data.proficiencyLevel || "unspecified",
         isAISuggested: isFromSuggestion,
       };
 
       setSkills((prev) => [...prev, newSkill]);
       spawnSparkles();
       setSuggestions(
-        data.aiSuggestions.filter(
+        (data.aiSuggestions || []).filter(
           (s) =>
             !skills.some(
               (sk) => sk.normalizedTerm.toLowerCase() === s.toLowerCase()
@@ -137,6 +169,11 @@ export default function OnboardingPage() {
 
     setIsLoading(false);
     inputRef.current?.focus();
+  };
+
+  const clearRejections = () => {
+    if (rejectedInput) setRejectedInput("");
+    if (clarifyPrompt) setClarifyPrompt("");
   };
 
   const removeSkill = (id: string) => {
@@ -225,7 +262,10 @@ export default function OnboardingPage() {
                   ref={inputRef}
                   type="text"
                   value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
+                  onChange={(e) => {
+                    setInputValue(e.target.value);
+                    clearRejections();
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder="e.g. cooking, driving, caring for people..."
                   disabled={isLoading}
@@ -245,6 +285,31 @@ export default function OnboardingPage() {
                 Add
               </button>
             </div>
+
+            {/* Why the last entry was not added. Without this the input
+                just cleared and nothing happened, which reads as the page
+                being broken. Plain language, no blame — the user has done
+                nothing wrong by typing something we cannot use. */}
+            {rejectedInput && (
+              <div
+                role="status"
+                className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
+              >
+                <p className="text-sm text-amber-900">
+                  We can&apos;t add &ldquo;{rejectedInput}&rdquo;. Try a skill
+                  you&apos;d put on a job application.
+                </p>
+              </div>
+            )}
+
+            {clarifyPrompt && (
+              <div
+                role="status"
+                className="mb-4 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3"
+              >
+                <p className="text-sm text-teal-900">{clarifyPrompt}</p>
+              </div>
+            )}
 
             {/* Skill pills with sparkle effect */}
             {skills.length > 0 && (
