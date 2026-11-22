@@ -1,8 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { attributionFromCookieHeader, describeAttribution } from "@/lib/attribution";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Keeps synthetic traffic out of the conversion count. As of 2026-11-11,
+ * 36 of the 38 rows under this event are automated loop verifications and
+ * one is a retest; exactly one is a real person. An unflagged count here
+ * would have read as 38 inbound leads.
+ */
+function looksLikeTest(email: string, message: string): boolean {
+  const e = email.toLowerCase();
+  if (e.endsWith("@example.com") || e.endsWith("@test.com")) return true;
+  if (/^(loop|retest|probe|smoke)\b/i.test(message.trim())) return true;
+  if (/automated (loop|retest|test)/i.test(message)) return true;
+  return false;
+}
 
 const VALID_TOPICS = new Set([
   "feedback",
@@ -28,6 +43,9 @@ export async function POST(req: Request) {
     const cleanName = typeof name === "string" ? name.trim().slice(0, 120) : "";
     const cleanEmail = typeof email === "string" ? email.trim().slice(0, 200) : "";
 
+    const attr = attributionFromCookieHeader(req.headers.get("cookie"));
+    const isTest = looksLikeTest(cleanEmail, cleanMessage);
+
     await prisma.analyticsEvent.create({
       data: {
         event: "contact_submitted",
@@ -36,6 +54,8 @@ export async function POST(req: Request) {
           email: cleanEmail,
           topic: cleanTopic,
           message: cleanMessage,
+          isTest,
+          attribution: attr,
         }),
       },
     });
@@ -43,16 +63,20 @@ export async function POST(req: Request) {
     // Caroline 9/20 #9: her test message was stored correctly but nobody
     // was notified, so from her side it looked like it had gone nowhere.
     // The database row stays the record of truth; this is the ping.
-    if (isEmailConfigured()) {
+    if (!isTest && isEmailConfigured()) {
       const to = process.env.CONTACT_NOTIFY_TO || "";
       if (to) {
         const result = await sendEmail({
           to,
           subject: `PayRanker contact: ${cleanTopic}`,
-          text: `From: ${cleanName || "(no name)"} <${cleanEmail || "no email"}>\nTopic: ${cleanTopic}\n\n${cleanMessage}`,
+          text:
+            `From: ${cleanName || "(no name)"} <${cleanEmail || "no email"}>\n` +
+            `Topic: ${cleanTopic}\n` +
+            `Came via: ${describeAttribution(attr)}\n\n${cleanMessage}`,
           html:
             `<p><strong>From:</strong> ${cleanName || "(no name)"} &lt;${cleanEmail || "no email"}&gt;</p>` +
             `<p><strong>Topic:</strong> ${cleanTopic}</p>` +
+            `<p><strong>Came via:</strong> ${describeAttribution(attr)}</p>` +
             `<hr/><p style="white-space:pre-wrap">${cleanMessage}</p>`,
         });
         if (!result.sent) {

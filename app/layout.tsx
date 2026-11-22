@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import AttributionCapture from "@/components/AttributionCapture";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -165,6 +166,7 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased bg-warmwhite text-gray-900">
         {children}
+        <AttributionCapture />
       </body>
     </html>
   );

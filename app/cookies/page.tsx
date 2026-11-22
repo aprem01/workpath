@@ -9,7 +9,7 @@ export default function CookiesPage() {
   return (
     <PageShell
       title="Cookie Notice"
-      subtitle="Last updated: July 2026"
+      subtitle="Last updated: November 2026"
     >
       <p>
         PayRanker uses a small number of cookies and browser storage
@@ -38,11 +38,25 @@ export default function CookiesPage() {
         personally identifying information is included in these events.
       </p>
 
+      <h2>Referral and campaign measurement</h2>
+      <p>
+        If you arrive from a link that carries campaign information — for
+        example from an advertisement, a newsletter, or a partner site —
+        we store that information in a first-party cookie
+        (<code>pr_attr</code>) for 90 days, so that if you later contact
+        us we know which link brought you here. It records only the
+        campaign details that were in the link, the page you landed on,
+        and the referring site&apos;s domain. It does not identify you,
+        it is not shared with advertising networks, and it is not used to
+        follow you across other websites.
+      </p>
+
       <h2>Your controls</h2>
       <p>
         You can clear PayRanker&apos;s local storage at any time from
         your browser&apos;s privacy settings. Doing so will reset your
-        skill basket and preferences.
+        skill basket and preferences, and clear the campaign cookie
+        described above.
       </p>
 
       <h2>Contact</h2>
