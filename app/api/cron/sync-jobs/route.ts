@@ -95,6 +95,8 @@ const LINK_SPACING_MS = 350;
  * run with both the pull and the sweep took 251s, which was too close.
  */
 const RUN_DEADLINE_MS = 265_000;
+/** Consecutive runs creating nothing before the feed counts as stalled. */
+const STALL_STREAK = 3;
 const MAX_RETRIES = 2;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -467,24 +469,38 @@ export async function GET(req: Request) {
   // simply omit userId and get null too. The durable fix is a table only
   // this route writes; noted rather than done, because that needs a
   // migration against production.
-  const previousSignature = await prisma.analyticsEvent
-    .findFirst({
+  // How many of the runs before this one created nothing.
+  //
+  // One zero is not a fault: a run minutes after the last one is caught
+  // up, and a genuinely quiet day creates nothing either. Two earlier
+  // attempts at this flag both cried wolf — first on any zero, then on a
+  // repeated first-page fingerprint, which repeats whenever the leading
+  // term is small ("home health aide" returns 6 results and rarely
+  // changes). A streak is what actually distinguishes the two: the real
+  // failure ran for fifteen consecutive days, so this would have fired on
+  // day three.
+  const recentZeroRuns = await prisma.analyticsEvent
+    .findMany({
       where: { event: "cron_job_sync", userId: null },
       orderBy: { createdAt: "desc" },
+      take: STALL_STREAK - 1,
       select: { metadata: true },
     })
-    .then((row) => {
-      if (!row?.metadata) return null;
-      try {
-        const parsed = JSON.parse(row.metadata) as { firstPageSignature?: unknown };
-        return typeof parsed.firstPageSignature === "string"
-          ? parsed.firstPageSignature
-          : null;
-      } catch {
-        return null;
+    .then((rows) => {
+      if (rows.length < STALL_STREAK - 1) return 0;
+      let streak = 0;
+      for (const row of rows) {
+        try {
+          const parsed = JSON.parse(row.metadata ?? "{}") as { created?: unknown };
+          if (parsed.created === 0) streak++;
+          else break;
+        } catch {
+          break;
+        }
       }
+      return streak;
     })
-    .catch(() => null);
+    .catch(() => 0);
 
   const openNow = await prisma.job.count({ where: { isActive: true } });
   const summary = {
@@ -496,19 +512,12 @@ export async function GET(req: Request) {
     linkBlocked: linkCheck.blocked,
     linkInconclusive: linkCheck.inconclusive,
     linkRanOutOfTime: linkCheck.ranOutOfTime,
-    // "Created nothing" on its own is not a fault — a run minutes after
-    // the last one is simply caught up, and so is a quiet day. The real
-    // frozen-feed signature is creating nothing while the source hands
-    // back a byte-identical first page, which is what ran unnoticed from
-    // 11-08 to 11-22. Comparing the fingerprint with the previous run
-    // tells the two apart, so this means the feed stopped advancing
-    // rather than merely "nothing new this minute".
     stalled:
       pagesOk > 0 &&
       fetched > 0 &&
       created === 0 &&
-      firstPageSignature !== null &&
-      firstPageSignature === previousSignature,
+      recentZeroRuns >= STALL_STREAK - 1,
+    zeroCreateStreak: created === 0 ? recentZeroRuns + 1 : 0,
   };
 
   await prisma.analyticsEvent
