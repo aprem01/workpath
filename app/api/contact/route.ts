@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { attributionFromCookieHeader, describeAttribution } from "@/lib/attribution";
+import { escapeHtml, singleLine } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -68,16 +69,19 @@ export async function POST(req: Request) {
       if (to) {
         const result = await sendEmail({
           to,
-          subject: `PayRanker contact: ${cleanTopic}`,
+          subject: singleLine(`PayRanker contact: ${cleanTopic}`),
           text:
             `From: ${cleanName || "(no name)"} <${cleanEmail || "no email"}>\n` +
             `Topic: ${cleanTopic}\n` +
             `Came via: ${describeAttribution(attr)}\n\n${cleanMessage}`,
+          // Escape everything. The name and message come from a form
+          // field and the campaign comes from the landing URL's query
+          // string, so each is an injection vector into the mail we read.
           html:
-            `<p><strong>From:</strong> ${cleanName || "(no name)"} &lt;${cleanEmail || "no email"}&gt;</p>` +
-            `<p><strong>Topic:</strong> ${cleanTopic}</p>` +
-            `<p><strong>Came via:</strong> ${describeAttribution(attr)}</p>` +
-            `<hr/><p style="white-space:pre-wrap">${cleanMessage}</p>`,
+            `<p><strong>From:</strong> ${escapeHtml(cleanName || "(no name)")} &lt;${escapeHtml(cleanEmail || "no email")}&gt;</p>` +
+            `<p><strong>Topic:</strong> ${escapeHtml(cleanTopic)}</p>` +
+            `<p><strong>Came via:</strong> ${escapeHtml(describeAttribution(attr))}</p>` +
+            `<hr/><p style="white-space:pre-wrap">${escapeHtml(cleanMessage)}</p>`,
         });
         if (!result.sent) {
           // Never fail the user's submission because our notification

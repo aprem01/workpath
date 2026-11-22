@@ -58,3 +58,26 @@ export function safeExternalUrl(raw: string | null | undefined): string | undefi
     return undefined;
   }
 }
+
+/**
+ * Escape text for interpolation into an HTML body.
+ *
+ * Needed because the contact routes send an HTML notification email that
+ * embeds the sender's name, message and campaign. Those all originate
+ * outside our control — the message from a form field, the campaign from
+ * the landing URL's query string by way of a cookie — so each one is an
+ * injection vector into the mail we read.
+ */
+export function escapeHtml(raw: string | null | undefined): string {
+  return String(raw ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Strip CR/LF so a value cannot break out of an email subject line. */
+export function singleLine(raw: string | null | undefined): string {
+  return String(raw ?? "").replace(/[\r\n]+/g, " ").trim();
+}

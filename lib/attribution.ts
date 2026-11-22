@@ -63,9 +63,21 @@ const CLICK_IDS = [
   "ttclid",
 ] as const;
 
+/**
+ * Characters allowed in a campaign value or click id.
+ *
+ * Every field here arrives in the landing URL's query string, so it is
+ * attacker-controlled, and it ends up interpolated into the notification
+ * email we read. Output escaping is the real defence (see escapeHtml at
+ * each call site); this allowlist is the second layer, so a payload
+ * never reaches the cookie in the first place. Real campaign names and
+ * the networks' click ids use only these characters.
+ */
+const SAFE_FIELD = /[^A-Za-z0-9 _.\-~+%:/|]/g;
+
 function clean(raw: string | null | undefined): string | undefined {
   if (!raw) return undefined;
-  const v = String(raw).trim().slice(0, MAX_FIELD);
+  const v = String(raw).replace(SAFE_FIELD, "").trim().slice(0, MAX_FIELD);
   return v || undefined;
 }
 
@@ -107,13 +119,18 @@ export function parseAttribution(
 
   if (!found) return null;
 
-  const landing = clean(opts.landing);
-  if (landing) attr.landing = landing.split("?")[0].slice(0, MAX_FIELD);
+  // Drop the query string before cleaning, not after: "?" is not in the
+  // allowlist, so cleaning first would strip the separator and fold the
+  // query into the path ("/employer?x=1" -> "/employerx1").
+  const landing = clean(String(opts.landing ?? "").split("?")[0]);
+  if (landing) attr.landing = landing.slice(0, MAX_FIELD);
 
-  const ref = clean(opts.referrer);
+  // Likewise parse the referrer before cleaning — a URL needs "?" and
+  // "//" intact — and keep only the hostname.
+  const ref = String(opts.referrer ?? "").trim();
   if (ref) {
     try {
-      attr.referrer = new URL(ref).hostname || undefined;
+      attr.referrer = clean(new URL(ref).hostname);
     } catch {
       /* a malformed referrer is not worth recording */
     }
@@ -139,9 +156,19 @@ export function deserializeAttribution(raw: string | null | undefined): Attribut
   if (!raw) return null;
   try {
     const parsed = JSON.parse(decodeURIComponent(raw));
-    if (!parsed || typeof parsed !== "object") return null;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     if (typeof (parsed as Attribution).ts !== "string") return null;
-    return parsed as Attribution;
+    // Re-clean every field. A cookie can be hand-written, so a value that
+    // was never passed through clean() on the way in must not be trusted
+    // on the way out.
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof v !== "string") continue;
+      const safe = clean(v);
+      if (safe) out[k] = safe;
+    }
+    if (!out.ts) return null;
+    return out as unknown as Attribution;
   } catch {
     return null;
   }
